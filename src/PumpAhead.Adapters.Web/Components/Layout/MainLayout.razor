@@ -1,23 +1,40 @@
 @inherits LayoutComponentBase
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+<MudThemeProvider IsDarkMode="true" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
+<MudLayout>
+    <MudAppBar Elevation="1" Color="Color.Dark">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@ToggleDrawer" />
+        <MudText Typo="Typo.h5" Class="ml-3">PumpAhead</MudText>
+        <MudSpacer />
+        <MudIconButton Icon="@Icons.Material.Filled.Refresh" Color="Color.Inherit" title="Odśwież dane" />
+        <MudIconButton Icon="@Icons.Material.Filled.Settings" Color="Color.Inherit" title="Ustawienia" />
+    </MudAppBar>
 
-        <article class="content px-4">
+    <MudDrawer @bind-Open="_drawerOpen" Elevation="2" Variant="DrawerVariant.Mini" OpenMiniOnHover="true">
+        <MudNavMenu>
+            <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">Dashboard</MudNavLink>
+            <MudNavLink Href="/sensors" Icon="@Icons.Material.Filled.Sensors">Sensory</MudNavLink>
+            <MudNavLink Href="/history" Icon="@Icons.Material.Filled.History">Historia</MudNavLink>
+            <MudNavLink Href="/settings" Icon="@Icons.Material.Filled.Settings">Ustawienia</MudNavLink>
+        </MudNavMenu>
+    </MudDrawer>
+
+    <MudMainContent Class="pt-16 px-4">
+        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
             @Body
-        </article>
-    </main>
-</div>
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
 
-<div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">🗙</span>
-</div>
+@code {
+    private bool _drawerOpen = true;
+
+    private void ToggleDrawer()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+}

@@ -1,69 +1,132 @@
 @page "/"
+@using Microsoft.Extensions.DependencyInjection
 @using Microsoft.Extensions.Options
 @using PumpAhead.DeepModel.ValueObjects
 @using PumpAhead.UseCases.Ports
 @using PumpAhead.UseCases.Queries.GetTemperature
 @using PumpAhead.UseCases.Queries.GetTemperatureHistory
-@using PSC.Blazor.Components.Chartjs
-@using PSC.Blazor.Components.Chartjs.Models.Line
-@using PSC.Blazor.Components.Chartjs.Models.Common
-@inject IQueryHandler<GetTemperature.Query, GetTemperature.Data?> GetTemperatureHandler
-@inject IQueryHandler<GetTemperatureHistory.Query, GetTemperatureHistory.Data> GetTemperatureHistoryHandler
+@inject IServiceScopeFactory ScopeFactory
 @inject IOptions<WebOptions> WebOptions
 @rendermode InteractiveServer
 
 <PageTitle>Dashboard - PumpAhead</PageTitle>
 
-<h1>Dashboard</h1>
+<MudGrid>
+    @* Left side - Chart *@
+    <MudItem xs="12" md="8">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudText Typo="Typo.h6" Class="mb-4">
+                <MudIcon Icon="@Icons.Material.Filled.ShowChart" Class="mr-2" />
+                Temperatura w czasie
+            </MudText>
 
-<div class="row mb-4">
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-body text-center">
-                <h5 class="card-title">Current Temperature</h5>
-                <h2 class="display-4">
-                    @if (_currentTemperature is not null)
-                    {
-                        @_currentTemperature.Temperature
-                    }
-                    else
-                    {
-                        <span class="text-muted">--</span>
-                    }
-                </h2>
-                @if (_currentTemperature is not null)
-                {
-                    <p class="text-muted">Last updated: @_currentTemperature.Timestamp.ToLocalTime().ToString("HH:mm:ss")</p>
-                }
-            </div>
-        </div>
-    </div>
-</div>
+            @if (_chartSeries.Any())
+            {
+                <MudChart ChartType="ChartType.Line"
+                          ChartSeries="@_chartSeries"
+                          XAxisLabels="@_chartLabels"
+                          Width="100%"
+                          Height="350px"
+                          ChartOptions="@_chartOptions" />
+            }
+            else
+            {
+                <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+                <MudText Typo="Typo.body2" Class="mt-2">Ładowanie danych...</MudText>
+            }
+        </MudPaper>
+    </MudItem>
 
-<div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">Temperature History (Last 24 Hours)</h5>
-            </div>
-            <div class="card-body">
-                @if (_chartConfig is not null)
-                {
-                    <Chart Config="_chartConfig" @ref="_chart" Height="400" />
-                }
-                else
-                {
-                    <p class="text-muted">Loading chart...</p>
-                }
-            </div>
-        </div>
-    </div>
-</div>
+    @* Right side - Current readings *@
+    <MudItem xs="12" md="4">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudText Typo="Typo.h6" Class="mb-4">
+                <MudIcon Icon="@Icons.Material.Filled.Sensors" Class="mr-2" />
+                Aktualne odczyty
+            </MudText>
+
+            @if (_currentTemperature is not null)
+            {
+                <MudCard Elevation="0" Class="mb-3" Style="background-color: var(--mud-palette-background-dark);">
+                    <MudCardContent>
+                        <div class="d-flex justify-space-between align-center">
+                            <div>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Temperatura wewnętrzna</MudText>
+                                <MudText Typo="Typo.h4" Color="Color.Primary">
+                                    @_currentTemperature.Temperature
+                                </MudText>
+                            </div>
+                            <MudIcon Icon="@Icons.Material.Filled.Thermostat"
+                                     Color="Color.Primary"
+                                     Size="Size.Large" />
+                        </div>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2">
+                            <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small" Class="mr-1" />
+                            @_currentTemperature.Timestamp.ToLocalTime().ToString("HH:mm:ss")
+                        </MudText>
+                    </MudCardContent>
+                </MudCard>
+            }
+            else
+            {
+                <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="120px" />
+            }
+
+            <MudDivider Class="my-4" />
+
+            <MudText Typo="Typo.subtitle2" Class="mb-3">Statystyki (24h)</MudText>
+
+            <MudSimpleTable Dense="true" Hover="true" Style="background-color: transparent;">
+                <tbody>
+                    <tr>
+                        <td><MudIcon Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small" Color="Color.Error" /> Max</td>
+                        <td class="text-right">@_maxTemp</td>
+                    </tr>
+                    <tr>
+                        <td><MudIcon Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small" Color="Color.Info" /> Min</td>
+                        <td class="text-right">@_minTemp</td>
+                    </tr>
+                    <tr>
+                        <td><MudIcon Icon="@Icons.Material.Filled.Functions" Size="Size.Small" Color="Color.Warning" /> Średnia</td>
+                        <td class="text-right">@_avgTemp</td>
+                    </tr>
+                </tbody>
+            </MudSimpleTable>
+        </MudPaper>
+
+        <MudPaper Class="pa-4 mt-4" Elevation="2">
+            <MudText Typo="Typo.h6" Class="mb-3">
+                <MudIcon Icon="@Icons.Material.Filled.Info" Class="mr-2" />
+                Status systemu
+            </MudText>
+
+            <MudAlert Severity="Severity.Success" Dense="true" Class="mb-2">
+                <MudText Typo="Typo.body2">Sensor Shelly H&T: Online</MudText>
+            </MudAlert>
+
+            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                Następny odczyt za: ~@_nextReadingMinutes min
+            </MudText>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
 
 @code {
     private GetTemperature.Data? _currentTemperature;
-    private LineChartConfig? _chartConfig;
-    private Chart? _chart;
+    private List<ChartSeries> _chartSeries = new();
+    private string[] _chartLabels = Array.Empty<string>();
+    private ChartOptions _chartOptions = new()
+    {
+        YAxisTicks = 1,
+        MaxNumYAxisTicks = 10,
+        LineStrokeWidth = 2
+    };
+
+    private string _maxTemp = "--";
+    private string _minTemp = "--";
+    private string _avgTemp = "--";
+    private int _nextReadingMinutes = 5;
+
     private System.Threading.Timer? _refreshTimer;
 
     protected override async Task OnInitializedAsync()
@@ -79,34 +142,95 @@
 
     private async Task LoadDataAsync()
     {
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var getTemperatureHandler = scope.ServiceProvider
+            .GetRequiredService<IQueryHandler<GetTemperature.Query, GetTemperature.Data?>>();
+        var getTemperatureHistoryHandler = scope.ServiceProvider
+            .GetRequiredService<IQueryHandler<GetTemperatureHistory.Query, GetTemperatureHistory.Data>>();
+
         var sensorId = SensorId.From(WebOptions.Value.DefaultSensorId);
 
-        _currentTemperature = await GetTemperatureHandler.HandleAsync(new GetTemperature.Query(sensorId));
+        _currentTemperature = await getTemperatureHandler.HandleAsync(new GetTemperature.Query(sensorId));
 
         var now = DateTimeOffset.UtcNow;
-        var historyData = await GetTemperatureHistoryHandler.HandleAsync(
+        var historyData = await getTemperatureHistoryHandler.HandleAsync(
             new GetTemperatureHistory.Query(sensorId, now.AddHours(-24), now));
 
         BuildChart(historyData.Readings);
+        CalculateStats(historyData.Readings);
     }
 
     private void BuildChart(IReadOnlyList<GetTemperatureHistory.DataPoint> readings)
     {
-        var labels = readings.Select(r => r.Timestamp.ToLocalTime().ToString("HH:mm")).ToList();
-        var data = readings.Select(r => (decimal?)r.Temperature.Celsius).ToList();
+        // Create fixed time axis: current hour -24h to +12h (37 hourly slots)
+        var now = DateTimeOffset.Now;
+        var currentHour = new DateTimeOffset(now.Year, now.Month, now.Day, now.Hour, 0, 0, now.Offset);
+        var startTime = currentHour.AddHours(-24);
+        var endTime = currentHour.AddHours(12);
 
-        _chartConfig = new LineChartConfig();
-
-        _chartConfig.Data.Labels = labels;
-        _chartConfig.Data.Datasets.Add(new LineDataset
+        // Build hourly slots for the axis
+        var hourlySlots = new List<DateTimeOffset>();
+        for (var t = startTime; t <= endTime; t = t.AddHours(1))
         {
-            Label = "Indoor Temperature",
-            Data = data,
-            BorderColor = "rgb(75, 192, 192)",
-            BackgroundColor = "rgba(75, 192, 192, 0.2)",
-            Tension = 0.1m,
-            Fill = true
-        });
+            hourlySlots.Add(t);
+        }
+
+        // Map readings to nearest hour slot
+        var readingsByHour = readings
+            .GroupBy(r => new DateTimeOffset(
+                r.Timestamp.ToLocalTime().Year,
+                r.Timestamp.ToLocalTime().Month,
+                r.Timestamp.ToLocalTime().Day,
+                r.Timestamp.ToLocalTime().Hour,
+                0, 0, now.Offset))
+            .ToDictionary(g => g.Key, g => g.Average(r => (double)r.Temperature.Celsius));
+
+        // Create data array - use last known value for hours without data
+        var data = new double[hourlySlots.Count];
+        double? lastKnownValue = null;
+
+        for (int i = 0; i < hourlySlots.Count; i++)
+        {
+            if (readingsByHour.TryGetValue(hourlySlots[i], out var temp))
+            {
+                data[i] = temp;
+                lastKnownValue = temp;
+            }
+            else if (lastKnownValue.HasValue)
+            {
+                // For future/missing hours, use last known value
+                data[i] = lastKnownValue.Value;
+            }
+            else
+            {
+                // No data yet - use 0 (shouldn't happen with real data)
+                data[i] = 0;
+            }
+        }
+
+        // Show labels every 3 hours
+        _chartLabels = hourlySlots
+            .Select((slot, i) => i % 3 == 0 ? slot.ToString("HH:mm") : "")
+            .ToArray();
+
+        _chartSeries = new List<ChartSeries>
+        {
+            new ChartSeries
+            {
+                Name = "Temperatura",
+                Data = data
+            }
+        };
+    }
+
+    private void CalculateStats(IReadOnlyList<GetTemperatureHistory.DataPoint> readings)
+    {
+        if (!readings.Any()) return;
+
+        var temps = readings.Select(r => r.Temperature.Celsius).ToList();
+        _maxTemp = $"{temps.Max():F1}°C";
+        _minTemp = $"{temps.Min():F1}°C";
+        _avgTemp = $"{temps.Average():F1}°C";
     }
 
     public void Dispose()
