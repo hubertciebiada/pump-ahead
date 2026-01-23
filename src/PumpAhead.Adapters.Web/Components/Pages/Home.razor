@@ -1,0 +1,116 @@
+@page "/"
+@using Microsoft.Extensions.Options
+@using PumpAhead.DeepModel.ValueObjects
+@using PumpAhead.UseCases.Ports
+@using PumpAhead.UseCases.Queries.GetTemperature
+@using PumpAhead.UseCases.Queries.GetTemperatureHistory
+@using PSC.Blazor.Components.Chartjs
+@using PSC.Blazor.Components.Chartjs.Models.Line
+@using PSC.Blazor.Components.Chartjs.Models.Common
+@inject IQueryHandler<GetTemperature.Query, GetTemperature.Data?> GetTemperatureHandler
+@inject IQueryHandler<GetTemperatureHistory.Query, GetTemperatureHistory.Data> GetTemperatureHistoryHandler
+@inject IOptions<WebOptions> WebOptions
+@rendermode InteractiveServer
+
+<PageTitle>Dashboard - PumpAhead</PageTitle>
+
+<h1>Dashboard</h1>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <h5 class="card-title">Current Temperature</h5>
+                <h2 class="display-4">
+                    @if (_currentTemperature is not null)
+                    {
+                        @_currentTemperature.Temperature
+                    }
+                    else
+                    {
+                        <span class="text-muted">--</span>
+                    }
+                </h2>
+                @if (_currentTemperature is not null)
+                {
+                    <p class="text-muted">Last updated: @_currentTemperature.Timestamp.ToLocalTime().ToString("HH:mm:ss")</p>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Temperature History (Last 24 Hours)</h5>
+            </div>
+            <div class="card-body">
+                @if (_chartConfig is not null)
+                {
+                    <Chart Config="_chartConfig" @ref="_chart" Height="400" />
+                }
+                else
+                {
+                    <p class="text-muted">Loading chart...</p>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private GetTemperature.Data? _currentTemperature;
+    private LineChartConfig? _chartConfig;
+    private Chart? _chart;
+    private System.Threading.Timer? _refreshTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+
+        _refreshTimer = new System.Threading.Timer(async _ =>
+        {
+            await LoadDataAsync();
+            await InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+    }
+
+    private async Task LoadDataAsync()
+    {
+        var sensorId = SensorId.From(WebOptions.Value.DefaultSensorId);
+
+        _currentTemperature = await GetTemperatureHandler.HandleAsync(new GetTemperature.Query(sensorId));
+
+        var now = DateTimeOffset.UtcNow;
+        var historyData = await GetTemperatureHistoryHandler.HandleAsync(
+            new GetTemperatureHistory.Query(sensorId, now.AddHours(-24), now));
+
+        BuildChart(historyData.Readings);
+    }
+
+    private void BuildChart(IReadOnlyList<GetTemperatureHistory.DataPoint> readings)
+    {
+        var labels = readings.Select(r => r.Timestamp.ToLocalTime().ToString("HH:mm")).ToList();
+        var data = readings.Select(r => (decimal?)r.Temperature.Celsius).ToList();
+
+        _chartConfig = new LineChartConfig();
+
+        _chartConfig.Data.Labels = labels;
+        _chartConfig.Data.Datasets.Add(new LineDataset
+        {
+            Label = "Indoor Temperature",
+            Data = data,
+            BorderColor = "rgb(75, 192, 192)",
+            BackgroundColor = "rgba(75, 192, 192, 0.2)",
+            Tension = 0.1m,
+            Fill = true
+        });
+    }
+
+    public void Dispose()
+    {
+        _refreshTimer?.Dispose();
+    }
+}
