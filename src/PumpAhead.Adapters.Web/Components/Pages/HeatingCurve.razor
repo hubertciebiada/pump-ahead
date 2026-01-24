@@ -1,0 +1,91 @@
+@page "/heating-curve"
+@rendermode InteractiveServer
+
+<PageTitle>Krzywa grzewcza - PumpAhead</PageTitle>
+
+<MudPaper Class="pa-4" Elevation="2">
+    <MudChart ChartType="ChartType.Line"
+              ChartSeries="@_chartSeries"
+              XAxisLabels="@_chartLabels"
+              Width="100%"
+              Height="500px"
+              ChartOptions="@_chartOptions" />
+</MudPaper>
+
+@code {
+    private List<ChartSeries> _chartSeries = new();
+    private string[] _chartLabels = Array.Empty<string>();
+    private ChartOptions _chartOptions = new()
+    {
+        YAxisTicks = 1,
+        MaxNumYAxisTicks = 10,
+        LineStrokeWidth = 3,
+        InterpolationOption = InterpolationOption.Straight
+    };
+
+    protected override void OnInitialized()
+    {
+        BuildHeatingCurve();
+    }
+
+    private void BuildHeatingCurve()
+    {
+        // HLD specification: (-15°C outdoor, 31°C supply) and (15°C outdoor, 24°C supply)
+        // Extended range: -20 to +20 to show flat regions outside curve
+        const double curveMinOutdoor = -15.0;
+        const double curveMaxOutdoor = 15.0;
+        const double supplyAtMinOutdoor = 31.0;
+        const double supplyAtMaxOutdoor = 24.0;
+
+        // Extended display range (+/- 5°C beyond curve endpoints)
+        const double displayMin = -20.0;
+        const double displayMax = 20.0;
+
+        var supplyTemps = new List<double>();
+        var labels = new List<string>();
+
+        // Generate points every 1°C from -20 to +20
+        for (double outdoor = displayMin; outdoor <= displayMax; outdoor += 1.0)
+        {
+            double supply;
+            if (outdoor <= curveMinOutdoor)
+            {
+                // Below curve range - flat at max supply temp
+                supply = supplyAtMinOutdoor;
+            }
+            else if (outdoor >= curveMaxOutdoor)
+            {
+                // Above curve range - flat at min supply temp
+                supply = supplyAtMaxOutdoor;
+            }
+            else
+            {
+                // Within curve range - linear interpolation
+                supply = supplyAtMinOutdoor - ((outdoor - curveMinOutdoor) * (supplyAtMinOutdoor - supplyAtMaxOutdoor) / (curveMaxOutdoor - curveMinOutdoor));
+            }
+
+            var roundedSupply = Math.Round(supply, 1);
+            supplyTemps.Add(roundedSupply);
+
+            // Show label with outdoor temp and supply temp every 5°C
+            if (outdoor % 5 == 0)
+            {
+                labels.Add($"{outdoor:F0}°C → {roundedSupply:F0}°C");
+            }
+            else
+            {
+                labels.Add("");
+            }
+        }
+
+        _chartLabels = labels.ToArray();
+        _chartSeries = new List<ChartSeries>
+        {
+            new ChartSeries
+            {
+                Name = "Temp. zasilania",
+                Data = supplyTemps.ToArray()
+            }
+        };
+    }
+}

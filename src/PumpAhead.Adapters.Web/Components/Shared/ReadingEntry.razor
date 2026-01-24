@@ -1,18 +1,23 @@
-<div class="reading-entry d-flex align-center py-2">
-    <MudIcon Icon="@Icon"
-             Size="Size.Small"
-             Color="@(IsPlaceholder ? Color.Default : IconColor)"
-             Class="mr-3" />
-    <MudText Typo="Typo.body2"
-             Class="flex-grow-1"
-             Style="@(IsPlaceholder ? "opacity: 0.5;" : "")">
-        @Label
-    </MudText>
-    <MudText Typo="Typo.body2"
-             Color="@(IsPlaceholder ? Color.Default : Color.Primary)"
-             Style="@(IsPlaceholder ? "opacity: 0.5; font-style: italic;" : "font-weight: 500;")">
-        @Value
-    </MudText>
+<div class="reading-entry-wrapper" style="display: block; width: 100%;">
+    <MudTooltip Text="@Tooltip" Placement="Placement.Left" Arrow="true" Delay="300" Disabled="@string.IsNullOrEmpty(Tooltip)">
+        <div class="reading-entry d-flex align-center py-2" style="cursor: @(string.IsNullOrEmpty(Tooltip) ? "default" : "help");">
+            <MudIcon Icon="@Icon"
+                     Size="Size.Small"
+                     Color="@(IsPlaceholder ? Color.Default : IconColor)"
+                     Class="mr-3" />
+            <MudText Typo="Typo.body2"
+                     Class="flex-grow-1"
+                     Style="@(IsPlaceholder ? "opacity: 0.5;" : "")">
+                @Label
+            </MudText>
+            <MudText Typo="Typo.body2"
+                     Class="ml-3"
+                     Color="@(IsPlaceholder ? Color.Default : Color.Primary)"
+                     Style="@(IsPlaceholder ? "opacity: 0.5; font-style: italic;" : "font-weight: 500;")">
+                @Value
+            </MudText>
+        </div>
+    </MudTooltip>
 </div>
 
 @code {
@@ -21,4 +26,5 @@
     [Parameter] public string Value { get; set; } = "--";
     [Parameter] public Color IconColor { get; set; } = Color.Primary;
     [Parameter] public bool IsPlaceholder { get; set; } = false;
+    [Parameter] public string Tooltip { get; set; } = "";
 }

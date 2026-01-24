@@ -52,3 +52,7 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+.playwright-mcp/
+.claude/
+src/.idea/
+src/PumpAhead.sln.DotSettings.user

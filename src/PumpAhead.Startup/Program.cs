@@ -23,9 +23,12 @@ try
     builder.Services.AddUseCases();
     builder.Services.AddQuartzJobs(builder.Configuration);
 
+    var webSettings = builder.Configuration.GetSection("Web").Get<WebOptions>() ?? new();
     builder.Services.AddPumpAheadWeb(options =>
     {
         options.DefaultSensorId = deviceSettings.Shelly.SensorId;
+        options.ForecastOffsetHours = webSettings.ForecastOffsetHours;
+        options.TargetIndoorTemperature = webSettings.TargetIndoorTemperature;
     });
 
     builder.Services.AddRazorComponents()
