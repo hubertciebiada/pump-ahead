@@ -7,6 +7,7 @@
 @using PumpAhead.UseCases.Queries.GetTemperatureHistory
 @inject IServiceScopeFactory ScopeFactory
 @inject IOptions<WebOptions> WebOptions
+@implements IDisposable
 @rendermode InteractiveServer
 
 <PageTitle>Dashboard - PumpAhead</PageTitle>
@@ -40,79 +41,61 @@
     @* Right side - Current readings *@
     <MudItem xs="12" md="4">
         <MudPaper Class="pa-4" Elevation="2">
-            <MudText Typo="Typo.h6" Class="mb-4">
+            <MudText Typo="Typo.h6" Class="mb-3">
                 <MudIcon Icon="@Icons.Material.Filled.Sensors" Class="mr-2" />
                 Aktualne odczyty
             </MudText>
 
-            @if (_currentTemperature is not null)
-            {
-                <MudCard Elevation="0" Class="mb-3" Style="background-color: var(--mud-palette-background-dark);">
-                    <MudCardContent>
-                        <div class="d-flex justify-space-between align-center">
-                            <div>
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">Temperatura wewnętrzna</MudText>
-                                <MudText Typo="Typo.h4" Color="Color.Primary">
-                                    @_currentTemperature.Temperature
-                                </MudText>
-                            </div>
-                            <MudIcon Icon="@Icons.Material.Filled.Thermostat"
-                                     Color="Color.Primary"
-                                     Size="Size.Large" />
-                        </div>
-                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2">
-                            <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small" Class="mr-1" />
-                            @_currentTemperature.Timestamp.ToLocalTime().ToString("HH:mm:ss")
-                        </MudText>
-                    </MudCardContent>
-                </MudCard>
-            }
-            else
-            {
-                <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="120px" />
-            }
+            @* Temperatury *@
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">Temperatury</MudText>
 
-            <MudDivider Class="my-4" />
+            <ReadingEntry Icon="@Icons.Material.Filled.Home"
+                          Label="Wewnętrzna"
+                          Value="@_indoorTempDisplay"
+                          IconColor="Color.Primary"
+                          IsPlaceholder="@(_currentTemperature is null)" />
 
-            <MudText Typo="Typo.subtitle2" Class="mb-3">Statystyki (24h)</MudText>
+            <ReadingEntry Icon="@Icons.Material.Filled.Thermostat"
+                          Label="Zewnętrzna (aktualna)"
+                          Value="--"
+                          IconColor="Color.Info"
+                          IsPlaceholder="true" />
 
-            <MudSimpleTable Dense="true" Hover="true" Style="background-color: transparent;">
-                <tbody>
-                    <tr>
-                        <td><MudIcon Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small" Color="Color.Error" /> Max</td>
-                        <td class="text-right">@_maxTemp</td>
-                    </tr>
-                    <tr>
-                        <td><MudIcon Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small" Color="Color.Info" /> Min</td>
-                        <td class="text-right">@_minTemp</td>
-                    </tr>
-                    <tr>
-                        <td><MudIcon Icon="@Icons.Material.Filled.Functions" Size="Size.Small" Color="Color.Warning" /> Średnia</td>
-                        <td class="text-right">@_avgTemp</td>
-                    </tr>
-                </tbody>
-            </MudSimpleTable>
-        </MudPaper>
+            <ReadingEntry Icon="@Icons.Material.Filled.WbSunny"
+                          Label="Zewnętrzna (prognoza +6h)"
+                          Value="--"
+                          IconColor="Color.Warning"
+                          IsPlaceholder="true" />
 
-        <MudPaper Class="pa-4 mt-4" Elevation="2">
-            <MudText Typo="Typo.h6" Class="mb-3">
-                <MudIcon Icon="@Icons.Material.Filled.Info" Class="mr-2" />
-                Status systemu
-            </MudText>
+            <MudDivider Class="my-2" />
 
-            <MudAlert Severity="Severity.Success" Dense="true" Class="mb-2">
-                <MudText Typo="Typo.body2">Sensor Shelly H&T: Online</MudText>
-            </MudAlert>
+            @* Sterowanie *@
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">Sterowanie</MudText>
 
-            <MudText Typo="Typo.caption" Color="Color.Secondary">
-                Następny odczyt za: ~@_nextReadingMinutes min
-            </MudText>
+            <ReadingEntry Icon="@Icons.Material.Filled.Water"
+                          Label="Zasilanie (aktualne)"
+                          Value="--"
+                          IconColor="Color.Info"
+                          IsPlaceholder="true" />
+
+            <ReadingEntry Icon="@Icons.Material.Filled.Calculate"
+                          Label="Zasilanie (wyliczone)"
+                          Value="--"
+                          IconColor="Color.Secondary"
+                          IsPlaceholder="true" />
+
+            <ReadingEntry Icon="@Icons.Material.Filled.TrendingUp"
+                          Label="Korekta empiryczna"
+                          Value="--"
+                          IconColor="Color.Tertiary"
+                          IsPlaceholder="true" />
         </MudPaper>
     </MudItem>
 </MudGrid>
 
 @code {
     private GetTemperature.Data? _currentTemperature;
+    private string _indoorTempDisplay = "--";
     private List<ChartSeries> _chartSeries = new();
     private string[] _chartLabels = Array.Empty<string>();
     private ChartOptions _chartOptions = new()
@@ -121,11 +104,6 @@
         MaxNumYAxisTicks = 10,
         LineStrokeWidth = 2
     };
-
-    private string _maxTemp = "--";
-    private string _minTemp = "--";
-    private string _avgTemp = "--";
-    private int _nextReadingMinutes = 5;
 
     private System.Threading.Timer? _refreshTimer;
 
@@ -151,18 +129,19 @@
         var sensorId = SensorId.From(WebOptions.Value.DefaultSensorId);
 
         _currentTemperature = await getTemperatureHandler.HandleAsync(new GetTemperature.Query(sensorId));
+        _indoorTempDisplay = _currentTemperature?.Temperature.ToString() ?? "--";
 
         var now = DateTimeOffset.UtcNow;
         var historyData = await getTemperatureHistoryHandler.HandleAsync(
             new GetTemperatureHistory.Query(sensorId, now.AddHours(-24), now));
 
         BuildChart(historyData.Readings);
-        CalculateStats(historyData.Readings);
     }
 
     private void BuildChart(IReadOnlyList<GetTemperatureHistory.DataPoint> readings)
     {
         // Create fixed time axis: current hour -24h to +12h (37 hourly slots)
+        // Proportions: 24h history (2/3) + 12h forecast placeholder (1/3)
         var now = DateTimeOffset.Now;
         var currentHour = new DateTimeOffset(now.Year, now.Month, now.Day, now.Hour, 0, 0, now.Offset);
         var startTime = currentHour.AddHours(-24);
@@ -175,37 +154,51 @@
             hourlySlots.Add(t);
         }
 
+        // Find the index where "now" starts (hour 24 = index 24)
+        var nowIndex = 24;
+
         // Map readings to nearest hour slot
         var readingsByHour = readings
-            .GroupBy(r => new DateTimeOffset(
-                r.Timestamp.ToLocalTime().Year,
-                r.Timestamp.ToLocalTime().Month,
-                r.Timestamp.ToLocalTime().Day,
-                r.Timestamp.ToLocalTime().Hour,
-                0, 0, now.Offset))
+            .GroupBy(r =>
+            {
+                var localTime = r.Timestamp.ToLocalTime();
+                return new DateTimeOffset(localTime.Year, localTime.Month, localTime.Day, localTime.Hour, 0, 0, now.Offset);
+            })
             .ToDictionary(g => g.Key, g => g.Average(r => (double)r.Temperature.Celsius));
 
-        // Create data array - use last known value for hours without data
-        var data = new double[hourlySlots.Count];
+        // Create historical data array (past 24h, indices 0-23)
+        var historicalData = new double[hourlySlots.Count];
         double? lastKnownValue = null;
 
-        for (int i = 0; i < hourlySlots.Count; i++)
+        for (int i = 0; i < nowIndex && i < hourlySlots.Count; i++)
         {
             if (readingsByHour.TryGetValue(hourlySlots[i], out var temp))
             {
-                data[i] = temp;
+                historicalData[i] = temp;
                 lastKnownValue = temp;
             }
             else if (lastKnownValue.HasValue)
             {
-                // For future/missing hours, use last known value
-                data[i] = lastKnownValue.Value;
+                historicalData[i] = lastKnownValue.Value;
             }
             else
             {
-                // No data yet - use 0 (shouldn't happen with real data)
-                data[i] = 0;
+                historicalData[i] = double.NaN;
             }
+        }
+
+        // Current hour and future: set to NaN (will not be drawn in historical series)
+        for (int i = nowIndex; i < hourlySlots.Count; i++)
+        {
+            historicalData[i] = double.NaN;
+        }
+
+        // Create forecast placeholder array (current hour + future 12h)
+        var forecastData = new double[hourlySlots.Count];
+        for (int i = 0; i < hourlySlots.Count; i++)
+        {
+            // Show placeholder line from current hour onwards (index >= nowIndex)
+            forecastData[i] = i >= nowIndex ? (lastKnownValue ?? 20) : double.NaN;
         }
 
         // Show labels every 3 hours
@@ -218,19 +211,14 @@
             new ChartSeries
             {
                 Name = "Temperatura",
-                Data = data
+                Data = historicalData
+            },
+            new ChartSeries
+            {
+                Name = "Prognoza (wkrótce)",
+                Data = forecastData
             }
         };
-    }
-
-    private void CalculateStats(IReadOnlyList<GetTemperatureHistory.DataPoint> readings)
-    {
-        if (!readings.Any()) return;
-
-        var temps = readings.Select(r => r.Temperature.Celsius).ToList();
-        _maxTemp = $"{temps.Max():F1}°C";
-        _minTemp = $"{temps.Min():F1}°C";
-        _avgTemp = $"{temps.Average():F1}°C";
     }
 
     public void Dispose()
