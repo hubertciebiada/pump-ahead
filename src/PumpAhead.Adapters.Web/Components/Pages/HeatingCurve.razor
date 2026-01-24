@@ -3,25 +3,39 @@
 
 <PageTitle>Krzywa grzewcza - PumpAhead</PageTitle>
 
-<MudPaper Class="pa-4" Elevation="2">
-    <MudChart ChartType="ChartType.Line"
-              ChartSeries="@_chartSeries"
-              XAxisLabels="@_chartLabels"
-              Width="100%"
-              Height="500px"
-              ChartOptions="@_chartOptions" />
-</MudPaper>
+<RadzenCard class="rz-p-4">
+    <RadzenText TextStyle="TextStyle.H6" class="rz-mb-3">Krzywa grzewcza</RadzenText>
+    <RadzenText TextStyle="TextStyle.Body2" class="rz-mb-4" Style="color: var(--rz-text-secondary-color);">
+        Zależność temperatury zasilania od temperatury zewnętrznej. Zakres: -15°C (31°C zasilania) do 15°C (24°C zasilania).
+    </RadzenText>
+
+    <RadzenChart style="height: 500px; width: 100%;">
+        <RadzenLineSeries Data="@_curveData"
+                          CategoryProperty="OutdoorTemp"
+                          ValueProperty="SupplyTemp"
+                          Title="Temp. zasilania"
+                          Stroke="var(--rz-primary)"
+                          StrokeWidth="3">
+            <RadzenMarkers Visible="true" MarkerType="MarkerType.Circle" Size="4" />
+        </RadzenLineSeries>
+
+        <RadzenCategoryAxis Min="-20" Max="20" Step="5" FormatString="{0}°C" LabelRotation="-45">
+            <RadzenGridLines Visible="true" />
+            <RadzenAxisTitle Text="Temperatura zewnętrzna (°C)" />
+        </RadzenCategoryAxis>
+
+        <RadzenValueAxis Min="20" Max="35" Step="1">
+            <RadzenGridLines Visible="true" />
+            <RadzenAxisTitle Text="Temperatura zasilania (°C)" />
+        </RadzenValueAxis>
+
+        <RadzenLegend Visible="false" />
+        <RadzenChartTooltipOptions Visible="true" />
+    </RadzenChart>
+</RadzenCard>
 
 @code {
-    private List<ChartSeries> _chartSeries = new();
-    private string[] _chartLabels = Array.Empty<string>();
-    private ChartOptions _chartOptions = new()
-    {
-        YAxisTicks = 1,
-        MaxNumYAxisTicks = 10,
-        LineStrokeWidth = 3,
-        InterpolationOption = InterpolationOption.Straight
-    };
+    private List<HeatingCurvePoint> _curveData = new();
 
     protected override void OnInitialized()
     {
@@ -41,11 +55,8 @@
         const double displayMin = -20.0;
         const double displayMax = 20.0;
 
-        var supplyTemps = new List<double>();
-        var labels = new List<string>();
-
-        // Generate points every 1°C from -20 to +20
-        for (double outdoor = displayMin; outdoor <= displayMax; outdoor += 1.0)
+        // Generate points every 5°C for cleaner chart
+        for (double outdoor = displayMin; outdoor <= displayMax; outdoor += 5.0)
         {
             double supply;
             if (outdoor <= curveMinOutdoor)
@@ -64,28 +75,17 @@
                 supply = supplyAtMinOutdoor - ((outdoor - curveMinOutdoor) * (supplyAtMinOutdoor - supplyAtMaxOutdoor) / (curveMaxOutdoor - curveMinOutdoor));
             }
 
-            var roundedSupply = Math.Round(supply, 1);
-            supplyTemps.Add(roundedSupply);
-
-            // Show label with outdoor temp and supply temp every 5°C
-            if (outdoor % 5 == 0)
+            _curveData.Add(new HeatingCurvePoint
             {
-                labels.Add($"{outdoor:F0}°C → {roundedSupply:F0}°C");
-            }
-            else
-            {
-                labels.Add("");
-            }
+                OutdoorTemp = outdoor,
+                SupplyTemp = Math.Round(supply, 1)
+            });
         }
+    }
 
-        _chartLabels = labels.ToArray();
-        _chartSeries = new List<ChartSeries>
-        {
-            new ChartSeries
-            {
-                Name = "Temp. zasilania",
-                Data = supplyTemps.ToArray()
-            }
-        };
+    private class HeatingCurvePoint
+    {
+        public double OutdoorTemp { get; set; }
+        public double SupplyTemp { get; set; }
     }
 }

@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
-using MudBlazor.Services;
+using PumpAhead.Adapters.Web.Services;
+using Radzen;
 
 namespace PumpAhead.Adapters.Web;
 
@@ -10,7 +11,8 @@ public static class ServiceCollectionExtensions
         Action<WebOptions> configure)
     {
         services.Configure(configure);
-        services.AddMudServices();
+        services.AddRadzenComponents();
+        services.AddScoped<RefreshService>();
         return services;
     }
 }

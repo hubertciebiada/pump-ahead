@@ -1,0 +1,86 @@
+@using Microsoft.Extensions.Options
+
+<RadzenStack Gap="1.5rem">
+    <RadzenText TextStyle="TextStyle.Body2" Style="color: var(--rz-text-secondary-color);">
+        Konfiguracja parametrow systemu PumpAhead.
+    </RadzenText>
+
+    <RadzenStack Gap="0.5rem">
+        <RadzenLabel Text="Docelowa temperatura wewnetrzna" Component="TargetTemp" />
+        <RadzenNumeric @bind-Value="_targetIndoorTemperature" TValue="double"
+                       Min="15" Max="30" Step="0.5"
+                       Style="width: 100%;" Name="TargetTemp" />
+        <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
+            Temperatura, ktora system bedzie staral sie utrzymac (15-30 C)
+        </RadzenText>
+    </RadzenStack>
+
+    <RadzenStack Gap="0.5rem">
+        <RadzenLabel Text="Offset prognozy (godziny)" Component="ForecastOffset" />
+        <RadzenNumeric @bind-Value="_forecastOffsetHours" TValue="int"
+                       Min="1" Max="24" Step="1"
+                       Style="width: 100%;" Name="ForecastOffset" />
+        <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
+            Ile godzin w przod patrzec na prognoze temperatury (1-24h)
+        </RadzenText>
+    </RadzenStack>
+
+    <RadzenStack Gap="0.5rem">
+        <RadzenLabel Text="ID czujnika Shelly" Component="SensorId" />
+        <RadzenTextBox @bind-Value="_defaultSensorIdText" Style="width: 100%;" Name="SensorId" />
+        <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-tertiary-color);">
+            Identyfikator czujnika temperatury Shelly
+        </RadzenText>
+    </RadzenStack>
+
+    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" JustifyContent="JustifyContent.End" class="rz-mt-4">
+        <RadzenButton Text="Anuluj" ButtonStyle="ButtonStyle.Light" Click="@Cancel" />
+        <RadzenButton Text="Zapisz" ButtonStyle="ButtonStyle.Primary" Click="@Save" />
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+    [Parameter] public double TargetIndoorTemperature { get; set; }
+    [Parameter] public int ForecastOffsetHours { get; set; }
+    [Parameter] public Guid DefaultSensorId { get; set; }
+
+    [Inject] private DialogService DialogService { get; set; } = default!;
+
+    private double _targetIndoorTemperature;
+    private int _forecastOffsetHours;
+    private string _defaultSensorIdText = "";
+
+    protected override void OnInitialized()
+    {
+        _targetIndoorTemperature = TargetIndoorTemperature;
+        _forecastOffsetHours = ForecastOffsetHours;
+        _defaultSensorIdText = DefaultSensorId.ToString();
+    }
+
+    private void Cancel()
+    {
+        DialogService.Close(null);
+    }
+
+    private void Save()
+    {
+        if (!Guid.TryParse(_defaultSensorIdText, out var sensorId))
+        {
+            sensorId = Guid.Empty;
+        }
+
+        DialogService.Close(new SettingsResult
+        {
+            TargetIndoorTemperature = _targetIndoorTemperature,
+            ForecastOffsetHours = _forecastOffsetHours,
+            DefaultSensorId = sensorId
+        });
+    }
+
+    public class SettingsResult
+    {
+        public double TargetIndoorTemperature { get; set; }
+        public int ForecastOffsetHours { get; set; }
+        public Guid DefaultSensorId { get; set; }
+    }
+}
