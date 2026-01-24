@@ -1,33 +1,27 @@
 @inherits LayoutComponentBase
 
-<MudThemeProvider IsDarkMode="true" />
-<MudPopoverProvider />
-<MudDialogProvider />
-<MudSnackbarProvider />
+<RadzenComponents />
 
-<MudLayout>
-    <MudAppBar Elevation="1" Color="Color.Dark">
-        <MudLink Href="/" Underline="Underline.None" Color="Color.Inherit">
-            <MudText Typo="Typo.h5">PumpAhead</MudText>
-        </MudLink>
-        <MudLink Href="/" Underline="Underline.None" Color="Color.Inherit" Class="ml-6">
-            <MudText Typo="Typo.body1">Dashboard</MudText>
-        </MudLink>
-        <MudLink Href="/heating-curve" Underline="Underline.None" Color="Color.Inherit" Class="ml-4">
-            <MudText Typo="Typo.body1">Krzywa grzewcza</MudText>
-        </MudLink>
-        <MudSpacer />
-        <MudTooltip Text="Odśwież dane">
-            <MudIconButton Icon="@Icons.Material.Filled.Refresh" Color="Color.Inherit" />
-        </MudTooltip>
-        <MudTooltip Text="Ustawienia">
-            <MudIconButton Icon="@Icons.Material.Filled.Settings" Color="Color.Inherit" />
-        </MudTooltip>
-    </MudAppBar>
+<RadzenLayout>
+    <RadzenHeader>
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" class="rz-p-3">
+            <RadzenLink Path="/" Style="text-decoration: none; display: flex; align-items: center;">
+                <RadzenText TextStyle="TextStyle.H5" Style="color: var(--rz-text-color); margin: 0; line-height: 1;">PumpAhead</RadzenText>
+            </RadzenLink>
+            <RadzenLink Path="/" Style="text-decoration: none; display: flex; align-items: center; margin-left: 1rem;">
+                <RadzenText TextStyle="TextStyle.Body1" Style="color: var(--rz-text-color); margin: 0; line-height: 1;">Dashboard</RadzenText>
+            </RadzenLink>
+            <RadzenLink Path="/heating-curve" Style="text-decoration: none; display: flex; align-items: center;">
+                <RadzenText TextStyle="TextStyle.Body1" Style="color: var(--rz-text-color); margin: 0; line-height: 1;">Krzywa grzewcza</RadzenText>
+            </RadzenLink>
+            <div style="flex-grow: 1;"></div>
+            <HeaderButtons />
+        </RadzenStack>
+    </RadzenHeader>
 
-    <MudMainContent Class="pt-16 px-4">
-        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <RadzenBody class="rz-p-4">
+        <div style="max-width: 1600px; margin: 0 auto;">
             @Body
-        </MudContainer>
-    </MudMainContent>
-</MudLayout>
+        </div>
+    </RadzenBody>
+</RadzenLayout>
