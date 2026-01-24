@@ -1,0 +1,46 @@
+{
+    "mcpServers": {
+        "github": {
+            "command": "docker",
+            "args": [
+                "run",
+                "-i",
+                "--rm",
+                "-e",
+                "GITHUB_PERSONAL_ACCESS_TOKEN",
+                "ghcr.io/github/github-mcp-server"
+            ],
+            "env": {
+                "GITHUB_PERSONAL_ACCESS_TOKEN": "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"
+            }
+        },
+        "jetbrains": {
+            "command": "powershell",
+            "args": [
+                "-Command",
+                "npx",
+                "-y",
+                "@jetbrains/mcp-proxy"
+            ],
+            "env": {
+                "PORT": "63343",
+                "LOG_ENABLED": "true"
+            }
+        },
+        "database": {
+            "command": "uvx",
+            "args": [
+                "--from",
+                "mcp-alchemy==2025.8.15.91819",
+                "--with",
+                "pymssql",
+                "--refresh-package",
+                "mcp-alchemy",
+                "mcp-alchemy"
+            ],
+            "env": {
+                "DB_URL": "mssql+pymssql://sa:Pass12345!@localhost:1433/PumpAhead"
+            }
+        }
+    }
+}

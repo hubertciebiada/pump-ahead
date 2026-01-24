@@ -13,22 +13,18 @@
 <PageTitle>Dashboard - PumpAhead</PageTitle>
 
 <MudGrid>
-    @* Left side - Chart *@
-    <MudItem xs="12" md="8">
-        <MudPaper Class="pa-4" Elevation="2">
-            <MudText Typo="Typo.h6" Class="mb-4">
-                <MudIcon Icon="@Icons.Material.Filled.ShowChart" Class="mr-2" />
-                Temperatura w czasie
-            </MudText>
-
+    @* Left side - Chart (75% width) *@
+    <MudItem xs="12" md="9">
+        <MudPaper Class="pa-3" Elevation="2">
             @if (_chartSeries.Any())
             {
                 <MudChart ChartType="ChartType.Line"
                           ChartSeries="@_chartSeries"
                           XAxisLabels="@_chartLabels"
                           Width="100%"
-                          Height="350px"
-                          ChartOptions="@_chartOptions" />
+                          Height="500px"
+                          ChartOptions="@_chartOptions"
+                          LegendPosition="Position.Right" />
             }
             else
             {
@@ -38,57 +34,158 @@
         </MudPaper>
     </MudItem>
 
-    @* Right side - Current readings *@
-    <MudItem xs="12" md="4">
-        <MudPaper Class="pa-4" Elevation="2">
-            <MudText Typo="Typo.h6" Class="mb-3">
-                <MudIcon Icon="@Icons.Material.Filled.Sensors" Class="mr-2" />
-                Aktualne odczyty
-            </MudText>
+    @* Right side - Current readings (25% width) *@
+    <MudItem xs="12" md="3">
+        <MudPaper Class="pa-3" Elevation="2">
 
-            @* Temperatury *@
-            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">Temperatury</MudText>
+            @* ==================== OTOCZENIE ==================== *@
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">Otoczenie</MudText>
 
             <ReadingEntry Icon="@Icons.Material.Filled.Home"
-                          Label="Wewnętrzna"
+                          Label="Wewnętrzna (aktualna)"
                           Value="@_indoorTempDisplay"
                           IconColor="Color.Primary"
-                          IsPlaceholder="@(_currentTemperature is null)" />
+                          IsPlaceholder="@(_currentTemperature is null)"
+                          Tooltip="Aktualna temperatura w pomieszczeniu zmierzona przez czujnik Shelly" />
 
             <ReadingEntry Icon="@Icons.Material.Filled.Thermostat"
+                          Label="Wewnętrzna (oczekiwana)"
+                          Value="@($"{WebOptions.Value.TargetIndoorTemperature:F1}°C")"
+                          IconColor="Color.Success"
+                          IsPlaceholder="false"
+                          Tooltip="Docelowa temperatura wewnętrzna ustawiona przez użytkownika" />
+
+            <ReadingEntry Icon="@Icons.Material.Filled.Cloud"
                           Label="Zewnętrzna (aktualna)"
                           Value="--"
                           IconColor="Color.Info"
-                          IsPlaceholder="true" />
-
-            <ReadingEntry Icon="@Icons.Material.Filled.WbSunny"
-                          Label="Zewnętrzna (prognoza +6h)"
-                          Value="--"
-                          IconColor="Color.Warning"
-                          IsPlaceholder="true" />
+                          IsPlaceholder="true"
+                          Tooltip="Aktualna temperatura zewnętrzna odczytana z pompy ciepła" />
 
             <MudDivider Class="my-2" />
 
-            @* Sterowanie *@
-            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">Sterowanie</MudText>
+            @* ==================== PROGNOZA ==================== *@
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">Prognoza</MudText>
 
-            <ReadingEntry Icon="@Icons.Material.Filled.Water"
-                          Label="Zasilanie (aktualne)"
+            <ReadingEntry Icon="@Icons.Material.Filled.Schedule"
+                          Label="@($"Zewnętrzna (+{WebOptions.Value.ForecastOffsetHours}h)")"
                           Value="--"
-                          IconColor="Color.Info"
-                          IsPlaceholder="true" />
-
-            <ReadingEntry Icon="@Icons.Material.Filled.Calculate"
-                          Label="Zasilanie (wyliczone)"
-                          Value="--"
-                          IconColor="Color.Secondary"
-                          IsPlaceholder="true" />
+                          IconColor="Color.Warning"
+                          IsPlaceholder="true"
+                          Tooltip="@($"Prognozowana temperatura zewnętrzna za {WebOptions.Value.ForecastOffsetHours} godzin (offset uwzględniający bezwładność termiczną budynku)")" />
 
             <ReadingEntry Icon="@Icons.Material.Filled.TrendingUp"
                           Label="Korekta empiryczna"
                           Value="--"
                           IconColor="Color.Tertiary"
-                          IsPlaceholder="true" />
+                          IsPlaceholder="true"
+                          Tooltip="Korekta prognozy obliczona na podstawie różnicy między poprzednimi prognozami a rzeczywistością" />
+
+            <MudDivider Class="my-2" />
+
+            @* ==================== CO (Centralne Ogrzewanie) ==================== *@
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">CO</MudText>
+
+            <ReadingEntry Icon="@Icons.Material.Filled.ShowChart"
+                          Label="Zasilanie wg krzywej"
+                          Value="--"
+                          IconColor="Color.Default"
+                          IsPlaceholder="true"
+                          Tooltip="Temperatura zasilania wyliczona z oryginalnej krzywej grzewczej (bez offsetu)" />
+
+            <ReadingEntry Icon="@Icons.Material.Filled.Timer"
+                          Label="Offset"
+                          Value="@($"{WebOptions.Value.ForecastOffsetHours}h")"
+                          IconColor="Color.Info"
+                          IsPlaceholder="false"
+                          Tooltip="Przesunięcie czasowe uwzględniające bezwładność termiczną instalacji grzewczej" />
+
+            <ReadingEntry Icon="@Icons.Material.Filled.Calculate"
+                          Label="Zasilanie z offsetem"
+                          Value="--"
+                          IconColor="Color.Primary"
+                          IsPlaceholder="true"
+                          Tooltip="Temperatura zasilania wyliczona z krzywej grzewczej z uwzględnieniem offsetu i prognozy pogody" />
+
+            <ReadingEntry Icon="@Icons.Material.Filled.Tune"
+                          Label="Zasilanie zadane"
+                          Value="--"
+                          IconColor="Color.Warning"
+                          IsPlaceholder="true"
+                          Tooltip="Temperatura zasilania aktualnie wysłana do pompy ciepła" />
+
+            <ReadingEntry Icon="@Icons.Material.Filled.Opacity"
+                          Label="Zasilanie faktyczne"
+                          Value="--"
+                          IconColor="Color.Error"
+                          IsPlaceholder="true"
+                          Tooltip="Rzeczywista temperatura wody zasilającej zmierzona przez pompę ciepła" />
+
+            <ReadingEntry Icon="@Icons.Material.Filled.WaterDrop"
+                          Label="Powrót faktyczny"
+                          Value="--"
+                          IconColor="Color.Secondary"
+                          IsPlaceholder="true"
+                          Tooltip="Rzeczywista temperatura wody powrotnej zmierzona przez pompę ciepła" />
+
+            <MudDivider Class="my-2" />
+
+            @* ==================== CWU (Ciepła Woda Użytkowa) ==================== *@
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">CWU</MudText>
+
+            <ReadingEntry Icon="@Icons.Material.Filled.Bathtub"
+                          Label="Zadana"
+                          Value="--"
+                          IconColor="Color.Warning"
+                          IsPlaceholder="true"
+                          Tooltip="Docelowa temperatura ciepłej wody użytkowej ustawiona w pompie ciepła" />
+
+            <ReadingEntry Icon="@Icons.Material.Filled.HotTub"
+                          Label="Aktualna"
+                          Value="--"
+                          IconColor="Color.Error"
+                          IsPlaceholder="true"
+                          Tooltip="Aktualna temperatura wody w zasobniku CWU" />
+
+            <ReadingEntry Icon="@Icons.Material.Filled.SwapVert"
+                          Label="Delta uruchomienia wygrzewania"
+                          Value="--"
+                          IconColor="Color.Info"
+                          IsPlaceholder="true"
+                          Tooltip="Różnica temperatur poniżej zadanej, przy której uruchamia się wygrzewanie CWU" />
+
+            <ReadingEntry Icon="@Icons.Material.Filled.WbSunny"
+                          Label="Sugerowana godzina wygrzewania"
+                          Value="--"
+                          IconColor="Color.Success"
+                          IsPlaceholder="true"
+                          Tooltip="Sugerowana godzina wygrzewania CWU na podstawie prognozy pogody - wtedy temperatura zewnętrzna będzie najwyższa, co zapewni najwyższy COP pompy ciepła" />
+
+            <MudDivider Class="my-2" />
+
+            @* ==================== SPRĘŻARKA ==================== *@
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">Sprężarka</MudText>
+
+            <ReadingEntry Icon="@Icons.Material.Filled.Speed"
+                          Label="Częstotliwość"
+                          Value="--"
+                          IconColor="Color.Primary"
+                          IsPlaceholder="true"
+                          Tooltip="Aktualna częstotliwość pracy sprężarki w Hz" />
+
+            <ReadingEntry Icon="@Icons.Material.Filled.Replay"
+                          Label="Cykle włącz/wyłącz"
+                          Value="--"
+                          IconColor="Color.Warning"
+                          IsPlaceholder="true"
+                          Tooltip="Liczba cykli włączenia i wyłączenia sprężarki" />
+
+            <ReadingEntry Icon="@Icons.Material.Filled.AccessTime"
+                          Label="Czas pracy"
+                          Value="--"
+                          IconColor="Color.Info"
+                          IsPlaceholder="true"
+                          Tooltip="Całkowity czas pracy sprężarki" />
         </MudPaper>
     </MudItem>
 </MudGrid>
@@ -141,7 +238,6 @@
     private void BuildChart(IReadOnlyList<GetTemperatureHistory.DataPoint> readings)
     {
         // Create fixed time axis: current hour -24h to +12h (37 hourly slots)
-        // Proportions: 24h history (2/3) + 12h forecast placeholder (1/3)
         var now = DateTimeOffset.Now;
         var currentHour = new DateTimeOffset(now.Year, now.Month, now.Day, now.Hour, 0, 0, now.Offset);
         var startTime = currentHour.AddHours(-24);
@@ -166,39 +262,42 @@
             })
             .ToDictionary(g => g.Key, g => g.Average(r => (double)r.Temperature.Celsius));
 
-        // Create historical data array (past 24h, indices 0-23)
+        // Create historical data array (past 24h + current hour, indices 0-24)
+        // Use 0 for missing values (MudBlazor doesn't handle NaN well)
         var historicalData = new double[hourlySlots.Count];
-        double? lastKnownValue = null;
+        double lastKnownValue = 20.0; // Default temperature
 
-        for (int i = 0; i < nowIndex && i < hourlySlots.Count; i++)
+        for (int i = 0; i <= nowIndex && i < hourlySlots.Count; i++)
         {
             if (readingsByHour.TryGetValue(hourlySlots[i], out var temp))
             {
                 historicalData[i] = temp;
                 lastKnownValue = temp;
             }
-            else if (lastKnownValue.HasValue)
-            {
-                historicalData[i] = lastKnownValue.Value;
-            }
             else
             {
-                historicalData[i] = double.NaN;
+                historicalData[i] = lastKnownValue;
             }
         }
 
-        // Current hour and future: set to NaN (will not be drawn in historical series)
-        for (int i = nowIndex; i < hourlySlots.Count; i++)
+        // Future hours: continue with last known value (will be hidden by forecast line)
+        for (int i = nowIndex + 1; i < hourlySlots.Count; i++)
         {
-            historicalData[i] = double.NaN;
+            historicalData[i] = 0; // Zero for future (won't show as line continues from last point)
         }
 
-        // Create forecast placeholder array (current hour + future 12h)
+        // Create forecast placeholder array (from current hour onwards)
         var forecastData = new double[hourlySlots.Count];
         for (int i = 0; i < hourlySlots.Count; i++)
         {
-            // Show placeholder line from current hour onwards (index >= nowIndex)
-            forecastData[i] = i >= nowIndex ? (lastKnownValue ?? 20) : double.NaN;
+            if (i >= nowIndex)
+            {
+                forecastData[i] = lastKnownValue; // Flat line at last known temperature
+            }
+            else
+            {
+                forecastData[i] = 0; // Zero for past (won't affect the line)
+            }
         }
 
         // Show labels every 3 hours
@@ -215,7 +314,7 @@
             },
             new ChartSeries
             {
-                Name = "Prognoza (wkrótce)",
+                Name = "Prognoza",
                 Data = forecastData
             }
         };
