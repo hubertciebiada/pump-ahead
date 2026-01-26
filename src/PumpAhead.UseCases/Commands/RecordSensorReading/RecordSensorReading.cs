@@ -13,7 +13,8 @@ public static class RecordSensorReading
 
     public sealed class Handler(
         ISensorRepository sensorRepository,
-        ITemperatureRepository temperatureRepository) : ICommandHandler<Command>
+        ITemperatureRepository temperatureRepository,
+        ISensorNotificationService notificationService) : ICommandHandler<Command>
     {
         public async Task HandleAsync(Command command, CancellationToken cancellationToken = default)
         {
@@ -43,6 +44,12 @@ public static class RecordSensorReading
                 command.Timestamp);
 
             await temperatureRepository.SaveAsync(reading, cancellationToken);
+
+            await notificationService.NotifyReadingRecordedAsync(
+                command.SensorId,
+                command.Temperature,
+                command.Timestamp,
+                cancellationToken);
         }
     }
 }
