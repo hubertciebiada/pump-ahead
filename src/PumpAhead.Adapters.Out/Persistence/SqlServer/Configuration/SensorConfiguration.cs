@@ -16,6 +16,10 @@ public class SensorConfiguration : IEntityTypeConfiguration<SensorEntity>
             .HasMaxLength(100)
             .IsRequired();
 
+        builder.Property(s => s.Label)
+            .HasMaxLength(100)
+            .IsRequired(false);
+
         builder.Property(s => s.Address)
             .HasMaxLength(255)
             .IsRequired();

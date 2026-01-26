@@ -24,6 +24,7 @@ public static class RecordSensorReading
                 var newSensor = new SensorInfo(
                     command.SensorId,
                     Name: command.SensorId.Value,
+                    Label: null,
                     Address: string.Empty,
                     Type: "shelly",
                     IsActive: true,
