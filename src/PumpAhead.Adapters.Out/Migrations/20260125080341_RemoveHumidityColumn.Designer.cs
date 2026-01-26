@@ -12,8 +12,8 @@ using PumpAhead.Adapters.Out.Persistence.SqlServer;
 namespace PumpAhead.Adapters.Out.Migrations
 {
     [DbContext(typeof(PumpAheadDbContext))]
-    [Migration("20260123132722_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20260125080341_RemoveHumidityColumn")]
+    partial class RemoveHumidityColumn
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -27,9 +27,8 @@ namespace PumpAhead.Adapters.Out.Migrations
 
             modelBuilder.Entity("PumpAhead.Adapters.Out.Persistence.SqlServer.Entities.SensorEntity", b =>
                 {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("Address")
                         .IsRequired()
@@ -38,6 +37,9 @@ namespace PumpAhead.Adapters.Out.Migrations
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset?>("LastSeenAt")
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -62,8 +64,9 @@ namespace PumpAhead.Adapters.Out.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
-                    b.Property<Guid>("SensorId")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("SensorId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<decimal>("Temperature")
                         .HasPrecision(5, 2)

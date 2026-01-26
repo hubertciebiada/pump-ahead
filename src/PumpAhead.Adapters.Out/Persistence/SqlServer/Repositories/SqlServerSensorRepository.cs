@@ -40,7 +40,8 @@ public class SqlServerSensorRepository(PumpAheadDbContext dbContext) : ISensorRe
                 Name = sensor.Name,
                 Address = sensor.Address,
                 Type = sensor.Type,
-                IsActive = sensor.IsActive
+                IsActive = sensor.IsActive,
+                LastSeenAt = sensor.LastSeenAt
             };
             dbContext.Sensors.Add(entity);
         }
@@ -50,9 +51,17 @@ public class SqlServerSensorRepository(PumpAheadDbContext dbContext) : ISensorRe
             existing.Address = sensor.Address;
             existing.Type = sensor.Type;
             existing.IsActive = sensor.IsActive;
+            existing.LastSeenAt = sensor.LastSeenAt;
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task UpdateLastSeenAsync(SensorId id, DateTimeOffset timestamp, CancellationToken cancellationToken = default)
+    {
+        await dbContext.Sensors
+            .Where(s => s.Id == id.Value)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.LastSeenAt, timestamp), cancellationToken);
     }
 
     private static SensorInfo ToSensorInfo(SensorEntity entity) =>
@@ -61,5 +70,6 @@ public class SqlServerSensorRepository(PumpAheadDbContext dbContext) : ISensorRe
             entity.Name,
             entity.Address,
             entity.Type,
-            entity.IsActive);
+            entity.IsActive,
+            entity.LastSeenAt);
 }

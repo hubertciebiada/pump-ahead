@@ -2,15 +2,15 @@ namespace PumpAhead.DeepModel.ValueObjects;
 
 public readonly record struct SensorId
 {
-    public Guid Value { get; }
+    public string Value { get; }
 
-    private SensorId(Guid value)
+    private SensorId(string value)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(value);
         Value = value;
     }
 
-    public static SensorId From(Guid value) => new(value);
-    public static SensorId New() => new(Guid.NewGuid());
+    public static SensorId From(string value) => new(value);
 
-    public override string ToString() => Value.ToString();
+    public override string ToString() => Value;
 }

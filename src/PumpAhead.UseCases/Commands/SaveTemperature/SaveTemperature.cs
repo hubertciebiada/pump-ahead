@@ -15,7 +15,7 @@ public static class SaveTemperature
     {
         public async Task HandleAsync(Command command, CancellationToken cancellationToken = default)
         {
-            var reading = new TemperatureReading(
+            var reading = new SensorReading(
                 command.SensorId,
                 command.Temperature,
                 command.Timestamp);

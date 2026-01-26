@@ -19,13 +19,13 @@ public class GetTemperatureHistoryTests
     [Fact]
     public async Task HandleAsync_ReturnsEmptyData_WhenNoReadings()
     {
-        var sensorId = SensorId.New();
+        var sensorId = SensorId.From("test-sensor-1");
         var from = DateTimeOffset.UtcNow.AddHours(-24);
         var to = DateTimeOffset.UtcNow;
 
         _repository
             .GetHistoryAsync(sensorId, from, to, Arg.Any<CancellationToken>())
-            .Returns(new List<TemperatureReading>());
+            .Returns(new List<SensorReading>());
 
         var result = await _handler.HandleAsync(new GetTemperatureHistory.Query(sensorId, from, to));
 
@@ -35,11 +35,11 @@ public class GetTemperatureHistoryTests
     [Fact]
     public async Task HandleAsync_ReturnsReadings_WhenDataExists()
     {
-        var sensorId = SensorId.New();
+        var sensorId = SensorId.From("test-sensor-2");
         var from = DateTimeOffset.UtcNow.AddHours(-24);
         var to = DateTimeOffset.UtcNow;
 
-        var readings = new List<TemperatureReading>
+        var readings = new List<SensorReading>
         {
             new(sensorId, Temperature.FromCelsius(20m), from.AddHours(1)),
             new(sensorId, Temperature.FromCelsius(21m), from.AddHours(2)),
@@ -61,13 +61,13 @@ public class GetTemperatureHistoryTests
     [Fact]
     public async Task HandleAsync_PreservesTimestamps()
     {
-        var sensorId = SensorId.New();
+        var sensorId = SensorId.From("test-sensor-3");
         var from = DateTimeOffset.UtcNow.AddHours(-24);
         var to = DateTimeOffset.UtcNow;
         var timestamp1 = from.AddHours(1);
         var timestamp2 = from.AddHours(2);
 
-        var readings = new List<TemperatureReading>
+        var readings = new List<SensorReading>
         {
             new(sensorId, Temperature.FromCelsius(20m), timestamp1),
             new(sensorId, Temperature.FromCelsius(21m), timestamp2)
