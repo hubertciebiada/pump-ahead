@@ -1,6 +1,7 @@
 using PumpAhead.UseCases.Commands.RecordSensorReading;
 using PumpAhead.UseCases.Commands.SaveTemperature;
 using PumpAhead.UseCases.Ports;
+using PumpAhead.UseCases.Queries.GetAllSensorsHistory;
 using PumpAhead.UseCases.Queries.GetTemperature;
 using PumpAhead.UseCases.Queries.GetTemperatureHistory;
 
@@ -14,6 +15,7 @@ public static partial class ServiceCollectionExtensions
         services.AddScoped<ICommandHandler<RecordSensorReading.Command>, RecordSensorReading.Handler>();
         services.AddScoped<IQueryHandler<GetTemperature.Query, GetTemperature.Data?>, GetTemperature.Handler>();
         services.AddScoped<IQueryHandler<GetTemperatureHistory.Query, GetTemperatureHistory.Data>, GetTemperatureHistory.Handler>();
+        services.AddScoped<IQueryHandler<GetAllSensorsHistory.Query, GetAllSensorsHistory.Data>, GetAllSensorsHistory.Handler>();
 
         return services;
     }

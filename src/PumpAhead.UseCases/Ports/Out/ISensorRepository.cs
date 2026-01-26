@@ -5,10 +5,14 @@ namespace PumpAhead.UseCases.Ports.Out;
 public record SensorInfo(
     SensorId Id,
     string Name,
+    string? Label,
     string Address,
     string Type,
     bool IsActive,
-    DateTimeOffset? LastSeenAt);
+    DateTimeOffset? LastSeenAt)
+{
+    public string DisplayName => !string.IsNullOrWhiteSpace(Label) ? Label : Id.Value;
+}
 
 public interface ISensorRepository
 {

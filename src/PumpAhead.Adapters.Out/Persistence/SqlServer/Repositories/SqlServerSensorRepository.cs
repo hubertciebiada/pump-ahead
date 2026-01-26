@@ -38,6 +38,7 @@ public class SqlServerSensorRepository(PumpAheadDbContext dbContext) : ISensorRe
             {
                 Id = sensor.Id.Value,
                 Name = sensor.Name,
+                Label = sensor.Label,
                 Address = sensor.Address,
                 Type = sensor.Type,
                 IsActive = sensor.IsActive,
@@ -48,6 +49,7 @@ public class SqlServerSensorRepository(PumpAheadDbContext dbContext) : ISensorRe
         else
         {
             existing.Name = sensor.Name;
+            existing.Label = sensor.Label;
             existing.Address = sensor.Address;
             existing.Type = sensor.Type;
             existing.IsActive = sensor.IsActive;
@@ -68,6 +70,7 @@ public class SqlServerSensorRepository(PumpAheadDbContext dbContext) : ISensorRe
         new(
             SensorId.From(entity.Id),
             entity.Name,
+            entity.Label,
             entity.Address,
             entity.Type,
             entity.IsActive,
