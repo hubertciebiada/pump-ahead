@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PumpAhead.Adapters.Out.Persistence.SqlServer;
 
@@ -11,9 +12,11 @@ using PumpAhead.Adapters.Out.Persistence.SqlServer;
 namespace PumpAhead.Adapters.Out.Migrations
 {
     [DbContext(typeof(PumpAheadDbContext))]
-    partial class PumpAheadDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260124204509_InitialCreate")]
+    partial class InitialCreate
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -60,6 +63,10 @@ namespace PumpAhead.Adapters.Out.Migrations
                         .HasColumnType("bigint");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<decimal?>("Humidity")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
 
                     b.Property<string>("SensorId")
                         .IsRequired()

@@ -24,6 +24,9 @@ public class SensorConfiguration : IEntityTypeConfiguration<SensorEntity>
             .HasMaxLength(50)
             .IsRequired();
 
+        builder.Property(s => s.LastSeenAt)
+            .IsRequired(false);
+
         builder.HasMany(s => s.Readings)
             .WithOne(r => r.Sensor)
             .HasForeignKey(r => r.SensorId)

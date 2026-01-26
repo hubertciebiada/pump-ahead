@@ -42,7 +42,7 @@
 @code {
     [Parameter] public double TargetIndoorTemperature { get; set; }
     [Parameter] public int ForecastOffsetHours { get; set; }
-    [Parameter] public Guid DefaultSensorId { get; set; }
+    [Parameter] public string DefaultSensorId { get; set; } = string.Empty;
 
     [Inject] private DialogService DialogService { get; set; } = default!;
 
@@ -54,7 +54,7 @@
     {
         _targetIndoorTemperature = TargetIndoorTemperature;
         _forecastOffsetHours = ForecastOffsetHours;
-        _defaultSensorIdText = DefaultSensorId.ToString();
+        _defaultSensorIdText = DefaultSensorId;
     }
 
     private void Cancel()
@@ -64,16 +64,11 @@
 
     private void Save()
     {
-        if (!Guid.TryParse(_defaultSensorIdText, out var sensorId))
-        {
-            sensorId = Guid.Empty;
-        }
-
         DialogService.Close(new SettingsResult
         {
             TargetIndoorTemperature = _targetIndoorTemperature,
             ForecastOffsetHours = _forecastOffsetHours,
-            DefaultSensorId = sensorId
+            DefaultSensorId = _defaultSensorIdText
         });
     }
 
@@ -81,6 +76,6 @@
     {
         public double TargetIndoorTemperature { get; set; }
         public int ForecastOffsetHours { get; set; }
-        public Guid DefaultSensorId { get; set; }
+        public string DefaultSensorId { get; set; } = string.Empty;
     }
 }

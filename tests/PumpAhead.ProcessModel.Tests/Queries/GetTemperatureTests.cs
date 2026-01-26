@@ -19,13 +19,13 @@ public class GetTemperatureTests
     [Fact]
     public async Task HandleAsync_ReturnsData_WhenReadingExists()
     {
-        var sensorId = SensorId.New();
+        var sensorId = SensorId.From("test-sensor-1");
         var temperature = Temperature.FromCelsius(21.5m);
         var timestamp = DateTimeOffset.UtcNow;
 
         _repository
             .GetLatestAsync(sensorId, Arg.Any<CancellationToken>())
-            .Returns(new TemperatureReading(sensorId, temperature, timestamp));
+            .Returns(new SensorReading(sensorId, temperature, timestamp));
 
         var result = await _handler.HandleAsync(new GetTemperature.Query(sensorId));
 
@@ -37,11 +37,11 @@ public class GetTemperatureTests
     [Fact]
     public async Task HandleAsync_ReturnsNull_WhenNoReadingExists()
     {
-        var sensorId = SensorId.New();
+        var sensorId = SensorId.From("test-sensor-2");
 
         _repository
             .GetLatestAsync(sensorId, Arg.Any<CancellationToken>())
-            .Returns((TemperatureReading?)null);
+            .Returns((SensorReading?)null);
 
         var result = await _handler.HandleAsync(new GetTemperature.Query(sensorId));
 

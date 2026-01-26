@@ -7,7 +7,7 @@ namespace PumpAhead.Adapters.Out.Persistence.SqlServer.Repositories;
 
 public class SqlServerTemperatureRepository(PumpAheadDbContext dbContext) : ITemperatureRepository
 {
-    public async Task SaveAsync(TemperatureReading reading, CancellationToken cancellationToken = default)
+    public async Task SaveAsync(SensorReading reading, CancellationToken cancellationToken = default)
     {
         var entity = new TemperatureReadingEntity
         {
@@ -20,7 +20,7 @@ public class SqlServerTemperatureRepository(PumpAheadDbContext dbContext) : ITem
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task<TemperatureReading?> GetLatestAsync(SensorId sensorId, CancellationToken cancellationToken = default)
+    public async Task<SensorReading?> GetLatestAsync(SensorId sensorId, CancellationToken cancellationToken = default)
     {
         var entity = await dbContext.TemperatureReadings
             .Where(r => r.SensorId == sensorId.Value)
@@ -30,13 +30,13 @@ public class SqlServerTemperatureRepository(PumpAheadDbContext dbContext) : ITem
         if (entity is null)
             return null;
 
-        return new TemperatureReading(
+        return new SensorReading(
             SensorId.From(entity.SensorId),
             Temperature.FromCelsius(entity.Temperature),
             entity.Timestamp);
     }
 
-    public async Task<IReadOnlyList<TemperatureReading>> GetHistoryAsync(
+    public async Task<IReadOnlyList<SensorReading>> GetHistoryAsync(
         SensorId sensorId,
         DateTimeOffset from,
         DateTimeOffset to,
@@ -48,7 +48,7 @@ public class SqlServerTemperatureRepository(PumpAheadDbContext dbContext) : ITem
             .ToListAsync(cancellationToken);
 
         return entities
-            .Select(e => new TemperatureReading(
+            .Select(e => new SensorReading(
                 SensorId.From(e.SensorId),
                 Temperature.FromCelsius(e.Temperature),
                 e.Timestamp))

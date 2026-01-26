@@ -1,5 +1,6 @@
 using PumpAhead.Adapters.Web;
 using PumpAhead.Adapters.Web.Components;
+using PumpAhead.Startup.Api;
 using PumpAhead.Startup.Configuration;
 using PumpAhead.Startup.Extensions;
 using Serilog;
@@ -14,19 +15,15 @@ try
 
     builder.Host.AddSerilog();
 
-    var deviceSettings = builder.Configuration.GetSection("Devices").Get<DeviceSettings>() ?? new();
-
-    builder.Services.Configure<DeviceSettings>(builder.Configuration.GetSection("Devices"));
     builder.Services.Configure<PollingSettings>(builder.Configuration.GetSection("Polling"));
 
     builder.Services.AddAdapters(builder.Configuration);
     builder.Services.AddUseCases();
-    builder.Services.AddQuartzJobs(builder.Configuration);
 
-    var webSettings = builder.Configuration.GetSection("Web").Get<WebOptions>() ?? new();
+    var webSettings = builder.Configuration.GetSection("Web").Get<WebOptions>() ?? new WebOptions();
     builder.Services.AddPumpAheadWeb(options =>
     {
-        options.DefaultSensorId = deviceSettings.Shelly.SensorId;
+        options.DefaultSensorId = webSettings.DefaultSensorId;
         options.ForecastOffsetHours = webSettings.ForecastOffsetHours;
         options.TargetIndoorTemperature = webSettings.TargetIndoorTemperature;
     });
@@ -42,14 +39,14 @@ try
         app.UseHsts();
     }
 
-    app.UseHttpsRedirection();
     app.UseAntiforgery();
 
     app.MapStaticAssets();
-    app.MapRazorComponents<App>()
-        .AddInteractiveServerRenderMode();
+    
+    app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
+    app.MapSensorEndpoints();
 
-    Log.Information("PumpAhead starting up");
+    Log.Information("PumpAhead starting up on port 1488");
     app.Run();
 }
 catch (Exception ex)

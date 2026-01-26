@@ -7,11 +7,13 @@ public record SensorInfo(
     string Name,
     string Address,
     string Type,
-    bool IsActive);
+    bool IsActive,
+    DateTimeOffset? LastSeenAt);
 
 public interface ISensorRepository
 {
     Task<SensorInfo?> GetByIdAsync(SensorId id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<SensorInfo>> GetAllActiveAsync(CancellationToken cancellationToken = default);
     Task SaveAsync(SensorInfo sensor, CancellationToken cancellationToken = default);
+    Task UpdateLastSeenAsync(SensorId id, DateTimeOffset timestamp, CancellationToken cancellationToken = default);
 }
