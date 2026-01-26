@@ -1,8 +1,12 @@
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging;
 using PumpAhead.DeepModel.ValueObjects;
 using PumpAhead.UseCases.Commands.RecordSensorReading;
 using PumpAhead.UseCases.Ports;
 
-namespace PumpAhead.Startup.Api;
+namespace PumpAhead.Adapters.Api;
 
 public static class SensorEndpoints
 {
@@ -21,9 +25,10 @@ public static class SensorEndpoints
         decimal tC,
         string? id,
         ICommandHandler<RecordSensorReading.Command> handler,
-        ILogger<Program> logger,
+        ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
+        var logger = loggerFactory.CreateLogger("SensorEndpoints");
         var effectiveSensorId = !string.IsNullOrEmpty(id) ? id : sensorId;
 
         return await ProcessReading(
@@ -38,7 +43,7 @@ public static class SensorEndpoints
         string sensorId,
         decimal temperatureCelsius,
         ICommandHandler<RecordSensorReading.Command> handler,
-        ILogger<Program> logger,
+        ILogger logger,
         CancellationToken cancellationToken)
     {
         try
