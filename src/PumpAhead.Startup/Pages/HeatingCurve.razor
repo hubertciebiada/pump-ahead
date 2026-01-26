@@ -1,0 +1,83 @@
+@page "/heating-curve"
+
+<PageTitle>Krzywa grzewcza - PumpAhead</PageTitle>
+
+<div class="chart-container" style="height: 500px;">
+    <div class="chart-title">Krzywa grzewcza</div>
+    <RadzenChart Style="width: 100%; height: calc(100% - 2rem);">
+        <RadzenLineSeries Data="@_curveData" CategoryProperty="OutdoorTemp" ValueProperty="SupplyTemp" Title="Krzywa grzewcza" Stroke="#ff4081" StrokeWidth="3">
+            <RadzenMarkers MarkerType="MarkerType.Circle" Fill="#ff4081" Stroke="#ff4081" Size="6" />
+        </RadzenLineSeries>
+        <RadzenCategoryAxis Padding="20" FormatString="{0}°C">
+            <RadzenAxisTitle Text="Temperatura zewnętrzna" />
+        </RadzenCategoryAxis>
+        <RadzenValueAxis Min="20" Max="35" Step="5" FormatString="{0}°C">
+            <RadzenAxisTitle Text="Temperatura zasilania" />
+        </RadzenValueAxis>
+        <RadzenLegend Visible="false" />
+    </RadzenChart>
+</div>
+
+<div class="data-card" style="max-width: 600px; margin-top: 1rem;">
+    <div class="data-card-title">Parametry krzywej</div>
+    <div class="data-card-row">
+        <div class="data-card-icon">
+            <RadzenIcon Icon="ac_unit" Style="color: var(--color-cyan);" />
+        </div>
+        <div class="data-card-label">Przy -15°C zewn.</div>
+        <div class="data-card-value">31°C zasilania</div>
+    </div>
+    <div class="data-card-row">
+        <div class="data-card-icon">
+            <RadzenIcon Icon="wb_sunny" Style="color: var(--color-orange);" />
+        </div>
+        <div class="data-card-label">Przy +15°C zewn.</div>
+        <div class="data-card-value">24°C zasilania</div>
+    </div>
+    <div class="data-card-row">
+        <div class="data-card-icon">
+            <RadzenIcon Icon="arrow_downward" Style="color: var(--color-blue);" />
+        </div>
+        <div class="data-card-label">Minimum zasilania</div>
+        <div class="data-card-value">20°C</div>
+    </div>
+    <div class="data-card-row">
+        <div class="data-card-icon">
+            <RadzenIcon Icon="arrow_upward" Style="color: var(--color-red);" />
+        </div>
+        <div class="data-card-label">Maksimum zasilania</div>
+        <div class="data-card-value">35°C</div>
+    </div>
+</div>
+
+@code {
+    private record CurvePoint(int OutdoorTemp, decimal SupplyTemp);
+
+    private readonly List<CurvePoint> _curveData = GenerateHeatingCurveData();
+
+    private static List<CurvePoint> GenerateHeatingCurveData()
+    {
+        var points = new List<CurvePoint>();
+
+        for (var outdoorTemp = -15; outdoorTemp <= 15; outdoorTemp++)
+        {
+            var supplyTemp = CalculateSupplyTemperature(outdoorTemp);
+            points.Add(new CurvePoint(outdoorTemp, supplyTemp));
+        }
+
+        return points;
+    }
+
+    private static decimal CalculateSupplyTemperature(int outdoorTemp)
+    {
+        const decimal minOutdoor = -15m;
+        const decimal maxOutdoor = 15m;
+        const decimal supplyAtMin = 31m;
+        const decimal supplyAtMax = 24m;
+
+        var ratio = (outdoorTemp - minOutdoor) / (maxOutdoor - minOutdoor);
+        var supply = supplyAtMin + ratio * (supplyAtMax - supplyAtMin);
+
+        return Math.Clamp(supply, 20m, 35m);
+    }
+}

@@ -1,0 +1,415 @@
+@page "/"
+@implements IAsyncDisposable
+@inject IQueryHandler<GetAllSensorsHistory.Query, GetAllSensorsHistory.Data> SensorHistoryHandler
+@inject IQueryHandler<GetTemperature.Query, GetTemperature.Data?> TemperatureHandler
+@inject LightweightChartsService ChartService
+@inject ChartStateService ChartState
+@inject NavigationManager NavigationManager
+@inject ILogger<Dashboard> Logger
+
+<PageTitle>Dashboard - PumpAhead</PageTitle>
+
+<div class="time-range-selector">
+    @foreach (var range in ChartStateService.AvailableRanges)
+    {
+        <RadzenButton
+            Text="@ChartStateService.FormatRange(range)"
+            ButtonStyle="@(ChartState.TimeRange == range ? ButtonStyle.Primary : ButtonStyle.Light)"
+            Size="ButtonSize.Small"
+            Click="@(() => OnTimeRangeChange(range))" />
+    }
+</div>
+
+<div class="charts-row">
+    <div class="chart-container">
+        <div class="chart-title">Temperatura zewnętrzna</div>
+        <div id="chart-outdoor" class="chart-wrapper">
+            @if (!_hasOutdoorData)
+            {
+                <div class="no-data-message">Brak danych (Heishamon - Faza 1)</div>
+            }
+        </div>
+    </div>
+
+    <div class="chart-container">
+        <div class="chart-title">Centralne Ogrzewanie</div>
+        <div id="chart-heating" class="chart-wrapper">
+            @if (!_hasHeatingData)
+            {
+                <div class="no-data-message">Brak danych (Heishamon - Faza 1)</div>
+            }
+        </div>
+    </div>
+
+    <div class="chart-container">
+        <div class="chart-title">Temperatura wewnętrzna</div>
+        <div id="chart-indoor" class="chart-wrapper">
+            @if (!_hasIndoorData)
+            {
+                <div class="no-data-message">Brak danych z sensorów</div>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="cards-row">
+    <div class="data-card">
+        <div class="data-card-title">Otoczenie</div>
+        @foreach (var sensor in _sensorData)
+        {
+            <div class="data-card-row">
+                <div class="data-card-icon">
+                    <RadzenIcon Icon="home" Style="color: var(--color-blue);" />
+                </div>
+                <div class="data-card-label">@sensor.DisplayName</div>
+                <div class="data-card-value">@FormatLatestTemperature(sensor)</div>
+            </div>
+        }
+        <div class="data-card-row">
+            <div class="data-card-icon">
+                <RadzenIcon Icon="thermostat" Style="color: var(--color-green);" />
+            </div>
+            <div class="data-card-label">Wewnętrzna (oczekiwana)</div>
+            <div class="data-card-value">@TargetTemperature.ToString()</div>
+        </div>
+        <div class="data-card-row">
+            <div class="data-card-icon">
+                <RadzenIcon Icon="cloud" Style="color: var(--color-cyan);" />
+            </div>
+            <div class="data-card-label">Zewnętrzna (aktualna)</div>
+            <div class="data-card-value">-- (Faza 1)</div>
+        </div>
+        <div class="data-card-row">
+            <div class="data-card-icon">
+                <RadzenIcon Icon="schedule" Style="color: var(--color-orange);" />
+            </div>
+            <div class="data-card-label">Zewnętrzna (+6h)</div>
+            <div class="data-card-value">-- (Faza 1)</div>
+        </div>
+        <div class="data-card-row">
+            <div class="data-card-icon">
+                <RadzenIcon Icon="trending_up" Style="color: var(--color-gray);" />
+            </div>
+            <div class="data-card-label">Korekta empiryczna</div>
+            <div class="data-card-value">-- (Faza 1)</div>
+        </div>
+    </div>
+
+    <div class="data-card">
+        <div class="data-card-title">CO (Centralne Ogrzewanie)</div>
+        <div class="data-card-row">
+            <div class="data-card-icon">
+                <RadzenIcon Icon="show_chart" Style="color: var(--color-gray);" />
+            </div>
+            <div class="data-card-label">Zasilanie wg krzywej</div>
+            <div class="data-card-value">-- (Faza 1)</div>
+        </div>
+        <div class="data-card-row">
+            <div class="data-card-icon">
+                <RadzenIcon Icon="timer" Style="color: var(--color-cyan);" />
+            </div>
+            <div class="data-card-label">Offset</div>
+            <div class="data-card-value">-- (Faza 1)</div>
+        </div>
+        <div class="data-card-row">
+            <div class="data-card-icon">
+                <RadzenIcon Icon="calculate" Style="color: var(--color-blue);" />
+            </div>
+            <div class="data-card-label">Zasilanie z offsetem</div>
+            <div class="data-card-value">-- (Faza 1)</div>
+        </div>
+        <div class="data-card-row">
+            <div class="data-card-icon">
+                <RadzenIcon Icon="tune" Style="color: var(--color-orange);" />
+            </div>
+            <div class="data-card-label">Zasilanie zadane</div>
+            <div class="data-card-value">-- (Faza 1)</div>
+        </div>
+        <div class="data-card-row">
+            <div class="data-card-icon">
+                <RadzenIcon Icon="opacity" Style="color: var(--color-red);" />
+            </div>
+            <div class="data-card-label">Zasilanie faktyczne</div>
+            <div class="data-card-value">-- (Faza 1)</div>
+        </div>
+        <div class="data-card-row">
+            <div class="data-card-icon">
+                <RadzenIcon Icon="water_drop" Style="color: var(--color-gray);" />
+            </div>
+            <div class="data-card-label">Powrót faktyczny</div>
+            <div class="data-card-value">-- (Faza 1)</div>
+        </div>
+    </div>
+
+    <div class="data-card">
+        <div class="data-card-title">CWU (Ciepła Woda Użytkowa)</div>
+        <div class="data-card-row">
+            <div class="data-card-icon">
+                <RadzenIcon Icon="bathtub" Style="color: var(--color-orange);" />
+            </div>
+            <div class="data-card-label">Zadana</div>
+            <div class="data-card-value">-- (Faza 1)</div>
+        </div>
+        <div class="data-card-row">
+            <div class="data-card-icon">
+                <RadzenIcon Icon="hot_tub" Style="color: var(--color-red);" />
+            </div>
+            <div class="data-card-label">Aktualna</div>
+            <div class="data-card-value">-- (Faza 1)</div>
+        </div>
+        <div class="data-card-row">
+            <div class="data-card-icon">
+                <RadzenIcon Icon="swap_vert" Style="color: var(--color-cyan);" />
+            </div>
+            <div class="data-card-label">Delta wygrzewania</div>
+            <div class="data-card-value">-- (Faza 1)</div>
+        </div>
+        <div class="data-card-row">
+            <div class="data-card-icon">
+                <RadzenIcon Icon="wb_sunny" Style="color: var(--color-green);" />
+            </div>
+            <div class="data-card-label">Sugerowana godz. wygrzewania</div>
+            <div class="data-card-value">-- (Faza 1)</div>
+        </div>
+    </div>
+
+    <div class="data-card">
+        <div class="data-card-title">Sprężarka</div>
+        <div class="data-card-row">
+            <div class="data-card-icon">
+                <RadzenIcon Icon="speed" Style="color: var(--color-blue);" />
+            </div>
+            <div class="data-card-label">Częstotliwość</div>
+            <div class="data-card-value">-- (Faza 1)</div>
+        </div>
+        <div class="data-card-row">
+            <div class="data-card-icon">
+                <RadzenIcon Icon="replay" Style="color: var(--color-orange);" />
+            </div>
+            <div class="data-card-label">Cykle włącz/wyłącz</div>
+            <div class="data-card-value">-- (Faza 1)</div>
+        </div>
+        <div class="data-card-row">
+            <div class="data-card-icon">
+                <RadzenIcon Icon="access_time" Style="color: var(--color-cyan);" />
+            </div>
+            <div class="data-card-label">Czas pracy</div>
+            <div class="data-card-value">-- (Faza 1)</div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private static readonly Temperature TargetTemperature = Temperature.FromCelsius(22.0m);
+
+    private static readonly string[] SensorColors = ["#2196f3", "#26c6da", "#4caf50", "#ff9800"];
+
+    private List<GetAllSensorsHistory.SensorData> _sensorData = [];
+    private bool _hasOutdoorData = false;
+    private bool _hasHeatingData = false;
+    private bool _hasIndoorData;
+
+    private string? _indoorChartId;
+    private readonly Dictionary<string, string> _sensorSeriesIds = new();
+
+    private HubConnection? _hubConnection;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ChartState.TimeRangeChanged += OnTimeRangeChangedCallback;
+        await LoadDataAsync();
+        await InitializeSignalRAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && _hasIndoorData)
+        {
+            await InitializeChartsAsync();
+        }
+    }
+
+    private async Task LoadDataAsync()
+    {
+        try
+        {
+            var query = new GetAllSensorsHistory.Query(
+                ChartState.GetStartTime(),
+                ChartState.GetEndTime());
+
+            var result = await SensorHistoryHandler.HandleAsync(query);
+            _sensorData = result.Sensors.ToList();
+            _hasIndoorData = _sensorData.Any(s => s.Readings.Count > 0);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load sensor data");
+        }
+    }
+
+    private async Task InitializeChartsAsync()
+    {
+        if (!_hasIndoorData) return;
+
+        _indoorChartId = await ChartService.InitializeChartAsync("chart-indoor");
+        if (_indoorChartId == null) return;
+
+        var colorIndex = 0;
+        foreach (var sensor in _sensorData.Where(s => s.Readings.Count > 0))
+        {
+            var color = SensorColors[colorIndex % SensorColors.Length];
+            var seriesId = await ChartService.AddLineSeriesAsync(_indoorChartId, new LineSeriesOptions(color, 2, sensor.DisplayName));
+
+            if (seriesId != null)
+            {
+                _sensorSeriesIds[sensor.SensorId.Value] = seriesId;
+
+                var dataPoints = sensor.Readings
+                    .Select(r => new ChartDataPoint(r.Timestamp.ToUnixTimeSeconds(), r.Temperature.Celsius))
+                    .ToList();
+
+                await ChartService.SetDataAsync(seriesId, dataPoints);
+            }
+
+            colorIndex++;
+        }
+
+        var firstSeries = _sensorSeriesIds.Values.FirstOrDefault();
+        if (firstSeries != null)
+        {
+            await ChartService.AddPriceLineAsync(firstSeries, new PriceLineOptions(
+                TargetTemperature.Celsius,
+                "#4caf50",
+                2,
+                2,
+                true,
+                "Cel"));
+        }
+
+        await ChartService.FitContentAsync(_indoorChartId);
+    }
+
+    private async Task InitializeSignalRAsync()
+    {
+        try
+        {
+            _hubConnection = new HubConnectionBuilder()
+                .WithUrl(NavigationManager.ToAbsoluteUri("/hubs/sensors"))
+                .WithAutomaticReconnect()
+                .Build();
+
+            _hubConnection.Closed += OnConnectionClosed;
+            _hubConnection.Reconnecting += OnReconnecting;
+            _hubConnection.Reconnected += OnReconnected;
+            _hubConnection.On<string, decimal, long>("ReceiveSensorUpdate", OnSensorUpdate);
+
+            await _hubConnection.StartAsync();
+            Logger.LogInformation("SignalR connection established");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to initialize SignalR connection");
+        }
+    }
+
+    private Task OnConnectionClosed(Exception? error)
+    {
+        if (error != null)
+        {
+            Logger.LogWarning(error, "SignalR connection closed with error");
+        }
+        else
+        {
+            Logger.LogInformation("SignalR connection closed");
+        }
+        return Task.CompletedTask;
+    }
+
+    private Task OnReconnecting(Exception? error)
+    {
+        Logger.LogInformation("SignalR reconnecting...");
+        return Task.CompletedTask;
+    }
+
+    private Task OnReconnected(string? connectionId)
+    {
+        Logger.LogInformation("SignalR reconnected: {ConnectionId}", connectionId);
+        return Task.CompletedTask;
+    }
+
+    private async Task OnSensorUpdate(string sensorId, decimal temperature, long timestamp)
+    {
+        if (_sensorSeriesIds.TryGetValue(sensorId, out var seriesId))
+        {
+            await ChartService.UpdateDataAsync(seriesId, new ChartDataPoint(timestamp, temperature));
+        }
+
+        var sensor = _sensorData.FirstOrDefault(s => s.SensorId.Value == sensorId);
+        if (sensor != null)
+        {
+            var newReading = new GetAllSensorsHistory.DataPoint(
+                Temperature.FromCelsius(temperature),
+                DateTimeOffset.FromUnixTimeSeconds(timestamp));
+
+            var readings = sensor.Readings.ToList();
+            readings.Add(newReading);
+
+            var index = _sensorData.IndexOf(sensor);
+            _sensorData[index] = sensor with { Readings = readings };
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void OnTimeRangeChangedCallback()
+    {
+        InvokeAsync(async () =>
+        {
+            await ReloadChartsAsync();
+            StateHasChanged();
+        });
+    }
+
+    private async Task OnTimeRangeChange(TimeSpan range)
+    {
+        ChartState.SetTimeRange(range);
+    }
+
+    private async Task ReloadChartsAsync()
+    {
+        if (_indoorChartId != null)
+        {
+            await ChartService.DestroyChartAsync(_indoorChartId);
+            _indoorChartId = null;
+            _sensorSeriesIds.Clear();
+        }
+
+        await LoadDataAsync();
+
+        if (_hasIndoorData)
+        {
+            await InitializeChartsAsync();
+        }
+    }
+
+    private static string FormatLatestTemperature(GetAllSensorsHistory.SensorData sensor)
+    {
+        var latest = sensor.Readings.MaxBy(r => r.Timestamp);
+        return latest?.Temperature.ToString() ?? "--";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        ChartState.TimeRangeChanged -= OnTimeRangeChangedCallback;
+
+        if (_hubConnection != null)
+        {
+            await _hubConnection.DisposeAsync();
+        }
+
+        if (_indoorChartId != null)
+        {
+            await ChartService.DestroyChartAsync(_indoorChartId);
+        }
+    }
+}

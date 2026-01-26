@@ -1,0 +1,68 @@
+@inject DialogService DialogService
+@inject IQueryHandler<GetAllSensorsHistory.Query, GetAllSensorsHistory.Data> SensorQueryHandler
+
+<RadzenStack Gap="1rem">
+    @if (_isLoading)
+    {
+        <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
+    }
+    else if (_sensors.Count == 0)
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Info" Shade="Shade.Dark">
+            Brak zarejestrowanych sensorów
+        </RadzenAlert>
+    }
+    else
+    {
+        <RadzenText TextStyle="TextStyle.Subtitle1">Etykiety sensorów</RadzenText>
+        <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--color-gray);">
+            Funkcja edycji etykiet będzie dostępna w przyszłej wersji
+        </RadzenText>
+
+        @foreach (var sensor in _sensors)
+        {
+            <RadzenCard>
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                    <RadzenIcon Icon="sensors" Style="color: var(--color-blue);" />
+                    <RadzenStack Gap="0">
+                        <RadzenText TextStyle="TextStyle.Body1">@sensor.DisplayName</RadzenText>
+                        <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--color-gray);">
+                            ID: @sensor.SensorId.Value
+                        </RadzenText>
+                    </RadzenStack>
+                </RadzenStack>
+            </RadzenCard>
+        }
+    }
+
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.End" Gap="0.5rem">
+        <RadzenButton Text="Zamknij" ButtonStyle="ButtonStyle.Light" Click="@OnClose" />
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+    private List<GetAllSensorsHistory.SensorData> _sensors = [];
+    private bool _isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var query = new GetAllSensorsHistory.Query(
+                DateTimeOffset.UtcNow.AddHours(-1),
+                DateTimeOffset.UtcNow);
+
+            var result = await SensorQueryHandler.HandleAsync(query);
+            _sensors = result.Sensors.ToList();
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void OnClose()
+    {
+        DialogService.Close();
+    }
+}
