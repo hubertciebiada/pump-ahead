@@ -19,19 +19,30 @@ public class HeatPumpConfiguration : IEntityTypeConfiguration<HeatPumpEntity>
         builder.Property(hp => hp.LastSyncTime)
             .IsRequired();
 
+        builder.Property(hp => hp.IsOn)
+            .IsRequired();
+
         builder.Property(hp => hp.OperatingMode)
             .IsRequired();
 
-        builder.Property(hp => hp.CH_FlowTemperature)
+        builder.Property(hp => hp.PumpFlow)
+            .HasPrecision(6, 2)
+            .IsRequired();
+
+        builder.Property(hp => hp.OutsideTemperature)
             .HasPrecision(5, 2)
             .IsRequired();
 
-        builder.Property(hp => hp.CH_ReturnTemperature)
+        builder.Property(hp => hp.CH_InletTemperature)
             .HasPrecision(5, 2)
             .IsRequired();
 
-        builder.Property(hp => hp.CH_Offset)
-            .HasPrecision(4, 2)
+        builder.Property(hp => hp.CH_OutletTemperature)
+            .HasPrecision(5, 2)
+            .IsRequired();
+
+        builder.Property(hp => hp.CH_TargetTemperature)
+            .HasPrecision(5, 2)
             .IsRequired();
 
         builder.Property(hp => hp.DHW_ActualTemperature)
@@ -40,10 +51,6 @@ public class HeatPumpConfiguration : IEntityTypeConfiguration<HeatPumpEntity>
 
         builder.Property(hp => hp.DHW_TargetTemperature)
             .HasPrecision(5, 2)
-            .IsRequired();
-
-        builder.Property(hp => hp.DHW_Delta)
-            .HasPrecision(4, 2)
             .IsRequired();
 
         builder.Property(hp => hp.Compressor_Frequency)

@@ -28,15 +28,15 @@ namespace PumpAhead.Adapters.Out.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<decimal>("CH_FlowTemperature")
+                    b.Property<decimal>("CH_InletTemperature")
                         .HasPrecision(5, 2)
                         .HasColumnType("decimal(5,2)");
 
-                    b.Property<decimal>("CH_Offset")
-                        .HasPrecision(4, 2)
-                        .HasColumnType("decimal(4,2)");
+                    b.Property<decimal>("CH_OutletTemperature")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
 
-                    b.Property<decimal>("CH_ReturnTemperature")
+                    b.Property<decimal>("CH_TargetTemperature")
                         .HasPrecision(5, 2)
                         .HasColumnType("decimal(5,2)");
 
@@ -48,13 +48,12 @@ namespace PumpAhead.Adapters.Out.Migrations
                         .HasPrecision(5, 2)
                         .HasColumnType("decimal(5,2)");
 
-                    b.Property<decimal>("DHW_Delta")
-                        .HasPrecision(4, 2)
-                        .HasColumnType("decimal(4,2)");
-
                     b.Property<decimal>("DHW_TargetTemperature")
                         .HasPrecision(5, 2)
                         .HasColumnType("decimal(5,2)");
+
+                    b.Property<bool>("IsOn")
+                        .HasColumnType("bit");
 
                     b.Property<DateTimeOffset>("LastSyncTime")
                         .HasColumnType("datetimeoffset");
@@ -66,6 +65,14 @@ namespace PumpAhead.Adapters.Out.Migrations
 
                     b.Property<int>("OperatingMode")
                         .HasColumnType("int");
+
+                    b.Property<decimal>("OutsideTemperature")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("PumpFlow")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("decimal(6,2)");
 
                     b.HasKey("Id");
 
