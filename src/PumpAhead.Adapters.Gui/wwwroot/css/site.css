@@ -79,6 +79,7 @@ html, body {
     border-radius: 8px;
     padding: 1rem;
     margin-bottom: 1rem;
+    overflow: hidden;
 }
 
 .chart-title {
@@ -91,6 +92,8 @@ html, body {
 .chart-wrapper {
     height: calc(100% - 2rem);
     width: 100%;
+    position: relative;
+    overflow: hidden;
 }
 
 .charts-row {
