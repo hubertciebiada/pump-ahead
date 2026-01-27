@@ -16,6 +16,7 @@ public static partial class ServiceCollectionExtensions
 
         services.AddScoped<ITemperatureRepository, SqlServerTemperatureRepository>();
         services.AddScoped<ISensorRepository, SqlServerSensorRepository>();
+        services.AddScoped<IHeatPumpRepository, SqlServerHeatPumpRepository>();
 
         return services;
     }
