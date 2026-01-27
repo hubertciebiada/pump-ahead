@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.SignalR;
+using PumpAhead.Adapters.Gui.Hubs;
 using PumpAhead.DeepModel.ValueObjects;
-using PumpAhead.Startup.Hubs;
 using PumpAhead.UseCases.Ports.Out;
 
-namespace PumpAhead.Startup.Services;
+namespace PumpAhead.Adapters.Gui.Services;
 
 public sealed class SignalRSensorNotificationService(
     IHubContext<SensorHub, ISensorHubClient> hubContext) : ISensorNotificationService

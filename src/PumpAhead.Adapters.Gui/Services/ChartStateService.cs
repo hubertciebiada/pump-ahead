@@ -1,4 +1,4 @@
-namespace PumpAhead.Startup.Services;
+namespace PumpAhead.Adapters.Gui.Services;
 
 public sealed class ChartStateService
 {

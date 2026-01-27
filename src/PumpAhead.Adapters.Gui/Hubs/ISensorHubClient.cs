@@ -1,4 +1,4 @@
-namespace PumpAhead.Startup.Hubs;
+namespace PumpAhead.Adapters.Gui.Hubs;
 
 public interface ISensorHubClient
 {

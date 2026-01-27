@@ -1,7 +1,7 @@
 using PumpAhead.Adapters.Api;
+using PumpAhead.Adapters.Gui;
 using PumpAhead.Startup.Configuration;
 using PumpAhead.Startup.Extensions;
-using PumpAhead.Startup.Hubs;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
@@ -18,17 +18,14 @@ try
 
     builder.Services.AddAdapters(builder.Configuration);
     builder.Services.AddUseCases();
-    builder.Services.AddBlazor();
+    builder.Services.AddGui();
 
     var app = builder.Build();
 
-    app.UseStaticFiles();
     app.UseRouting();
 
     app.MapSensorEndpoints();
-    app.MapBlazorHub();
-    app.MapHub<SensorHub>("/hubs/sensors");
-    app.MapFallbackToPage("/_Host");
+    app.MapGui();
 
     Log.Information("PumpAhead starting up");
     app.Run();

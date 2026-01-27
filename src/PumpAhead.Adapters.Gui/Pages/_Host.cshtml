@@ -1,5 +1,5 @@
 @page "/"
-@namespace PumpAhead.Startup.Pages
+@namespace PumpAhead.Adapters.Gui.Pages
 @addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
 <!DOCTYPE html>
 <html lang="en">
@@ -9,13 +9,13 @@
     <title>PumpAhead</title>
     <base href="~/" />
     <link href="_content/Radzen.Blazor/css/material-dark-base.css" rel="stylesheet" />
-    <link href="css/site.css" rel="stylesheet" />
+    <link href="_content/PumpAhead.Adapters.Gui/css/site.css" rel="stylesheet" />
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
-    <component type="typeof(PumpAhead.Startup.App)" render-mode="ServerPrerendered" />
+    <component type="typeof(PumpAhead.Adapters.Gui.App)" render-mode="ServerPrerendered" />
     <script src="_framework/blazor.server.js"></script>
     <script src="_content/Radzen.Blazor/Radzen.Blazor.js"></script>
-    <script src="js/charts.js" type="module"></script>
+    <script src="_content/PumpAhead.Adapters.Gui/js/charts.js" type="module"></script>
 </body>
 </html>
