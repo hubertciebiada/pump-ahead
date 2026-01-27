@@ -7,6 +7,7 @@ public class PumpAheadDbContext(DbContextOptions<PumpAheadDbContext> options) : 
 {
     public DbSet<SensorEntity> Sensors => Set<SensorEntity>();
     public DbSet<TemperatureReadingEntity> TemperatureReadings => Set<TemperatureReadingEntity>();
+    public DbSet<HeatPumpEntity> HeatPumps => Set<HeatPumpEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
