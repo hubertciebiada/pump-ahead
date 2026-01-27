@@ -1,6 +1,6 @@
 using Microsoft.JSInterop;
 
-namespace PumpAhead.Startup.Services;
+namespace PumpAhead.Adapters.Gui.Services;
 
 public sealed class LightweightChartsService : IAsyncDisposable
 {
@@ -10,7 +10,7 @@ public sealed class LightweightChartsService : IAsyncDisposable
     public LightweightChartsService(IJSRuntime jsRuntime)
     {
         _moduleTask = new(() => jsRuntime.InvokeAsync<IJSObjectReference>(
-            "import", "./js/charts.js").AsTask());
+            "import", "./_content/PumpAhead.Adapters.Gui/js/charts.js").AsTask());
     }
 
     public async Task<string?> InitializeChartAsync(string containerId, ChartOptions? options = null)

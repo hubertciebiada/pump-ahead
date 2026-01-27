@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
 
-namespace PumpAhead.Startup.Hubs;
+namespace PumpAhead.Adapters.Gui.Hubs;
 
 public sealed class SensorHub : Hub<ISensorHubClient>
 {
