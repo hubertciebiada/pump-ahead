@@ -51,13 +51,15 @@ public class SqlServerHeatPumpRepository(PumpAheadDbContext context) : IHeatPump
         {
             existing.Model = heatPump.Model;
             existing.LastSyncTime = heatPump.LastSyncTime;
+            existing.IsOn = heatPump.IsOn;
             existing.OperatingMode = (int)heatPump.OperatingMode;
-            existing.CH_FlowTemperature = heatPump.CentralHeating.FlowTemperature.Celsius;
-            existing.CH_ReturnTemperature = heatPump.CentralHeating.ReturnTemperature.Celsius;
-            existing.CH_Offset = heatPump.CentralHeating.Offset.Celsius;
+            existing.PumpFlow = heatPump.PumpFlow.LitersPerMinute;
+            existing.OutsideTemperature = heatPump.OutsideTemperature.Celsius;
+            existing.CH_InletTemperature = heatPump.CentralHeating.InletTemperature.Celsius;
+            existing.CH_OutletTemperature = heatPump.CentralHeating.OutletTemperature.Celsius;
+            existing.CH_TargetTemperature = heatPump.CentralHeating.TargetTemperature.Celsius;
             existing.DHW_ActualTemperature = heatPump.DomesticHotWater.ActualTemperature.Celsius;
             existing.DHW_TargetTemperature = heatPump.DomesticHotWater.TargetTemperature.Celsius;
-            existing.DHW_Delta = heatPump.DomesticHotWater.Delta.Celsius;
             existing.Compressor_Frequency = heatPump.Compressor.Frequency.Hertz;
         }
 
@@ -73,14 +75,13 @@ public class SqlServerHeatPumpRepository(PumpAheadDbContext context) : IHeatPump
     private static HeatPump MapToDomain(HeatPumpEntity entity)
     {
         var centralHeating = CentralHeatingData.Create(
-            FlowTemperature.FromCelsius(entity.CH_FlowTemperature),
-            ReturnTemperature.FromCelsius(entity.CH_ReturnTemperature),
-            TemperatureOffset.FromCelsius(entity.CH_Offset));
+            WaterTemperature.FromCelsius(entity.CH_InletTemperature),
+            WaterTemperature.FromCelsius(entity.CH_OutletTemperature),
+            WaterTemperature.FromCelsius(entity.CH_TargetTemperature));
 
         var domesticHotWater = DomesticHotWaterData.Create(
             DhwTemperature.FromCelsius(entity.DHW_ActualTemperature),
-            DhwTemperature.FromCelsius(entity.DHW_TargetTemperature),
-            TemperatureOffset.FromCelsius(entity.DHW_Delta));
+            DhwTemperature.FromCelsius(entity.DHW_TargetTemperature));
 
         var compressor = CompressorData.Create(
             Frequency.FromHertz(entity.Compressor_Frequency));
@@ -89,7 +90,10 @@ public class SqlServerHeatPumpRepository(PumpAheadDbContext context) : IHeatPump
             HeatPumpId.From(entity.Id),
             entity.Model,
             entity.LastSyncTime,
+            entity.IsOn,
             (OperatingMode)entity.OperatingMode,
+            PumpFlow.FromLitersPerMinute(entity.PumpFlow),
+            OutsideTemperature.FromCelsius(entity.OutsideTemperature),
             centralHeating,
             domesticHotWater,
             compressor);
@@ -102,13 +106,15 @@ public class SqlServerHeatPumpRepository(PumpAheadDbContext context) : IHeatPump
             Id = heatPump.Id.Value,
             Model = heatPump.Model,
             LastSyncTime = heatPump.LastSyncTime,
+            IsOn = heatPump.IsOn,
             OperatingMode = (int)heatPump.OperatingMode,
-            CH_FlowTemperature = heatPump.CentralHeating.FlowTemperature.Celsius,
-            CH_ReturnTemperature = heatPump.CentralHeating.ReturnTemperature.Celsius,
-            CH_Offset = heatPump.CentralHeating.Offset.Celsius,
+            PumpFlow = heatPump.PumpFlow.LitersPerMinute,
+            OutsideTemperature = heatPump.OutsideTemperature.Celsius,
+            CH_InletTemperature = heatPump.CentralHeating.InletTemperature.Celsius,
+            CH_OutletTemperature = heatPump.CentralHeating.OutletTemperature.Celsius,
+            CH_TargetTemperature = heatPump.CentralHeating.TargetTemperature.Celsius,
             DHW_ActualTemperature = heatPump.DomesticHotWater.ActualTemperature.Celsius,
             DHW_TargetTemperature = heatPump.DomesticHotWater.TargetTemperature.Celsius,
-            DHW_Delta = heatPump.DomesticHotWater.Delta.Celsius,
             Compressor_Frequency = heatPump.Compressor.Frequency.Hertz
         };
     }

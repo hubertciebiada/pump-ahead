@@ -1,19 +1,16 @@
 namespace PumpAhead.DeepModel.ValueObjects;
 
+/// <summary>
+/// Domestic hot water temperature as reported by the heat pump.
+/// Heishamon TOP9 (target) and TOP10 (actual).
+/// No restrictive range — actual tank temperature can be any value.
+/// </summary>
 public readonly record struct DhwTemperature : IComparable<DhwTemperature>
 {
-    private const decimal MinValue = 40m;
-    private const decimal MaxValue = 60m;
-
     public decimal Celsius { get; }
 
     private DhwTemperature(decimal celsius)
     {
-        if (celsius < MinValue || celsius > MaxValue)
-            throw new ArgumentOutOfRangeException(
-                nameof(celsius),
-                $"DHW temperature must be between {MinValue}°C and {MaxValue}°C");
-
         Celsius = celsius;
     }
 
