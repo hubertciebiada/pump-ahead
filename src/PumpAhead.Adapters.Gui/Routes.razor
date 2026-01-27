@@ -1,4 +1,4 @@
-@rendermode RenderMode.InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <Router AppAssembly="@typeof(Routes).Assembly">
     <Found Context="routeData">
