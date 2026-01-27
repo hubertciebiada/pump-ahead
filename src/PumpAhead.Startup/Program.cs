@@ -22,8 +22,9 @@ try
 
     var app = builder.Build();
 
-    app.UseRouting();
+    app.UseAntiforgery();
 
+    app.MapStaticAssets();
     app.MapSensorEndpoints();
     app.MapGui();
 

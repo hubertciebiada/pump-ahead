@@ -11,8 +11,8 @@ public static class GuiExtensions
 {
     public static IServiceCollection AddGui(this IServiceCollection services)
     {
-        services.AddRazorPages();
-        services.AddServerSideBlazor();
+        services.AddRazorComponents()
+            .AddInteractiveServerComponents();
         services.AddRadzenComponents();
         services.AddSignalR();
         services.AddScoped<LightweightChartsService>();
@@ -24,10 +24,9 @@ public static class GuiExtensions
 
     public static WebApplication MapGui(this WebApplication app)
     {
-        app.UseStaticFiles();
-        app.MapBlazorHub();
+        app.MapRazorComponents<App>()
+            .AddInteractiveServerRenderMode();
         app.MapHub<SensorHub>("/hubs/sensors");
-        app.MapFallbackToPage("/_Host");
 
         return app;
     }
