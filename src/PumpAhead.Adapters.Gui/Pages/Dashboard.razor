@@ -4,204 +4,159 @@
 @inject IQueryHandler<GetWeatherForecast.Query, GetWeatherForecast.Data> WeatherForecastHandler
 @inject IQueryHandler<GetTemperature.Query, GetTemperature.Data?> TemperatureHandler
 @inject LightweightChartsService ChartService
-@inject ChartStateService ChartState
 @inject NavigationManager NavigationManager
 @inject ILogger<Dashboard> Logger
 
 <PageTitle>Dashboard - PumpAhead</PageTitle>
 
-<div class="time-range-selector">
-    @foreach (var range in ChartStateService.AvailableRanges)
-    {
-        <RadzenButton
-            Text="@ChartStateService.FormatRange(range)"
-            ButtonStyle="@(ChartState.TimeRange == range ? ButtonStyle.Primary : ButtonStyle.Light)"
-            Size="ButtonSize.Small"
-            Click="@(() => OnTimeRangeChange(range))" />
-    }
-</div>
+<div class="dashboard-layout">
+    <div class="charts-column">
+        <div class="chart-container">
+            <div class="chart-title">Temperatura zewnętrzna</div>
+            <div id="chart-outdoor" class="chart-wrapper">
+                @if (!_hasOutdoorData)
+                {
+                    <div class="no-data-message">Brak danych pogodowych</div>
+                }
+            </div>
+        </div>
 
-<div class="charts-row">
-    <div class="chart-container">
-        <div class="chart-title">Temperatura zewnętrzna</div>
-        <div id="chart-outdoor" class="chart-wrapper">
-            @if (!_hasOutdoorData)
-            {
-                <div class="no-data-message">Brak danych pogodowych</div>
-            }
+        <div class="chart-container">
+            <div class="chart-title">Centralne Ogrzewanie</div>
+            <div id="chart-heating" class="chart-wrapper">
+                @if (!_hasHeatingData)
+                {
+                    <div class="no-data-message">Brak danych (Heishamon - Faza 1)</div>
+                }
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <div class="chart-title">Temperatura wewnętrzna</div>
+            <div id="chart-indoor" class="chart-wrapper">
+                @if (!_hasIndoorData)
+                {
+                    <div class="no-data-message">Brak danych z sensorów</div>
+                }
+            </div>
         </div>
     </div>
 
-    <div class="chart-container">
-        <div class="chart-title">Centralne Ogrzewanie</div>
-        <div id="chart-heating" class="chart-wrapper">
-            @if (!_hasHeatingData)
+    <div class="data-panel">
+        <div class="panel-section">
+            <div class="section-title">Otoczenie</div>
+            @foreach (var sensor in _sensorData)
             {
-                <div class="no-data-message">Brak danych (Heishamon - Faza 1)</div>
-            }
-        </div>
-    </div>
-
-    <div class="chart-container">
-        <div class="chart-title">Temperatura wewnętrzna</div>
-        <div id="chart-indoor" class="chart-wrapper">
-            @if (!_hasIndoorData)
-            {
-                <div class="no-data-message">Brak danych z sensorów</div>
-            }
-        </div>
-    </div>
-</div>
-
-<div class="cards-row">
-    <div class="data-card">
-        <div class="data-card-title">Otoczenie</div>
-        @foreach (var sensor in _sensorData)
-        {
-            <div class="data-card-row">
-                <div class="data-card-icon">
+                <div class="panel-row">
                     <RadzenIcon Icon="home" Style="color: var(--color-blue);" />
+                    <span class="panel-label">@sensor.DisplayName</span>
+                    <span class="panel-value">@FormatLatestTemperature(sensor)</span>
                 </div>
-                <div class="data-card-label">@sensor.DisplayName</div>
-                <div class="data-card-value">@FormatLatestTemperature(sensor)</div>
-            </div>
-        }
-        <div class="data-card-row">
-            <div class="data-card-icon">
+            }
+            <div class="panel-row">
                 <RadzenIcon Icon="thermostat" Style="color: var(--color-green);" />
+                <span class="panel-label">Wewn. oczekiwana</span>
+                <span class="panel-value">@TargetTemperature.ToString()</span>
             </div>
-            <div class="data-card-label">Wewnętrzna (oczekiwana)</div>
-            <div class="data-card-value">@TargetTemperature.ToString()</div>
-        </div>
-        <div class="data-card-row">
-            <div class="data-card-icon">
+            <div class="panel-row">
                 <RadzenIcon Icon="cloud" Style="color: var(--color-cyan);" />
+                <span class="panel-label">Zewn. aktualna</span>
+                <span class="panel-value">-- (Faza 1)</span>
             </div>
-            <div class="data-card-label">Zewnętrzna (aktualna)</div>
-            <div class="data-card-value">-- (Faza 1)</div>
-        </div>
-        <div class="data-card-row">
-            <div class="data-card-icon">
+            <div class="panel-row">
                 <RadzenIcon Icon="schedule" Style="color: var(--color-orange);" />
+                <span class="panel-label">Zewn. +6h</span>
+                <span class="panel-value">@FormatForecastTemp(6)</span>
             </div>
-            <div class="data-card-label">Zewnętrzna (+6h)</div>
-            <div class="data-card-value">@FormatForecastTemp(6)</div>
-        </div>
-        <div class="data-card-row">
-            <div class="data-card-icon">
+            <div class="panel-row">
                 <RadzenIcon Icon="trending_up" Style="color: var(--color-gray);" />
+                <span class="panel-label">Korekta emp.</span>
+                <span class="panel-value">-- (Faza 1)</span>
             </div>
-            <div class="data-card-label">Korekta empiryczna</div>
-            <div class="data-card-value">-- (Faza 1)</div>
         </div>
-    </div>
 
-    <div class="data-card">
-        <div class="data-card-title">CO (Centralne Ogrzewanie)</div>
-        <div class="data-card-row">
-            <div class="data-card-icon">
+        <div class="panel-section">
+            <div class="section-title">CO</div>
+            <div class="panel-row">
                 <RadzenIcon Icon="show_chart" Style="color: var(--color-gray);" />
+                <span class="panel-label">Zasil. wg krzywej</span>
+                <span class="panel-value">-- (Faza 1)</span>
             </div>
-            <div class="data-card-label">Zasilanie wg krzywej</div>
-            <div class="data-card-value">-- (Faza 1)</div>
-        </div>
-        <div class="data-card-row">
-            <div class="data-card-icon">
+            <div class="panel-row">
                 <RadzenIcon Icon="timer" Style="color: var(--color-cyan);" />
+                <span class="panel-label">Offset</span>
+                <span class="panel-value">-- (Faza 1)</span>
             </div>
-            <div class="data-card-label">Offset</div>
-            <div class="data-card-value">-- (Faza 1)</div>
-        </div>
-        <div class="data-card-row">
-            <div class="data-card-icon">
+            <div class="panel-row">
                 <RadzenIcon Icon="calculate" Style="color: var(--color-blue);" />
+                <span class="panel-label">Zasil. z offsetem</span>
+                <span class="panel-value">-- (Faza 1)</span>
             </div>
-            <div class="data-card-label">Zasilanie z offsetem</div>
-            <div class="data-card-value">-- (Faza 1)</div>
-        </div>
-        <div class="data-card-row">
-            <div class="data-card-icon">
+            <div class="panel-row">
                 <RadzenIcon Icon="tune" Style="color: var(--color-orange);" />
+                <span class="panel-label">Zasil. zadane</span>
+                <span class="panel-value">-- (Faza 1)</span>
             </div>
-            <div class="data-card-label">Zasilanie zadane</div>
-            <div class="data-card-value">-- (Faza 1)</div>
-        </div>
-        <div class="data-card-row">
-            <div class="data-card-icon">
+            <div class="panel-row">
                 <RadzenIcon Icon="opacity" Style="color: var(--color-red);" />
+                <span class="panel-label">Zasil. faktyczne</span>
+                <span class="panel-value">-- (Faza 1)</span>
             </div>
-            <div class="data-card-label">Zasilanie faktyczne</div>
-            <div class="data-card-value">-- (Faza 1)</div>
-        </div>
-        <div class="data-card-row">
-            <div class="data-card-icon">
+            <div class="panel-row">
                 <RadzenIcon Icon="water_drop" Style="color: var(--color-gray);" />
+                <span class="panel-label">Powrót fakt.</span>
+                <span class="panel-value">-- (Faza 1)</span>
             </div>
-            <div class="data-card-label">Powrót faktyczny</div>
-            <div class="data-card-value">-- (Faza 1)</div>
         </div>
-    </div>
 
-    <div class="data-card">
-        <div class="data-card-title">CWU (Ciepła Woda Użytkowa)</div>
-        <div class="data-card-row">
-            <div class="data-card-icon">
+        <div class="panel-section">
+            <div class="section-title">CWU</div>
+            <div class="panel-row">
                 <RadzenIcon Icon="bathtub" Style="color: var(--color-orange);" />
+                <span class="panel-label">Zadana</span>
+                <span class="panel-value">-- (Faza 1)</span>
             </div>
-            <div class="data-card-label">Zadana</div>
-            <div class="data-card-value">-- (Faza 1)</div>
-        </div>
-        <div class="data-card-row">
-            <div class="data-card-icon">
+            <div class="panel-row">
                 <RadzenIcon Icon="hot_tub" Style="color: var(--color-red);" />
+                <span class="panel-label">Aktualna</span>
+                <span class="panel-value">-- (Faza 1)</span>
             </div>
-            <div class="data-card-label">Aktualna</div>
-            <div class="data-card-value">-- (Faza 1)</div>
-        </div>
-        <div class="data-card-row">
-            <div class="data-card-icon">
+            <div class="panel-row">
                 <RadzenIcon Icon="swap_vert" Style="color: var(--color-cyan);" />
+                <span class="panel-label">Delta wygrz.</span>
+                <span class="panel-value">-- (Faza 1)</span>
             </div>
-            <div class="data-card-label">Delta wygrzewania</div>
-            <div class="data-card-value">-- (Faza 1)</div>
-        </div>
-        <div class="data-card-row">
-            <div class="data-card-icon">
+            <div class="panel-row">
                 <RadzenIcon Icon="wb_sunny" Style="color: var(--color-green);" />
+                <span class="panel-label">Suger. godz. wygrz.</span>
+                <span class="panel-value">-- (Faza 1)</span>
             </div>
-            <div class="data-card-label">Sugerowana godz. wygrzewania</div>
-            <div class="data-card-value">-- (Faza 1)</div>
         </div>
-    </div>
 
-    <div class="data-card">
-        <div class="data-card-title">Sprężarka</div>
-        <div class="data-card-row">
-            <div class="data-card-icon">
+        <div class="panel-section">
+            <div class="section-title">Sprężarka</div>
+            <div class="panel-row">
                 <RadzenIcon Icon="speed" Style="color: var(--color-blue);" />
+                <span class="panel-label">Częstotliwość</span>
+                <span class="panel-value">-- (Faza 1)</span>
             </div>
-            <div class="data-card-label">Częstotliwość</div>
-            <div class="data-card-value">-- (Faza 1)</div>
-        </div>
-        <div class="data-card-row">
-            <div class="data-card-icon">
+            <div class="panel-row">
                 <RadzenIcon Icon="replay" Style="color: var(--color-orange);" />
+                <span class="panel-label">Cykle wł./wył.</span>
+                <span class="panel-value">-- (Faza 1)</span>
             </div>
-            <div class="data-card-label">Cykle włącz/wyłącz</div>
-            <div class="data-card-value">-- (Faza 1)</div>
-        </div>
-        <div class="data-card-row">
-            <div class="data-card-icon">
+            <div class="panel-row">
                 <RadzenIcon Icon="access_time" Style="color: var(--color-cyan);" />
+                <span class="panel-label">Czas pracy</span>
+                <span class="panel-value">-- (Faza 1)</span>
             </div>
-            <div class="data-card-label">Czas pracy</div>
-            <div class="data-card-value">-- (Faza 1)</div>
         </div>
     </div>
 </div>
 
 @code {
     private static readonly Temperature TargetTemperature = Temperature.FromCelsius(22.0m);
+    private static readonly TimeSpan TimeRange = TimeSpan.FromHours(24);
 
     private static readonly string[] SensorColors = ["#2196f3", "#26c6da", "#4caf50", "#ff9800"];
 
@@ -221,7 +176,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        ChartState.TimeRangeChanged += OnTimeRangeChangedCallback;
         await LoadDataAsync();
         await LoadForecastAsync();
         _chartsNeedInit = true;
@@ -244,9 +198,8 @@
     {
         try
         {
-            var query = new GetAllSensorsHistory.Query(
-                ChartState.GetStartTime(),
-                ChartState.GetEndTime());
+            var now = DateTimeOffset.UtcNow;
+            var query = new GetAllSensorsHistory.Query(now - TimeRange, now);
 
             var result = await SensorHistoryHandler.HandleAsync(query);
             _sensorData = result.Sensors.ToList();
@@ -263,7 +216,7 @@
         try
         {
             var nextFullHour = NextFullHour(DateTimeOffset.UtcNow);
-            var query = new GetWeatherForecast.Query(nextFullHour, 13);
+            var query = new GetWeatherForecast.Query(nextFullHour, 25); // 24h + 1 for edge
             var result = await WeatherForecastHandler.HandleAsync(query);
             _forecastPoints = result.Points.ToList();
             _hasOutdoorData = _forecastPoints.Count > 0;
@@ -437,50 +390,6 @@
         });
     }
 
-    private void OnTimeRangeChangedCallback()
-    {
-        InvokeAsync(async () =>
-        {
-            await ReloadChartsAsync();
-            StateHasChanged();
-        });
-    }
-
-    private async Task OnTimeRangeChange(TimeSpan range)
-    {
-        ChartState.SetTimeRange(range);
-    }
-
-    private async Task ReloadChartsAsync()
-    {
-        if (_indoorChartId != null)
-        {
-            await ChartService.DestroyChartAsync(_indoorChartId);
-            _indoorChartId = null;
-            _sensorSeriesIds.Clear();
-        }
-
-        if (_outdoorChartId != null)
-        {
-            await ChartService.DestroyChartAsync(_outdoorChartId);
-            _outdoorChartId = null;
-            _forecastSeriesId = null;
-        }
-
-        await LoadDataAsync();
-        await LoadForecastAsync();
-
-        if (_hasIndoorData)
-        {
-            await InitializeIndoorChartAsync();
-        }
-
-        if (_hasOutdoorData)
-        {
-            await InitializeOutdoorChartAsync();
-        }
-    }
-
     private static string FormatLatestTemperature(GetAllSensorsHistory.SensorData sensor)
     {
         var latest = sensor.Readings.MaxBy(r => r.Timestamp);
@@ -502,14 +411,11 @@
 
     public async ValueTask DisposeAsync()
     {
-        ChartState.TimeRangeChanged -= OnTimeRangeChangedCallback;
-
         if (_hubConnection != null)
         {
             await _hubConnection.DisposeAsync();
         }
 
-        // Silently ignore JSDisconnectedException - circuit may already be closed
         try
         {
             if (_indoorChartId != null)
