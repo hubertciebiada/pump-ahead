@@ -1,37 +1,58 @@
 @inject DialogService DialogService
 @inject IQueryHandler<GetAllSensorsHistory.Query, GetAllSensorsHistory.Data> SensorQueryHandler
+@inject IOptions<WeatherSettings> WeatherSettingsOptions
 
 <RadzenStack Gap="1rem">
     @if (_isLoading)
     {
         <RadzenProgressBarCircular ShowValue="false" Mode="ProgressBarMode.Indeterminate" />
     }
-    else if (_sensors.Count == 0)
-    {
-        <RadzenAlert AlertStyle="AlertStyle.Info" Shade="Shade.Dark">
-            Brak zarejestrowanych sensorów
-        </RadzenAlert>
-    }
     else
     {
-        <RadzenText TextStyle="TextStyle.Subtitle1">Etykiety sensorów</RadzenText>
+        <RadzenText TextStyle="TextStyle.Subtitle1">Lokalizacja pogody</RadzenText>
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem">
+            <RadzenStack Gap="0.25rem" Style="flex: 1;">
+                <RadzenLabel Text="Szerokość (Latitude)" />
+                <RadzenNumeric @bind-Value="_latitude" ShowUpDown="false"
+                               Format="0.##############" Style="width: 100%;" />
+            </RadzenStack>
+            <RadzenStack Gap="0.25rem" Style="flex: 1;">
+                <RadzenLabel Text="Długość (Longitude)" />
+                <RadzenNumeric @bind-Value="_longitude" ShowUpDown="false"
+                               Format="0.##############" Style="width: 100%;" />
+            </RadzenStack>
+        </RadzenStack>
+        <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--color-gray);">
+            Zmiana lokalizacji wymaga restartu aplikacji (appsettings.json)
+        </RadzenText>
+
+        <RadzenText TextStyle="TextStyle.Subtitle1" Style="margin-top: 0.5rem;">Etykiety sensorów</RadzenText>
         <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--color-gray);">
             Funkcja edycji etykiet będzie dostępna w przyszłej wersji
         </RadzenText>
 
-        @foreach (var sensor in _sensors)
+        @if (_sensors.Count == 0)
         {
-            <RadzenCard>
-                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
-                    <RadzenIcon Icon="sensors" Style="color: var(--color-blue);" />
-                    <RadzenStack Gap="0">
-                        <RadzenText TextStyle="TextStyle.Body1">@sensor.DisplayName</RadzenText>
-                        <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--color-gray);">
-                            ID: @sensor.SensorId.Value
-                        </RadzenText>
+            <RadzenAlert AlertStyle="AlertStyle.Info" Shade="Shade.Dark">
+                Brak zarejestrowanych sensorów
+            </RadzenAlert>
+        }
+        else
+        {
+            @foreach (var sensor in _sensors)
+            {
+                <RadzenCard>
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
+                        <RadzenIcon Icon="sensors" Style="color: var(--color-blue);" />
+                        <RadzenStack Gap="0">
+                            <RadzenText TextStyle="TextStyle.Body1">@sensor.DisplayName</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--color-gray);">
+                                ID: @sensor.SensorId.Value
+                            </RadzenText>
+                        </RadzenStack>
                     </RadzenStack>
-                </RadzenStack>
-            </RadzenCard>
+                </RadzenCard>
+            }
         }
     }
 
@@ -43,9 +64,15 @@
 @code {
     private List<GetAllSensorsHistory.SensorData> _sensors = [];
     private bool _isLoading = true;
+    private double _latitude;
+    private double _longitude;
 
     protected override async Task OnInitializedAsync()
     {
+        var weatherSettings = WeatherSettingsOptions.Value;
+        _latitude = weatherSettings.Latitude;
+        _longitude = weatherSettings.Longitude;
+
         try
         {
             var query = new GetAllSensorsHistory.Query(

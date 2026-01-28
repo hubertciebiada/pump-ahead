@@ -41,6 +41,7 @@ public sealed class LightweightChartsService : IAsyncDisposable
             color = options.Color,
             lineWidth = options.LineWidth,
             title = options.Title,
+            lineStyle = options.LineStyle,
         });
     }
 
@@ -106,7 +107,7 @@ public record ChartOptions(string BackgroundColor, string TextColor, string Grid
     public static ChartOptions Default => new("#1e1e1e", "#d4d4d4", "#333333");
 }
 
-public record LineSeriesOptions(string Color, int LineWidth = 2, string Title = "");
+public record LineSeriesOptions(string Color, int LineWidth = 2, string Title = "", int LineStyle = 0);
 
 public record PriceLineOptions(
     decimal Price,
