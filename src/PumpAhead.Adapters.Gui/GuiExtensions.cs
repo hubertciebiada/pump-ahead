@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using PumpAhead.Adapters.Gui.Hubs;
 using PumpAhead.Adapters.Gui.Services;
@@ -9,8 +10,9 @@ namespace PumpAhead.Adapters.Gui;
 
 public static class GuiExtensions
 {
-    public static IServiceCollection AddGui(this IServiceCollection services)
+    public static IServiceCollection AddGui(this IServiceCollection services, IConfiguration configuration)
     {
+        services.Configure<WeatherSettings>(configuration.GetSection("Weather"));
         services.AddRazorComponents()
             .AddInteractiveServerComponents();
         services.AddRadzenComponents();

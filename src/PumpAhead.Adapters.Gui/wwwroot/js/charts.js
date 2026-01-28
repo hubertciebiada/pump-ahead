@@ -58,6 +58,7 @@ export function addLineSeries(chartId, options) {
     const series = chart.addSeries(LightweightCharts.LineSeries, {
         color: options.color || '#2196f3',
         lineWidth: options.lineWidth || 2,
+        lineStyle: options.lineStyle || 0,
         title: options.title || '',
         priceFormat: {
             type: 'custom',

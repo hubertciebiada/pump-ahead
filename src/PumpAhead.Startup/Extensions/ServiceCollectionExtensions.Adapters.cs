@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using PumpAhead.Adapters.Out.Persistence.SqlServer;
 using PumpAhead.Adapters.Out.Persistence.SqlServer.Repositories;
+using PumpAhead.Adapters.Out.Weather;
 using PumpAhead.UseCases.Ports.Out;
 
 namespace PumpAhead.Startup.Extensions;
@@ -17,6 +18,9 @@ public static partial class ServiceCollectionExtensions
         services.AddScoped<ITemperatureRepository, SqlServerTemperatureRepository>();
         services.AddScoped<ISensorRepository, SqlServerSensorRepository>();
         services.AddScoped<IHeatPumpRepository, SqlServerHeatPumpRepository>();
+        services.AddScoped<IWeatherForecastRepository, SqlServerWeatherForecastRepository>();
+
+        services.AddHttpClient<IWeatherForecastProvider, OpenMeteoWeatherProvider>();
 
         return services;
     }

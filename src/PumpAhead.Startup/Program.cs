@@ -18,7 +18,8 @@ try
 
     builder.Services.AddAdapters(builder.Configuration);
     builder.Services.AddUseCases();
-    builder.Services.AddGui();
+    builder.Services.AddGui(builder.Configuration);
+    builder.Services.AddScheduler();
 
     var app = builder.Build();
 

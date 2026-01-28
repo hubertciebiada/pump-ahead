@@ -1,6 +1,7 @@
 @page "/"
 @implements IAsyncDisposable
 @inject IQueryHandler<GetAllSensorsHistory.Query, GetAllSensorsHistory.Data> SensorHistoryHandler
+@inject IQueryHandler<GetWeatherForecast.Query, GetWeatherForecast.Data> WeatherForecastHandler
 @inject IQueryHandler<GetTemperature.Query, GetTemperature.Data?> TemperatureHandler
 @inject LightweightChartsService ChartService
 @inject ChartStateService ChartState
@@ -26,7 +27,7 @@
         <div id="chart-outdoor" class="chart-wrapper">
             @if (!_hasOutdoorData)
             {
-                <div class="no-data-message">Brak danych (Heishamon - Faza 1)</div>
+                <div class="no-data-message">Brak danych pogodowych</div>
             }
         </div>
     </div>
@@ -84,7 +85,7 @@
                 <RadzenIcon Icon="schedule" Style="color: var(--color-orange);" />
             </div>
             <div class="data-card-label">Zewnętrzna (+6h)</div>
-            <div class="data-card-value">-- (Faza 1)</div>
+            <div class="data-card-value">@FormatForecastTemp(6)</div>
         </div>
         <div class="data-card-row">
             <div class="data-card-icon">
@@ -205,27 +206,37 @@
     private static readonly string[] SensorColors = ["#2196f3", "#26c6da", "#4caf50", "#ff9800"];
 
     private List<GetAllSensorsHistory.SensorData> _sensorData = [];
-    private bool _hasOutdoorData = false;
+    private List<GetWeatherForecast.ForecastPoint> _forecastPoints = [];
+    private bool _hasOutdoorData;
     private bool _hasHeatingData = false;
     private bool _hasIndoorData;
 
     private string? _indoorChartId;
+    private string? _outdoorChartId;
+    private string? _forecastSeriesId;
     private readonly Dictionary<string, string> _sensorSeriesIds = new();
 
     private HubConnection? _hubConnection;
+    private bool _chartsNeedInit;
 
     protected override async Task OnInitializedAsync()
     {
         ChartState.TimeRangeChanged += OnTimeRangeChangedCallback;
         await LoadDataAsync();
+        await LoadForecastAsync();
+        _chartsNeedInit = true;
         await InitializeSignalRAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && _hasIndoorData)
+        if (_chartsNeedInit)
         {
-            await InitializeChartsAsync();
+            _chartsNeedInit = false;
+            if (_hasIndoorData && _indoorChartId == null)
+                await InitializeIndoorChartAsync();
+            if (_hasOutdoorData && _outdoorChartId == null)
+                await InitializeOutdoorChartAsync();
         }
     }
 
@@ -247,7 +258,23 @@
         }
     }
 
-    private async Task InitializeChartsAsync()
+    private async Task LoadForecastAsync()
+    {
+        try
+        {
+            var nextFullHour = NextFullHour(DateTimeOffset.UtcNow);
+            var query = new GetWeatherForecast.Query(nextFullHour, 13);
+            var result = await WeatherForecastHandler.HandleAsync(query);
+            _forecastPoints = result.Points.ToList();
+            _hasOutdoorData = _forecastPoints.Count > 0;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load weather forecast");
+        }
+    }
+
+    private async Task InitializeIndoorChartAsync()
     {
         if (!_hasIndoorData) return;
 
@@ -289,6 +316,30 @@
         await ChartService.FitContentAsync(_indoorChartId);
     }
 
+    private async Task InitializeOutdoorChartAsync()
+    {
+        if (!_hasOutdoorData) return;
+
+        _outdoorChartId = await ChartService.InitializeChartAsync("chart-outdoor");
+        if (_outdoorChartId == null) return;
+
+        // Dashed line for forecast (LineStyle 2 = Dashed)
+        _forecastSeriesId = await ChartService.AddLineSeriesAsync(
+            _outdoorChartId,
+            new LineSeriesOptions("#ff9800", 2, "Prognoza", LineStyle: 2));
+
+        if (_forecastSeriesId != null)
+        {
+            var dataPoints = _forecastPoints
+                .Select(p => new ChartDataPoint(p.Timestamp.ToUnixTimeSeconds(), p.TemperatureCelsius))
+                .ToList();
+
+            await ChartService.SetDataAsync(_forecastSeriesId, dataPoints);
+        }
+
+        await ChartService.FitContentAsync(_outdoorChartId);
+    }
+
     private async Task InitializeSignalRAsync()
     {
         try
@@ -302,6 +353,7 @@
             _hubConnection.Reconnecting += OnReconnecting;
             _hubConnection.Reconnected += OnReconnected;
             _hubConnection.On<string, decimal, long>("ReceiveSensorUpdate", OnSensorUpdate);
+            _hubConnection.On("ReceiveWeatherForecastUpdate", OnWeatherForecastUpdate);
 
             await _hubConnection.StartAsync();
             Logger.LogInformation("SignalR connection established");
@@ -361,6 +413,28 @@
         await InvokeAsync(StateHasChanged);
     }
 
+    private async Task OnWeatherForecastUpdate()
+    {
+        await InvokeAsync(async () =>
+        {
+            await LoadForecastAsync();
+
+            if (_outdoorChartId != null)
+            {
+                await ChartService.DestroyChartAsync(_outdoorChartId);
+                _outdoorChartId = null;
+                _forecastSeriesId = null;
+            }
+
+            if (_hasOutdoorData)
+            {
+                await InitializeOutdoorChartAsync();
+            }
+
+            StateHasChanged();
+        });
+    }
+
     private void OnTimeRangeChangedCallback()
     {
         InvokeAsync(async () =>
@@ -384,11 +458,24 @@
             _sensorSeriesIds.Clear();
         }
 
+        if (_outdoorChartId != null)
+        {
+            await ChartService.DestroyChartAsync(_outdoorChartId);
+            _outdoorChartId = null;
+            _forecastSeriesId = null;
+        }
+
         await LoadDataAsync();
+        await LoadForecastAsync();
 
         if (_hasIndoorData)
         {
-            await InitializeChartsAsync();
+            await InitializeIndoorChartAsync();
+        }
+
+        if (_hasOutdoorData)
+        {
+            await InitializeOutdoorChartAsync();
         }
     }
 
@@ -396,6 +483,19 @@
     {
         var latest = sensor.Readings.MaxBy(r => r.Timestamp);
         return latest?.Temperature.ToString() ?? "--";
+    }
+
+    private string FormatForecastTemp(int hoursAhead)
+    {
+        var target = NextFullHour(DateTimeOffset.UtcNow).AddHours(hoursAhead);
+        var closest = _forecastPoints.MinBy(p => Math.Abs((p.Timestamp - target).TotalMinutes));
+        return closest != null ? $"{closest.TemperatureCelsius:F1}\u00B0C" : "--";
+    }
+
+    private static DateTimeOffset NextFullHour(DateTimeOffset now)
+    {
+        var truncated = new DateTimeOffset(now.Year, now.Month, now.Day, now.Hour, 0, 0, now.Offset);
+        return truncated.AddHours(1);
     }
 
     public async ValueTask DisposeAsync()
@@ -407,9 +507,22 @@
             await _hubConnection.DisposeAsync();
         }
 
-        if (_indoorChartId != null)
+        // Silently ignore JSDisconnectedException - circuit may already be closed
+        try
         {
-            await ChartService.DestroyChartAsync(_indoorChartId);
+            if (_indoorChartId != null)
+            {
+                await ChartService.DestroyChartAsync(_indoorChartId);
+            }
+
+            if (_outdoorChartId != null)
+            {
+                await ChartService.DestroyChartAsync(_outdoorChartId);
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+            // Circuit already disconnected, charts will be cleaned up by browser
         }
     }
 }
