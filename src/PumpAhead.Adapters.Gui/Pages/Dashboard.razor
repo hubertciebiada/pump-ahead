@@ -285,7 +285,9 @@
         foreach (var sensor in _sensorData.Where(s => s.Readings.Count > 0))
         {
             var color = SensorColors[colorIndex % SensorColors.Length];
-            var seriesId = await ChartService.AddLineSeriesAsync(_indoorChartId, new LineSeriesOptions(color, 2, sensor.DisplayName));
+            var seriesId = await ChartService.AddLineSeriesAsync(
+                _indoorChartId,
+                new LineSeriesOptions(color, 2, sensor.DisplayName, PriceRangeMin: 18m, PriceRangeMax: 25m));
 
             if (seriesId != null)
             {
@@ -326,7 +328,7 @@
         // Dashed line for forecast (LineStyle 2 = Dashed)
         _forecastSeriesId = await ChartService.AddLineSeriesAsync(
             _outdoorChartId,
-            new LineSeriesOptions("#ff9800", 2, "Prognoza", LineStyle: 2));
+            new LineSeriesOptions("#ff9800", 2, "Prognoza", LineStyle: 2, PriceRangeMin: -20m, PriceRangeMax: 20m));
 
         if (_forecastSeriesId != null)
         {
