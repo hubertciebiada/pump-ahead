@@ -42,6 +42,8 @@ public sealed class LightweightChartsService : IAsyncDisposable
             lineWidth = options.LineWidth,
             title = options.Title,
             lineStyle = options.LineStyle,
+            priceRangeMin = options.PriceRangeMin,
+            priceRangeMax = options.PriceRangeMax,
         });
     }
 
@@ -107,7 +109,13 @@ public record ChartOptions(string BackgroundColor, string TextColor, string Grid
     public static ChartOptions Default => new("#1e1e1e", "#d4d4d4", "#333333");
 }
 
-public record LineSeriesOptions(string Color, int LineWidth = 2, string Title = "", int LineStyle = 0);
+public record LineSeriesOptions(
+    string Color,
+    int LineWidth = 2,
+    string Title = "",
+    int LineStyle = 0,
+    decimal? PriceRangeMin = null,
+    decimal? PriceRangeMax = null);
 
 public record PriceLineOptions(
     decimal Price,

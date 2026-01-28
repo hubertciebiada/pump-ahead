@@ -55,7 +55,7 @@ export function addLineSeries(chartId, options) {
 
     const seriesId = `series_${idCounter++}`;
 
-    const series = chart.addSeries(LightweightCharts.LineSeries, {
+    const seriesOptions = {
         color: options.color || '#2196f3',
         lineWidth: options.lineWidth || 2,
         lineStyle: options.lineStyle || 0,
@@ -64,7 +64,19 @@ export function addLineSeries(chartId, options) {
             type: 'custom',
             formatter: (price) => price.toFixed(1) + '\u00B0C',
         },
-    });
+    };
+
+    // If price range is specified, use autoscaleInfoProvider to enforce it
+    if (options.priceRangeMin !== undefined && options.priceRangeMax !== undefined) {
+        seriesOptions.autoscaleInfoProvider = () => ({
+            priceRange: {
+                minValue: options.priceRangeMin,
+                maxValue: options.priceRangeMax,
+            },
+        });
+    }
+
+    const series = chart.addSeries(LightweightCharts.LineSeries, seriesOptions);
 
     seriesInstances.set(seriesId, { series, chartId });
     return seriesId;
@@ -124,6 +136,7 @@ export function fitContent(chartId) {
 
     chart.timeScale().fitContent();
 }
+
 
 export function setVisibleRange(chartId, fromTimestamp, toTimestamp) {
     const chart = chartInstances.get(chartId);
