@@ -6,6 +6,4 @@ public class TemperatureReadingEntity
     public string SensorId { get; set; } = string.Empty;
     public decimal Temperature { get; set; }
     public DateTimeOffset Timestamp { get; set; }
-
-    public SensorEntity? Sensor { get; set; }
 }

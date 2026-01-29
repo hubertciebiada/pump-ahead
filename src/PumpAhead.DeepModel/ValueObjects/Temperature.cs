@@ -6,6 +6,9 @@ public readonly record struct Temperature : IComparable<Temperature>
 
     private Temperature(decimal celsius)
     {
+        if (celsius < -273.15m)
+            throw new ArgumentOutOfRangeException(nameof(celsius), "Temperature cannot be below absolute zero (-273.15°C)");
+
         Celsius = celsius;
     }
 

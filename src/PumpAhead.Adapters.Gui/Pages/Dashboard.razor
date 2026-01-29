@@ -10,33 +10,12 @@
 <PageTitle>Dashboard - PumpAhead</PageTitle>
 
 <div class="dashboard-layout">
-    <div class="charts-column">
+    <div class="chart-column">
         <div class="chart-container">
-            <div class="chart-title">Temperatura zewnętrzna</div>
-            <div id="chart-outdoor" class="chart-wrapper">
-                @if (!_hasOutdoorData)
+            <div id="chart-main" class="chart-wrapper">
+                @if (!_hasIndoorData && !_hasOutdoorData)
                 {
-                    <div class="no-data-message">Brak danych pogodowych</div>
-                }
-            </div>
-        </div>
-
-        <div class="chart-container">
-            <div class="chart-title">Centralne Ogrzewanie</div>
-            <div id="chart-heating" class="chart-wrapper">
-                @if (!_hasHeatingData)
-                {
-                    <div class="no-data-message">Brak danych (Heishamon - Faza 1)</div>
-                }
-            </div>
-        </div>
-
-        <div class="chart-container">
-            <div class="chart-title">Temperatura wewnętrzna</div>
-            <div id="chart-indoor" class="chart-wrapper">
-                @if (!_hasIndoorData)
-                {
-                    <div class="no-data-message">Brak danych z sensorów</div>
+                    <div class="no-data-message">Brak danych</div>
                 }
             </div>
         </div>
@@ -163,11 +142,9 @@
     private List<GetAllSensorsHistory.SensorData> _sensorData = [];
     private List<GetWeatherForecast.ForecastPoint> _forecastPoints = [];
     private bool _hasOutdoorData;
-    private bool _hasHeatingData = false;
     private bool _hasIndoorData;
 
-    private string? _indoorChartId;
-    private string? _outdoorChartId;
+    private string? _chartId;
     private string? _forecastSeriesId;
     private readonly Dictionary<string, string> _sensorSeriesIds = new();
 
@@ -187,10 +164,8 @@
         if (_chartsNeedInit)
         {
             _chartsNeedInit = false;
-            if (_hasIndoorData && _indoorChartId == null)
-                await InitializeIndoorChartAsync();
-            if (_hasOutdoorData && _outdoorChartId == null)
-                await InitializeOutdoorChartAsync();
+            if ((_hasIndoorData || _hasOutdoorData) && _chartId == null)
+                await InitializeChartAsync();
         }
     }
 
@@ -227,72 +202,60 @@
         }
     }
 
-    private async Task InitializeIndoorChartAsync()
+    private async Task InitializeChartAsync()
     {
-        if (!_hasIndoorData) return;
+        _chartId = await ChartService.InitializeChartAsync("chart-main");
+        if (_chartId == null) return;
 
-        _indoorChartId = await ChartService.InitializeChartAsync("chart-indoor");
-        if (_indoorChartId == null) return;
-
-        var colorIndex = 0;
-        foreach (var sensor in _sensorData.Where(s => s.Readings.Count > 0))
+        // Forecast series (dashed)
+        if (_hasOutdoorData)
         {
-            var color = SensorColors[colorIndex % SensorColors.Length];
-            var seriesId = await ChartService.AddLineSeriesAsync(
-                _indoorChartId,
-                new LineSeriesOptions(color, 2, sensor.DisplayName, PriceRangeMin: 18m, PriceRangeMax: 25m));
+            _forecastSeriesId = await ChartService.AddLineSeriesAsync(
+                _chartId,
+                new LineSeriesOptions("#ff9800", 2, "Prognoza", LineStyle: 2, PriceRangeMin: -20m, PriceRangeMax: 40m));
 
-            if (seriesId != null)
+            if (_forecastSeriesId != null)
             {
-                _sensorSeriesIds[sensor.SensorId.Value] = seriesId;
-
-                var dataPoints = sensor.Readings
-                    .Select(r => new ChartDataPoint(r.Timestamp.ToUnixTimeSeconds(), r.Temperature.Celsius))
+                var dataPoints = _forecastPoints
+                    .Select(p => new ChartDataPoint(p.Timestamp.ToUnixTimeSeconds(), p.TemperatureCelsius))
                     .ToList();
 
-                await ChartService.SetDataAsync(seriesId, dataPoints);
+                await ChartService.SetDataAsync(_forecastSeriesId, dataPoints);
+            }
+        }
+
+        // Indoor sensor series
+        if (_hasIndoorData)
+        {
+            var colorIndex = 0;
+            foreach (var sensor in _sensorData.Where(s => s.Readings.Count > 0))
+            {
+                var color = SensorColors[colorIndex % SensorColors.Length];
+                var seriesId = await ChartService.AddLineSeriesAsync(
+                    _chartId,
+                    new LineSeriesOptions(color, 2, sensor.DisplayName, PriceRangeMin: -20m, PriceRangeMax: 40m));
+
+                if (seriesId != null)
+                {
+                    _sensorSeriesIds[sensor.SensorId.Value] = seriesId;
+
+                    var dataPoints = sensor.Readings
+                        .Select(r => new ChartDataPoint(r.Timestamp.ToUnixTimeSeconds(), r.Temperature.Celsius))
+                        .ToList();
+
+                    await ChartService.SetDataAsync(seriesId, dataPoints);
+                }
+
+                colorIndex++;
             }
 
-            colorIndex++;
         }
 
-        var firstSeries = _sensorSeriesIds.Values.FirstOrDefault();
-        if (firstSeries != null)
-        {
-            await ChartService.AddPriceLineAsync(firstSeries, new PriceLineOptions(
-                TargetTemperature.Celsius,
-                "#4caf50",
-                2,
-                2,
-                true,
-                "Cel"));
-        }
-
-        await ChartService.FitContentAsync(_indoorChartId);
-    }
-
-    private async Task InitializeOutdoorChartAsync()
-    {
-        if (!_hasOutdoorData) return;
-
-        _outdoorChartId = await ChartService.InitializeChartAsync("chart-outdoor");
-        if (_outdoorChartId == null) return;
-
-        // Dashed line for forecast (LineStyle 2 = Dashed)
-        _forecastSeriesId = await ChartService.AddLineSeriesAsync(
-            _outdoorChartId,
-            new LineSeriesOptions("#ff9800", 2, "Prognoza", LineStyle: 2, PriceRangeMin: -20m, PriceRangeMax: 20m));
-
-        if (_forecastSeriesId != null)
-        {
-            var dataPoints = _forecastPoints
-                .Select(p => new ChartDataPoint(p.Timestamp.ToUnixTimeSeconds(), p.TemperatureCelsius))
-                .ToList();
-
-            await ChartService.SetDataAsync(_forecastSeriesId, dataPoints);
-        }
-
-        await ChartService.FitContentAsync(_outdoorChartId);
+        // Set X-axis visible range: [-24h, +24h] from next full hour
+        var center = NextFullHour(DateTimeOffset.UtcNow);
+        var from = center.AddHours(-24).ToUnixTimeSeconds();
+        var to = center.AddHours(24).ToUnixTimeSeconds();
+        await ChartService.SetVisibleRangeAsync(_chartId, from, to);
     }
 
     private async Task InitializeSignalRAsync()
@@ -374,16 +337,18 @@
         {
             await LoadForecastAsync();
 
-            if (_outdoorChartId != null)
+            // Re-create entire chart to refresh forecast data
+            if (_chartId != null)
             {
-                await ChartService.DestroyChartAsync(_outdoorChartId);
-                _outdoorChartId = null;
+                await ChartService.DestroyChartAsync(_chartId);
+                _chartId = null;
                 _forecastSeriesId = null;
+                _sensorSeriesIds.Clear();
             }
 
-            if (_hasOutdoorData)
+            if (_hasOutdoorData || _hasIndoorData)
             {
-                await InitializeOutdoorChartAsync();
+                await InitializeChartAsync();
             }
 
             StateHasChanged();
@@ -418,14 +383,9 @@
 
         try
         {
-            if (_indoorChartId != null)
+            if (_chartId != null)
             {
-                await ChartService.DestroyChartAsync(_indoorChartId);
-            }
-
-            if (_outdoorChartId != null)
-            {
-                await ChartService.DestroyChartAsync(_outdoorChartId);
+                await ChartService.DestroyChartAsync(_chartId);
             }
         }
         catch (JSDisconnectedException)

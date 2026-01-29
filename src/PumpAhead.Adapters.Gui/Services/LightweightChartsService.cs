@@ -44,20 +44,8 @@ public sealed class LightweightChartsService : IAsyncDisposable
             lineStyle = options.LineStyle,
             priceRangeMin = options.PriceRangeMin,
             priceRangeMax = options.PriceRangeMax,
-        });
-    }
-
-    public async Task AddPriceLineAsync(string seriesId, PriceLineOptions options)
-    {
-        var module = await _moduleTask.Value;
-        await module.InvokeVoidAsync("addPriceLine", seriesId, new
-        {
-            price = options.Price,
-            color = options.Color,
-            lineWidth = options.LineWidth,
-            lineStyle = options.LineStyle,
-            axisLabelVisible = options.AxisLabelVisible,
-            title = options.Title,
+            lastValueVisible = options.LastValueVisible,
+            priceLineVisible = options.PriceLineVisible,
         });
     }
 
@@ -72,12 +60,6 @@ public sealed class LightweightChartsService : IAsyncDisposable
     {
         var module = await _moduleTask.Value;
         await module.InvokeVoidAsync("updateData", seriesId, new { time = dataPoint.Time, value = dataPoint.Value });
-    }
-
-    public async Task FitContentAsync(string chartId)
-    {
-        var module = await _moduleTask.Value;
-        await module.InvokeVoidAsync("fitContent", chartId);
     }
 
     public async Task SetVisibleRangeAsync(string chartId, long fromTimestamp, long toTimestamp)
@@ -115,14 +97,8 @@ public record LineSeriesOptions(
     string Title = "",
     int LineStyle = 0,
     decimal? PriceRangeMin = null,
-    decimal? PriceRangeMax = null);
-
-public record PriceLineOptions(
-    decimal Price,
-    string Color = "#4caf50",
-    int LineWidth = 2,
-    int LineStyle = 2,
-    bool AxisLabelVisible = true,
-    string Title = "");
+    decimal? PriceRangeMax = null,
+    bool LastValueVisible = false,
+    bool PriceLineVisible = false);
 
 public record ChartDataPoint(long Time, decimal Value);

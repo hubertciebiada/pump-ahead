@@ -1,10 +1,5 @@
 namespace PumpAhead.DeepModel.ValueObjects;
 
-/// <summary>
-/// Domestic hot water temperature as reported by the heat pump.
-/// Heishamon TOP9 (target) and TOP10 (actual).
-/// No restrictive range — actual tank temperature can be any value.
-/// </summary>
 public readonly record struct DhwTemperature : IComparable<DhwTemperature>
 {
     public decimal Celsius { get; }

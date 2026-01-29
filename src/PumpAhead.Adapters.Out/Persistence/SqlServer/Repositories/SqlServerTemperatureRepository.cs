@@ -42,16 +42,13 @@ public class SqlServerTemperatureRepository(PumpAheadDbContext dbContext) : ITem
         DateTimeOffset to,
         CancellationToken cancellationToken = default)
     {
-        var entities = await dbContext.TemperatureReadings
+        return await dbContext.TemperatureReadings
             .Where(r => r.SensorId == sensorId.Value && r.Timestamp >= from && r.Timestamp <= to)
             .OrderBy(r => r.Timestamp)
-            .ToListAsync(cancellationToken);
-
-        return entities
             .Select(e => new SensorReading(
                 SensorId.From(e.SensorId),
                 Temperature.FromCelsius(e.Temperature),
                 e.Timestamp))
-            .ToList();
+            .ToListAsync(cancellationToken);
     }
 }

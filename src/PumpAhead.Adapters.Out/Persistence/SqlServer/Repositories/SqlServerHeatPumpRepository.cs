@@ -7,11 +7,11 @@ using PumpAhead.UseCases.Ports.Out;
 
 namespace PumpAhead.Adapters.Out.Persistence.SqlServer.Repositories;
 
-public class SqlServerHeatPumpRepository(PumpAheadDbContext context) : IHeatPumpRepository
+public class SqlServerHeatPumpRepository(PumpAheadDbContext dbContext) : IHeatPumpRepository
 {
     public async Task<HeatPump?> GetByIdAsync(HeatPumpId id, CancellationToken cancellationToken = default)
     {
-        var entity = await context.HeatPumps
+        var entity = await dbContext.HeatPumps
             .AsNoTracking()
             .FirstOrDefaultAsync(hp => hp.Id == id.Value, cancellationToken);
 
@@ -20,7 +20,7 @@ public class SqlServerHeatPumpRepository(PumpAheadDbContext context) : IHeatPump
 
     public async Task<HeatPump?> GetDefaultAsync(CancellationToken cancellationToken = default)
     {
-        var entity = await context.HeatPumps
+        var entity = await dbContext.HeatPumps
             .AsNoTracking()
             .OrderByDescending(hp => hp.LastSyncTime)
             .FirstOrDefaultAsync(cancellationToken);
@@ -30,7 +30,7 @@ public class SqlServerHeatPumpRepository(PumpAheadDbContext context) : IHeatPump
 
     public async Task<IReadOnlyList<HeatPump>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        var entities = await context.HeatPumps
+        var entities = await dbContext.HeatPumps
             .AsNoTracking()
             .ToListAsync(cancellationToken);
 
@@ -39,13 +39,13 @@ public class SqlServerHeatPumpRepository(PumpAheadDbContext context) : IHeatPump
 
     public async Task SaveAsync(HeatPump heatPump, CancellationToken cancellationToken = default)
     {
-        var existing = await context.HeatPumps
+        var existing = await dbContext.HeatPumps
             .FirstOrDefaultAsync(hp => hp.Id == heatPump.Id.Value, cancellationToken);
 
         if (existing is null)
         {
             var entity = MapToEntity(heatPump);
-            context.HeatPumps.Add(entity);
+            dbContext.HeatPumps.Add(entity);
         }
         else
         {
@@ -63,23 +63,23 @@ public class SqlServerHeatPumpRepository(PumpAheadDbContext context) : IHeatPump
             existing.Compressor_Frequency = heatPump.Compressor.Frequency.Hertz;
         }
 
-        await context.SaveChangesAsync(cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<bool> ExistsAsync(HeatPumpId id, CancellationToken cancellationToken = default)
     {
-        return await context.HeatPumps
+        return await dbContext.HeatPumps
             .AnyAsync(hp => hp.Id == id.Value, cancellationToken);
     }
 
     private static HeatPump MapToDomain(HeatPumpEntity entity)
     {
-        var centralHeating = CentralHeatingData.Create(
+        var centralHeating = new CentralHeatingData(
             WaterTemperature.FromCelsius(entity.CH_InletTemperature),
             WaterTemperature.FromCelsius(entity.CH_OutletTemperature),
             WaterTemperature.FromCelsius(entity.CH_TargetTemperature));
 
-        var domesticHotWater = DomesticHotWaterData.Create(
+        var domesticHotWater = new DomesticHotWaterData(
             DhwTemperature.FromCelsius(entity.DHW_ActualTemperature),
             DhwTemperature.FromCelsius(entity.DHW_TargetTemperature));
 
