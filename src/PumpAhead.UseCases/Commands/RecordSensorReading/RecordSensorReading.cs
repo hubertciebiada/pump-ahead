@@ -21,22 +21,9 @@ public static class RecordSensorReading
             var sensor = await sensorRepository.GetByIdAsync(command.SensorId, cancellationToken);
 
             if (sensor is null)
-            {
-                var newSensor = new SensorInfo(
-                    command.SensorId,
-                    Name: command.SensorId.Value,
-                    Label: null,
-                    Address: string.Empty,
-                    Type: "shelly",
-                    IsActive: true,
-                    LastSeenAt: command.Timestamp);
+                throw new InvalidOperationException($"Sensor '{command.SensorId.Value}' does not exist. Register the sensor first.");
 
-                await sensorRepository.SaveAsync(newSensor, cancellationToken);
-            }
-            else
-            {
-                await sensorRepository.UpdateLastSeenAsync(command.SensorId, command.Timestamp, cancellationToken);
-            }
+            await sensorRepository.UpdateLastSeenAsync(command.SensorId, command.Timestamp, cancellationToken);
 
             var reading = new SensorReading(
                 command.SensorId,

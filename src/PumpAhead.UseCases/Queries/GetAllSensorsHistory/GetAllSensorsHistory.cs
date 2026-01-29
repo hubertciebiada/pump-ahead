@@ -22,22 +22,21 @@ public static class GetAllSensorsHistory
         {
             var sensors = await sensorRepository.GetAllActiveAsync(cancellationToken);
 
-            var sensorDataList = new List<SensorData>();
+            var sensorIds = sensors.Select(s => s.Id).ToList();
+            var allReadings = await temperatureRepository.GetHistoryBatchAsync(
+                sensorIds,
+                query.From,
+                query.To,
+                cancellationToken);
 
-            foreach (var sensor in sensors)
+            var sensorDataList = sensors.Select(sensor =>
             {
-                var readings = await temperatureRepository.GetHistoryAsync(
-                    sensor.Id,
-                    query.From,
-                    query.To,
-                    cancellationToken);
-
+                var readings = allReadings.TryGetValue(sensor.Id, out var r) ? r : [];
                 var dataPoints = readings
                     .Select(r => new DataPoint(r.Temperature, r.Timestamp))
                     .ToList();
-
-                sensorDataList.Add(new SensorData(sensor.Id, sensor.DisplayName, dataPoints));
-            }
+                return new SensorData(sensor.Id, sensor.DisplayName, dataPoints);
+            }).ToList();
 
             return new Data(sensorDataList);
         }

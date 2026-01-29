@@ -27,7 +27,7 @@ public class HeatPump
     public DomesticHotWaterData DomesticHotWater { get; private set; }
 
     /// <summary>TOP8: Compressor_Freq.</summary>
-    public CompressorData Compressor { get; private set; }
+    public Frequency CompressorFrequency { get; private set; }
 
     private HeatPump(
         HeatPumpId id,
@@ -39,7 +39,7 @@ public class HeatPump
         OutsideTemperature outsideTemperature,
         CentralHeatingData centralHeating,
         DomesticHotWaterData domesticHotWater,
-        CompressorData compressor)
+        Frequency compressorFrequency)
     {
         if (string.IsNullOrWhiteSpace(model))
             throw new ArgumentException("Model cannot be empty", nameof(model));
@@ -53,7 +53,7 @@ public class HeatPump
         OutsideTemperature = outsideTemperature;
         CentralHeating = centralHeating;
         DomesticHotWater = domesticHotWater;
-        Compressor = compressor;
+        CompressorFrequency = compressorFrequency;
     }
 
     public void SyncFrom(
@@ -63,7 +63,7 @@ public class HeatPump
         OutsideTemperature outsideTemperature,
         CentralHeatingData centralHeating,
         DomesticHotWaterData domesticHotWater,
-        CompressorData compressor)
+        Frequency compressorFrequency)
     {
         IsOn = isOn;
         OperatingMode = operatingMode;
@@ -71,7 +71,7 @@ public class HeatPump
         OutsideTemperature = outsideTemperature;
         CentralHeating = centralHeating;
         DomesticHotWater = domesticHotWater;
-        Compressor = compressor;
+        CompressorFrequency = compressorFrequency;
         LastSyncTime = DateTimeOffset.UtcNow;
     }
 
@@ -85,10 +85,10 @@ public class HeatPump
         OutsideTemperature outsideTemperature,
         CentralHeatingData centralHeating,
         DomesticHotWaterData domesticHotWater,
-        CompressorData compressor)
+        Frequency compressorFrequency)
     {
         return new HeatPump(
             id, model, lastSyncTime, isOn, operatingMode, pumpFlow,
-            outsideTemperature, centralHeating, domesticHotWater, compressor);
+            outsideTemperature, centralHeating, domesticHotWater, compressorFrequency);
     }
 }

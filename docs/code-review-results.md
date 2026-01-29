@@ -2,7 +2,7 @@
 
 ## Review wykonany przez 45 równoległych agentów
 
-### NAPRAWIONE (15 poprawek):
+### NAPRAWIONE (19 poprawek):
 
 | # | Plik | Naprawa |
 |---|------|---------|
@@ -20,21 +20,21 @@
 | 12 | `DomesticHotWaterData.cs` | Uproszczone do primary constructor |
 | 13 | `SqlServerHeatPumpRepository.cs` | Naprawione użycia VO, `context` → `dbContext` |
 | 14 | `SensorEndpoints.cs` | Usunięty dual ID logic i zbędna abstrakcja |
-| 15 | `SqlServerTemperatureRepository.cs` | Select przed ToListAsync |
+| 15 | `SqlServerTemperatureRepository.cs` | Select przed ToListAsync, dodana metoda batch |
+| 16 | `CompressorData.cs` | **USUNIĘTY** - double wrapper na Frequency |
+| 17 | `HeatPump.cs` | Zamienione `Compressor` na `CompressorFrequency` (Frequency VO) |
+| 18 | `GetAllSensorsHistory.cs` | Naprawiony N+1 query - użycie batch method |
+| 19 | `RecordSensorReading.cs` | Usunięte auto-tworzenie sensora, rzuca wyjątek jeśli sensor nie istnieje |
 
-### POZOSTAŁE DO NAPRAWY (wymagają większych zmian):
+### POZOSTAŁE DO ROZWAŻENIA:
 
-| Plik | Problem | Severity |
-|------|---------|----------|
-| `HeatPump.cs` | Anemic model - to DTO, nie agregat. Brak business invariants, domain behavior. Powinien być `HeatPumpSnapshot` Value Object. | HIGH |
-| `RecordSensorReading.cs` | Handler auto-tworzy sensor jeśli nie istnieje - łamie CQRS SRP. Powinien rzucić wyjątek, tworzenie sensora = osobny command. | HIGH |
-| `ISensorRepository.cs` | 1) Logika biznesowa `DisplayName` w DTO 2) Mix CRUD + specialized ops 3) Hidden upsert semantics | HIGH |
-| `GetAllSensorsHistory.cs` | N+1 query problem - foreach z query wewnątrz. Potrzebna metoda batch w repo. | HIGH |
-| `IHeatPumpRepository.cs` | YAGNI - 5 metod, 3 nieużywane. Brak ISP (read+write w jednym interfejsie). | MEDIUM |
-| `CompressorData.cs` | Podwójne wrappowanie - CompressorData wrappuje tylko Frequency (już jest VO). Usunąć i użyć Frequency w HeatPump. | MEDIUM |
-| `SignalRSensorNotificationService.cs` | Implementacja outbound portu w Adapters.Gui zamiast Adapters.Out. | MEDIUM |
-| `SqlServerHeatPumpRepository.cs` | DRY violation - manual property mapping w SaveAsync duplikuje MapToEntity | MEDIUM |
-| `SqlServerSensorRepository.cs` | Zbędne query w SaveAsync - EF Core Update() może obsłużyć upsert automatycznie | LOW |
+| Plik | Problem | Severity | Komentarz |
+|------|---------|----------|-----------|
+| `HeatPump.cs` | Anemic model - bardziej DTO niż agregat | MEDIUM | Ma `SyncFrom` więc nie jest całkiem anemic; rozważyć czy potrzebuje więcej behavior |
+| `ISensorRepository.cs` | `DisplayName` w DTO to presentation logic | LOW | Prosta logika coalesce, nie blokuje |
+| `IHeatPumpRepository.cs` | YAGNI - 5 metod, 0 użyć! | HIGH | Cały interfejs nieużywany, ale może być planowany do synca z urządzeniem |
+| `SignalRSensorNotificationService.cs` | W Adapters.Gui zamiast Adapters.Out | LOW | OK - zależy od SensorHub, wysyła do GUI klientów |
+| `SqlServerHeatPumpRepository.cs` | DRY violation w SaveAsync | LOW | Nie krytyczne |
 
 ### PLIKI CZYSTE (brak problemów):
 
@@ -49,3 +49,12 @@
 - Brak weryfikacji propagacji CancellationToken
 - Shared mutable state w konstruktorze (anty-wzorzec)
 - Brak weryfikacji wywołań repository (Received)
+
+---
+
+## Podsumowanie
+
+- **19 poprawek** wykonanych
+- **5 issues** pozostałych do rozważenia (większość LOW severity)
+- **~18 plików** bez problemów
+- Testy wymagają refactoringu (osobne zadanie)
