@@ -1,6 +1,6 @@
 namespace PumpAhead.DeepModel.ValueObjects;
 
-public readonly record struct Frequency : IComparable<Frequency>
+public readonly record struct Frequency
 {
     public decimal Hertz { get; }
 
@@ -13,13 +13,6 @@ public readonly record struct Frequency : IComparable<Frequency>
     }
 
     public static Frequency FromHertz(decimal hertz) => new(hertz);
-
-    public static bool operator >(Frequency a, Frequency b) => a.Hertz > b.Hertz;
-    public static bool operator <(Frequency a, Frequency b) => a.Hertz < b.Hertz;
-    public static bool operator >=(Frequency a, Frequency b) => a.Hertz >= b.Hertz;
-    public static bool operator <=(Frequency a, Frequency b) => a.Hertz <= b.Hertz;
-
-    public int CompareTo(Frequency other) => Hertz.CompareTo(other.Hertz);
 
     public override string ToString() =>
         string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0:F1} Hz", Hertz);

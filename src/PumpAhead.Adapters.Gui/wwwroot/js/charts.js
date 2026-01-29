@@ -28,6 +28,7 @@ export function initializeChart(containerId, options) {
         },
         rightPriceScale: {
             borderColor: options.gridColor || '#333333',
+            scaleMargins: { top: 0, bottom: 0 },
         },
         crosshair: {
             mode: LightweightCharts.CrosshairMode.Normal,
@@ -60,6 +61,8 @@ export function addLineSeries(chartId, options) {
         lineWidth: options.lineWidth || 2,
         lineStyle: options.lineStyle || 0,
         title: options.title || '',
+        lastValueVisible: options.lastValueVisible !== undefined ? options.lastValueVisible : true,
+        priceLineVisible: options.priceLineVisible !== undefined ? options.priceLineVisible : true,
         priceFormat: {
             type: 'custom',
             formatter: (price) => price.toFixed(1) + '\u00B0C',
@@ -73,6 +76,7 @@ export function addLineSeries(chartId, options) {
                 minValue: options.priceRangeMin,
                 maxValue: options.priceRangeMax,
             },
+            margins: { above: 0, below: 0 },
         });
     }
 
@@ -80,23 +84,6 @@ export function addLineSeries(chartId, options) {
 
     seriesInstances.set(seriesId, { series, chartId });
     return seriesId;
-}
-
-export function addPriceLine(seriesId, options) {
-    const seriesInfo = seriesInstances.get(seriesId);
-    if (!seriesInfo) {
-        console.error(`Series with id '${seriesId}' not found`);
-        return;
-    }
-
-    seriesInfo.series.createPriceLine({
-        price: options.price,
-        color: options.color || '#4caf50',
-        lineWidth: options.lineWidth || 2,
-        lineStyle: options.lineStyle || LightweightCharts.LineStyle.Dashed,
-        axisLabelVisible: options.axisLabelVisible !== false,
-        title: options.title || '',
-    });
 }
 
 export function setData(seriesId, dataPoints) {
@@ -126,17 +113,6 @@ export function updateData(seriesId, dataPoint) {
         value: dataPoint.value,
     });
 }
-
-export function fitContent(chartId) {
-    const chart = chartInstances.get(chartId);
-    if (!chart) {
-        console.error(`Chart with id '${chartId}' not found`);
-        return;
-    }
-
-    chart.timeScale().fitContent();
-}
-
 
 export function setVisibleRange(chartId, fromTimestamp, toTimestamp) {
     const chart = chartInstances.get(chartId);

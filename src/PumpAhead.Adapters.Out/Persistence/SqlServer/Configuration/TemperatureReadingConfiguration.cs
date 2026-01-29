@@ -12,12 +12,12 @@ public class TemperatureReadingConfiguration : IEntityTypeConfiguration<Temperat
 
         builder.HasKey(r => r.Id);
 
-        builder.Property(r => r.Temperature)
-            .HasPrecision(5, 2)
+        builder.Property(r => r.SensorId)
+            .HasMaxLength(255)
             .IsRequired();
 
-        builder.Property(r => r.Timestamp)
-            .IsRequired();
+        builder.Property(r => r.Temperature)
+            .HasPrecision(5, 2);
 
         builder.HasIndex(r => new { r.SensorId, r.Timestamp })
             .IsDescending(false, true);

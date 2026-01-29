@@ -18,7 +18,6 @@ public static class GuiExtensions
         services.AddRadzenComponents();
         services.AddSignalR();
         services.AddScoped<LightweightChartsService>();
-        services.AddScoped<ChartStateService>();
         services.AddScoped<ISensorNotificationService, SignalRSensorNotificationService>();
 
         return services;

@@ -23,43 +23,26 @@ public static class SensorEndpoints
     private static async Task<IResult> RecordReadingFromQuery(
         string sensorId,
         decimal tC,
-        string? id,
         ICommandHandler<RecordSensorReading.Command> handler,
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
         var logger = loggerFactory.CreateLogger("SensorEndpoints");
-        var effectiveSensorId = !string.IsNullOrEmpty(id) ? id : sensorId;
 
-        return await ProcessReading(
-            effectiveSensorId,
-            tC,
-            handler,
-            logger,
-            cancellationToken);
-    }
-
-    private static async Task<IResult> ProcessReading(
-        string sensorId,
-        decimal temperatureCelsius,
-        ICommandHandler<RecordSensorReading.Command> handler,
-        ILogger logger,
-        CancellationToken cancellationToken)
-    {
         try
         {
             var command = new RecordSensorReading.Command(
                 SensorId.From(sensorId),
-                Temperature.FromCelsius(temperatureCelsius),
+                Temperature.FromCelsius(tC),
                 DateTimeOffset.UtcNow);
 
             await handler.HandleAsync(command, cancellationToken);
 
             logger.LogInformation(
                 "Recorded reading from sensor {SensorId}: {Temperature}",
-                sensorId, temperatureCelsius);
+                sensorId, tC);
 
-            return Results.Ok(new { status = "ok", sensorId, temperature = temperatureCelsius });
+            return Results.Ok(new { status = "ok", sensorId, temperature = tC });
         }
         catch (ArgumentException ex)
         {

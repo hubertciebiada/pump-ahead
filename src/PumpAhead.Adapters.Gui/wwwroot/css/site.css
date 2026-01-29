@@ -81,10 +81,9 @@ html, body {
     height: calc(100vh - 80px);
 }
 
-.charts-column {
+.chart-column {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
 }
 
 .chart-container {
@@ -96,13 +95,6 @@ html, body {
     overflow: hidden;
     display: flex;
     flex-direction: column;
-}
-
-.chart-title {
-    color: var(--text-primary);
-    font-size: 0.75rem;
-    margin-bottom: 0.25rem;
-    font-weight: 500;
 }
 
 .chart-wrapper {
@@ -191,11 +183,7 @@ html, body {
         height: auto;
     }
 
-    .charts-column {
-        min-height: 600px;
-    }
-
-    .chart-container {
-        min-height: 180px;
+    .chart-column {
+        min-height: 400px;
     }
 }
