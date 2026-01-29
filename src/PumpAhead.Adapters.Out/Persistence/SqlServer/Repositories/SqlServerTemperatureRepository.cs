@@ -51,4 +51,28 @@ public class SqlServerTemperatureRepository(PumpAheadDbContext dbContext) : ITem
                 e.Timestamp))
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<IReadOnlyDictionary<SensorId, IReadOnlyList<SensorReading>>> GetHistoryBatchAsync(
+        IReadOnlyList<SensorId> sensorIds,
+        DateTimeOffset from,
+        DateTimeOffset to,
+        CancellationToken cancellationToken = default)
+    {
+        var sensorIdValues = sensorIds.Select(s => s.Value).ToList();
+
+        var readings = await dbContext.TemperatureReadings
+            .Where(r => sensorIdValues.Contains(r.SensorId) && r.Timestamp >= from && r.Timestamp <= to)
+            .OrderBy(r => r.Timestamp)
+            .Select(e => new SensorReading(
+                SensorId.From(e.SensorId),
+                Temperature.FromCelsius(e.Temperature),
+                e.Timestamp))
+            .ToListAsync(cancellationToken);
+
+        return readings
+            .GroupBy(r => r.SensorId)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<SensorReading>)g.ToList());
+    }
 }

@@ -11,4 +11,9 @@ public interface ITemperatureRepository
         DateTimeOffset from,
         DateTimeOffset to,
         CancellationToken cancellationToken = default);
+    Task<IReadOnlyDictionary<SensorId, IReadOnlyList<SensorReading>>> GetHistoryBatchAsync(
+        IReadOnlyList<SensorId> sensorIds,
+        DateTimeOffset from,
+        DateTimeOffset to,
+        CancellationToken cancellationToken = default);
 }

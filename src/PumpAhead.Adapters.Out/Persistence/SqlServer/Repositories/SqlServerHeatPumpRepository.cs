@@ -60,7 +60,7 @@ public class SqlServerHeatPumpRepository(PumpAheadDbContext dbContext) : IHeatPu
             existing.CH_TargetTemperature = heatPump.CentralHeating.TargetTemperature.Celsius;
             existing.DHW_ActualTemperature = heatPump.DomesticHotWater.ActualTemperature.Celsius;
             existing.DHW_TargetTemperature = heatPump.DomesticHotWater.TargetTemperature.Celsius;
-            existing.Compressor_Frequency = heatPump.Compressor.Frequency.Hertz;
+            existing.Compressor_Frequency = heatPump.CompressorFrequency.Hertz;
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -83,9 +83,6 @@ public class SqlServerHeatPumpRepository(PumpAheadDbContext dbContext) : IHeatPu
             DhwTemperature.FromCelsius(entity.DHW_ActualTemperature),
             DhwTemperature.FromCelsius(entity.DHW_TargetTemperature));
 
-        var compressor = CompressorData.Create(
-            Frequency.FromHertz(entity.Compressor_Frequency));
-
         return HeatPump.Reconstitute(
             HeatPumpId.From(entity.Id),
             entity.Model,
@@ -96,7 +93,7 @@ public class SqlServerHeatPumpRepository(PumpAheadDbContext dbContext) : IHeatPu
             OutsideTemperature.FromCelsius(entity.OutsideTemperature),
             centralHeating,
             domesticHotWater,
-            compressor);
+            Frequency.FromHertz(entity.Compressor_Frequency));
     }
 
     private static HeatPumpEntity MapToEntity(HeatPump heatPump)
@@ -115,7 +112,7 @@ public class SqlServerHeatPumpRepository(PumpAheadDbContext dbContext) : IHeatPu
             CH_TargetTemperature = heatPump.CentralHeating.TargetTemperature.Celsius,
             DHW_ActualTemperature = heatPump.DomesticHotWater.ActualTemperature.Celsius,
             DHW_TargetTemperature = heatPump.DomesticHotWater.TargetTemperature.Celsius,
-            Compressor_Frequency = heatPump.Compressor.Frequency.Hertz
+            Compressor_Frequency = heatPump.CompressorFrequency.Hertz
         };
     }
 }
