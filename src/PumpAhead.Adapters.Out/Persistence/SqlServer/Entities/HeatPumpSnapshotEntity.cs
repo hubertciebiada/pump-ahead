@@ -1,36 +1,30 @@
 namespace PumpAhead.Adapters.Out.Persistence.SqlServer.Entities;
 
-public class HeatPumpEntity
+public class HeatPumpSnapshotEntity
 {
-    public Guid Id { get; set; }
-    public string Model { get; set; } = string.Empty;
-    public DateTimeOffset LastSyncTime { get; set; }
+    public long Id { get; set; }
+    public Guid HeatPumpId { get; set; }
+    public DateTimeOffset Timestamp { get; set; }
 
-    // TOP0
+    // Core state
     public bool IsOn { get; set; }
-
-    // TOP4
     public int OperatingMode { get; set; }
-
-    // TOP1
     public decimal PumpFlow { get; set; }
-
-    // TOP14
     public decimal OutsideTemperature { get; set; }
 
-    // TOP5, TOP6, TOP7
+    // Central Heating
     public decimal CH_InletTemperature { get; set; }
     public decimal CH_OutletTemperature { get; set; }
     public decimal CH_TargetTemperature { get; set; }
 
-    // TOP10, TOP9
+    // Domestic Hot Water
     public decimal DHW_ActualTemperature { get; set; }
     public decimal DHW_TargetTemperature { get; set; }
 
-    // TOP8
+    // Performance
     public decimal Compressor_Frequency { get; set; }
 
-    // TOP15-TOP18: Power data
+    // Power data
     public decimal Power_HeatProduction { get; set; }
     public decimal Power_HeatConsumption { get; set; }
     public decimal Power_CoolProduction { get; set; }
@@ -38,13 +32,13 @@ public class HeatPumpEntity
     public decimal Power_DhwProduction { get; set; }
     public decimal Power_DhwConsumption { get; set; }
 
-    // TOP11, TOP12: Operations data
+    // Operations
     public decimal Operations_CompressorHours { get; set; }
     public int Operations_CompressorStarts { get; set; }
 
-    // TOP26: Defrost
+    // Defrost
     public bool Defrost_IsActive { get; set; }
 
-    // TOP44: Error code
+    // Error
     public string ErrorCode { get; set; } = string.Empty;
 }
