@@ -15,11 +15,12 @@ try
     builder.Host.AddSerilog();
 
     builder.Services.Configure<PollingSettings>(builder.Configuration.GetSection("Polling"));
+    builder.Services.Configure<HeishaMonSettings>(builder.Configuration.GetSection("Devices:Heishamon"));
 
     builder.Services.AddAdapters(builder.Configuration);
     builder.Services.AddUseCases();
     builder.Services.AddGui(builder.Configuration);
-    builder.Services.AddScheduler();
+    builder.Services.AddScheduler(builder.Configuration);
 
     var app = builder.Build();
 

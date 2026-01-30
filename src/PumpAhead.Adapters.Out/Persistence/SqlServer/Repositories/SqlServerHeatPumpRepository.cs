@@ -61,6 +61,24 @@ public class SqlServerHeatPumpRepository(PumpAheadDbContext dbContext) : IHeatPu
             existing.DHW_ActualTemperature = heatPump.DomesticHotWater.ActualTemperature.Celsius;
             existing.DHW_TargetTemperature = heatPump.DomesticHotWater.TargetTemperature.Celsius;
             existing.Compressor_Frequency = heatPump.CompressorFrequency.Hertz;
+
+            // Power data
+            existing.Power_HeatProduction = heatPump.Power.HeatProduction.Watts;
+            existing.Power_HeatConsumption = heatPump.Power.HeatConsumption.Watts;
+            existing.Power_CoolProduction = heatPump.Power.CoolProduction.Watts;
+            existing.Power_CoolConsumption = heatPump.Power.CoolConsumption.Watts;
+            existing.Power_DhwProduction = heatPump.Power.DhwProduction.Watts;
+            existing.Power_DhwConsumption = heatPump.Power.DhwConsumption.Watts;
+
+            // Operations data
+            existing.Operations_CompressorHours = heatPump.Operations.CompressorHours;
+            existing.Operations_CompressorStarts = heatPump.Operations.CompressorStarts;
+
+            // Defrost
+            existing.Defrost_IsActive = heatPump.Defrost.IsActive;
+
+            // Error code
+            existing.ErrorCode = heatPump.ErrorCode.Code;
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -83,6 +101,22 @@ public class SqlServerHeatPumpRepository(PumpAheadDbContext dbContext) : IHeatPu
             DhwTemperature.FromCelsius(entity.DHW_ActualTemperature),
             DhwTemperature.FromCelsius(entity.DHW_TargetTemperature));
 
+        var power = new PowerData(
+            Power.FromWatts(entity.Power_HeatProduction),
+            Power.FromWatts(entity.Power_HeatConsumption),
+            Power.FromWatts(entity.Power_CoolProduction),
+            Power.FromWatts(entity.Power_CoolConsumption),
+            Power.FromWatts(entity.Power_DhwProduction),
+            Power.FromWatts(entity.Power_DhwConsumption));
+
+        var operations = new OperationsData(
+            entity.Operations_CompressorHours,
+            entity.Operations_CompressorStarts);
+
+        var defrost = new DefrostData(entity.Defrost_IsActive);
+
+        var errorCode = ErrorCode.From(entity.ErrorCode);
+
         return HeatPump.Reconstitute(
             HeatPumpId.From(entity.Id),
             entity.Model,
@@ -93,7 +127,11 @@ public class SqlServerHeatPumpRepository(PumpAheadDbContext dbContext) : IHeatPu
             OutsideTemperature.FromCelsius(entity.OutsideTemperature),
             centralHeating,
             domesticHotWater,
-            Frequency.FromHertz(entity.Compressor_Frequency));
+            Frequency.FromHertz(entity.Compressor_Frequency),
+            power,
+            operations,
+            defrost,
+            errorCode);
     }
 
     private static HeatPumpEntity MapToEntity(HeatPump heatPump)
@@ -112,7 +150,17 @@ public class SqlServerHeatPumpRepository(PumpAheadDbContext dbContext) : IHeatPu
             CH_TargetTemperature = heatPump.CentralHeating.TargetTemperature.Celsius,
             DHW_ActualTemperature = heatPump.DomesticHotWater.ActualTemperature.Celsius,
             DHW_TargetTemperature = heatPump.DomesticHotWater.TargetTemperature.Celsius,
-            Compressor_Frequency = heatPump.CompressorFrequency.Hertz
+            Compressor_Frequency = heatPump.CompressorFrequency.Hertz,
+            Power_HeatProduction = heatPump.Power.HeatProduction.Watts,
+            Power_HeatConsumption = heatPump.Power.HeatConsumption.Watts,
+            Power_CoolProduction = heatPump.Power.CoolProduction.Watts,
+            Power_CoolConsumption = heatPump.Power.CoolConsumption.Watts,
+            Power_DhwProduction = heatPump.Power.DhwProduction.Watts,
+            Power_DhwConsumption = heatPump.Power.DhwConsumption.Watts,
+            Operations_CompressorHours = heatPump.Operations.CompressorHours,
+            Operations_CompressorStarts = heatPump.Operations.CompressorStarts,
+            Defrost_IsActive = heatPump.Defrost.IsActive,
+            ErrorCode = heatPump.ErrorCode.Code
         };
     }
 }
