@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\PumpAhead.Startup\PumpAhead.Startup.csproj" />
+    <ProjectReference Include="..\PumpAhead.Tests.Common\PumpAhead.Tests.Common.csproj" />
   </ItemGroup>
 
 </Project>
