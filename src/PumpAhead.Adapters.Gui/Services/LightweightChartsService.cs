@@ -75,6 +75,32 @@ public sealed class LightweightChartsService : IAsyncDisposable
         _chartIds.Remove(chartId);
     }
 
+    public async Task<string?> InitializeXYChartAsync(string containerId, ChartOptions? options = null)
+    {
+        var module = await _moduleTask.Value;
+        options ??= ChartOptions.Default;
+
+        var chartId = await module.InvokeAsync<string?>("initializeXYChart", containerId, new
+        {
+            backgroundColor = options.BackgroundColor,
+            textColor = options.TextColor,
+            gridColor = options.GridColor,
+        });
+
+        if (chartId != null)
+        {
+            _chartIds.Add(chartId);
+        }
+
+        return chartId;
+    }
+
+    public async Task SetXYVisibleRangeAsync(string chartId, int fromValue, int toValue)
+    {
+        var module = await _moduleTask.Value;
+        await module.InvokeVoidAsync("setXYVisibleRange", chartId, fromValue, toValue);
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (_moduleTask.IsValueCreated)
