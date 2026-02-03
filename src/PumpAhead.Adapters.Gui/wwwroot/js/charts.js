@@ -148,3 +148,68 @@ export function destroyAllCharts() {
         destroyChart(chartId);
     }
 }
+
+export function initializeXYChart(containerId, options) {
+    const container = document.getElementById(containerId);
+    if (!container) {
+        console.error(`Container with id '${containerId}' not found`);
+        return null;
+    }
+
+    const chartId = `chart_${idCounter++}`;
+
+    const chart = LightweightCharts.createChart(container, {
+        autoSize: true,
+        layout: {
+            background: { type: 'solid', color: options.backgroundColor || '#1e1e1e' },
+            textColor: options.textColor || '#d4d4d4',
+        },
+        grid: {
+            vertLines: { color: options.gridColor || '#333333' },
+            horzLines: { color: options.gridColor || '#333333' },
+        },
+        timeScale: {
+            borderColor: options.gridColor || '#333333',
+            borderVisible: true,
+            visible: true,
+            tickMarkFormatter: (time) => time + '°C',
+            fixLeftEdge: true,
+            fixRightEdge: true,
+            ticksVisible: true,
+        },
+        rightPriceScale: {
+            borderColor: options.gridColor || '#333333',
+            scaleMargins: { top: 0.05, bottom: 0.05 },
+        },
+        localization: {
+            timeFormatter: (time) => time + '°C',
+        },
+        crosshair: {
+            mode: LightweightCharts.CrosshairMode.Normal,
+            vertLine: {
+                color: '#758696',
+                labelBackgroundColor: '#4c525e',
+            },
+            horzLine: {
+                color: '#758696',
+                labelBackgroundColor: '#4c525e',
+            },
+        },
+    });
+
+    chartInstances.set(chartId, chart);
+    return chartId;
+}
+
+export function setXYVisibleRange(chartId, fromValue, toValue) {
+    const chart = chartInstances.get(chartId);
+    if (!chart) {
+        console.error(`Chart with id '${chartId}' not found`);
+        return;
+    }
+
+    chart.timeScale().setVisibleRange({
+        from: fromValue,
+        to: toValue,
+    });
+}
