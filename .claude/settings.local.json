@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git commit:*)",
+      "Bash(git add:*)",
+      "Bash(dotnet new:*)",
+      "Bash(dotnet sln:*)",
+      "Bash(dotnet add:*)",
+      "Bash(dotnet build:*)",
+      "Bash(dotnet test:*)",
+      "Bash(dotnet ef migrations add:*)",
+      "Bash(dotnet tool install:*)",
+      "Bash(powershell:*)",
+      "Bash(find:*)",
+      "WebFetch(domain:www.jetbrains.com)",
+      "Bash(dotnet ef database:*)",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_console_messages",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "mcp__plugin_playwright_playwright__browser_close",
+      "WebSearch",
+      "mcp__plugin_playwright_playwright__browser_resize",
+      "mcp__plugin_playwright_playwright__browser_wait_for",
+      "Bash(dotnet run:*)",
+      "Bash(git push:*)",
+      "Bash(del \"C:\\\\Git\\\\pump-ahead\\\\src\\\\PumpAhead.Adapters.Web\\\\Components\\\\Shared\\\\HeatingCurveChart.razor\")",
+      "Bash(curl:*)",
+      "Bash(python test_console.py:*)",
+      "Bash(taskkill:*)",
+      "Bash(tree:*)",
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "mcp__plugin_context7_context7__query-docs"
+    ]
+  }
+}
