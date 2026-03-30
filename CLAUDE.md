@@ -31,11 +31,14 @@ pumpahead/              # Core library, zero HA dependency
   simulator.py          # Building digital twin
   optimizer.py          # MPC (cvxpy + OSQP)
   estimator.py          # Kalman filter
-  controller.py         # PID with anti-windup
+  controller.py         # PIDController + PumpAheadController
   identifier.py         # RC parameter identification (scipy)
   weather.py            # SyntheticWeather, CSVWeather, OpenMeteoHistorical
   scenarios.py          # RoomConfig, SimScenario, building profiles, scenario library
-  metrics.py            # SimMetrics, assertion functions
+  metrics.py            # SimMetrics + assertion functions (assert_comfort, assert_floor_temp_safe, etc.)
+  solar.py              # Simple Q_sol orientation-based scaling (full geometry in solar_gti.py)
+  dew_point.py          # Magnus approximation, condensation protection
+  tariff.py             # Spot price client (G14 tariff integration)
   visualization.py      # matplotlib static plots, Plotly Dash replay
 
 custom_components/pumpahead/   # HA integration, imports from pumpahead/
