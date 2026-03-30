@@ -11,10 +11,10 @@
 [hacs-url]: https://hacs.xyz
 [ha-badge]: https://img.shields.io/badge/Home%20Assistant-2024.1+-blue.svg
 [ha-url]: https://www.home-assistant.io
-[license-badge]: https://img.shields.io/github/license/hubertus65/pump-ahead
-[license-url]: https://github.com/hubertus65/pump-ahead/blob/master/LICENSE
-[tests-badge]: https://img.shields.io/badge/tests-905%20passed-brightgreen
-[tests-url]: https://github.com/hubertus65/pump-ahead/actions
+[license-badge]: https://img.shields.io/github/license/hubertciebiada/pump-ahead
+[license-url]: https://github.com/hubertciebiada/pump-ahead/blob/master/LICENSE
+[tests-badge]: https://img.shields.io/badge/tests-passing-brightgreen
+[tests-url]: https://github.com/hubertciebiada/pump-ahead/actions
 
 ---
 
@@ -24,7 +24,24 @@ Most heat pump controllers are reactive -- they measure the current temperature 
 
 PumpAhead replaces reactive control with **Model Predictive Control (MPC)**. It builds a mathematical thermal model (RC network) of each room, combines it with weather forecasts and energy price signals, and optimizes heating/cooling decisions 24 hours into the future. The 60-80 mm concrete slab under your floor becomes a thermal battery -- charged during cheap hours, discharged during expensive ones, pre-heated before cold fronts, and kept cool before sunny afternoons.
 
-For rooms equipped with both underfloor heating and a split/AC unit, PumpAhead coordinates both sources automatically. The slow, efficient UFH handles the base load. The fast split provides short-term corrections only when the model predicts UFH alone cannot maintain comfort. A dedicated anti-takeover mechanism prevents the common pathology where the split inadvertently becomes the primary heat source (priority inversion).
+For rooms equipped with both underfloor heating and a split/AC unit, PumpAhead coordinates both sources. The slow, efficient UFH always handles the base load and will always reach the setpoint -- but with a time constant of hours, it may be too slow for sudden changes. The fast split **shortens the wait for comfort** when the model predicts UFH alone cannot reach the setpoint in time. A dedicated anti-takeover mechanism prevents the common pathology where the split inadvertently becomes the primary heat source (priority inversion).
+
+---
+
+## Design Principles
+
+PumpAhead is built on ten non-negotiable axioms:
+
+1. **UFH is always primary.** The underfloor heating will always reach the setpoint. The question is how fast. Splits shorten the wait, they do not rescue UFH.
+2. **Zero priority inversion.** If a split runs more than 30 min/h, the system forces UFH valve increase. The split never becomes the de facto primary source.
+3. **Splits never oppose the current mode.** In heating mode, the split never cools -- even on overshoot. In cooling mode, it never heats -- even on undershoot. Wait.
+4. **T_floor <= 34 C is a hard limit.** At extreme outdoor temperatures (-15 C), higher floor temperatures are physically necessary and acceptable. Hard override on the valve.
+5. **T_floor >= T_dew + 2 C -- condensation protection.** The only case where humidity is a critical measurement. Violation = immediate valve close.
+6. **Safety runs independently of the algorithm.** YAML automations in HA. Python can crash -- safety cannot. Priority: Safety YAML > PumpAhead > HP built-in curve.
+7. **Thermal mass is a battery, not a problem.** 3250 kJ/K of slab is ~10 kWh of storage. Charge before frost, discharge before sun. C_slab/C_air ~ 54:1 defines the entire system.
+8. **Hardware-agnostic.** Users map HA entities at setup. Degrees C is degrees C, % is %, W is W. As long as the unit matches, the brand does not matter.
+9. **Comfort always beats cost.** Tariff optimization cannot cause T_room to drop below T_min. The slab is a cheap battery, but comfort is a hard constraint, price is soft.
+10. **Prediction horizon >= 24 hours.** The slab time constant is 4-6 hours. Reactive PID loses to physics. The only way is to look ahead -- weather, tariff, DHW.
 
 ---
 
@@ -32,15 +49,15 @@ For rooms equipped with both underfloor heating and a split/AC unit, PumpAhead c
 
 - **Predictive control (MPC)** -- 24-hour rolling optimization horizon, 15-minute resolution, solving a small quadratic program in under 10 ms
 - **Works with ANY heat pump, ANY valve actuators, ANY split/AC units** -- hardware-agnostic design; you map Home Assistant entities to roles during setup
-- **Dual-source coordination** -- underfloor heating (primary) + split/AC (boost), with deadband, anti-takeover logic, and priority inversion prevention
-- **Floor cooling with dew point protection** -- automatic condensation prevention using room humidity sensors, enforcing T_floor >= T_dew + 2 degrees C at all times
+- **Dual-source coordination** -- underfloor heating (primary) + split/AC (comfort boost), with deadband, anti-takeover logic, and priority inversion prevention
+- **Floor cooling with dew point protection** -- automatic condensation prevention using room humidity sensors, enforcing T_floor >= T_dew + 2 C at all times
 - **Auto-learning thermal model** -- RC parameter identification from your house's own data; the model improves over time with periodic re-fitting
 - **Weather forecast integration** -- pre-heating before cold snaps, solar overshoot prevention for south-facing rooms, using Open-Meteo 48-hour forecasts
 - **Dynamic tariff optimization** -- spot price integration (Polish G14 tariff, Nordpool, ENTSO-E); uses thermal mass as a cost-free energy buffer to shift consumption to cheap hours
-- **DHW/CWU coordination** -- knows when the heat pump switches to domestic hot water, pre-charges the slab beforehand, and does not trigger unnecessary split activations during DHW cycles
-- **Independent safety layer** -- YAML automations running outside the Python process; floor overheat protection (EN 1264, 29 degrees C limit), dew point hard override, emergency fallback to split if room temperature drops too far, watchdog if the integration becomes unresponsive
+- **DHW coordination** -- knows when the heat pump switches to domestic hot water, pre-charges the slab beforehand, and does not trigger unnecessary split activations during DHW cycles
+- **Independent safety layer** -- YAML automations running outside the Python process; floor overheat protection (34 C hard limit), dew point override, emergency fallback, watchdog with HP curve fallback
 - **Built-in building simulator** -- full digital twin for offline testing; a year-long simulation runs in under a minute
-- **Interactive simulation replay** -- Plotly Dash application with synchronized timelines, playback controls, and per-room gauges for inspecting simulation results
+- **Interactive simulation replay** -- Plotly Dash application with synchronized timelines, playback controls, and per-room gauges
 
 ---
 
@@ -82,40 +99,38 @@ PumpAhead is designed for cautious deployment:
 
 ## Supported Hardware
 
-PumpAhead is hardware-agnostic. It works with any equipment that exposes Home Assistant entities. During setup, you map entities to roles (temperature sensor, valve position, heat pump mode, etc.).
+PumpAhead is hardware-agnostic. It works with any equipment that exposes Home Assistant entities. During setup, you map entities to roles (temperature sensor, valve position, heat pump mode, etc.). As long as the unit of measurement is correct, the brand does not matter.
 
 ### Example Setups
 
 | Component | Example 1 | Example 2 | Example 3 |
 |-----------|-----------|-----------|-----------|
-| Heat pump | Panasonic Aquarea + HeishaMon | Daikin Altherma (native HA integration) | Vaillant aroTHERM + eBUS adapter |
+| Heat pump | Panasonic Aquarea + HeishaMon | Daikin Altherma (native HA) | Vaillant aroTHERM + eBUS |
 | Valve controller | VdMot (MQTT) | Salus iT600 (WiFi) | Homematic IP (CCU3) |
 | Split/AC | Mitsubishi via ESPHome (CN105) | Daikin WiFi adapter | Any `climate` entity |
 | Temp sensors | Aqara Zigbee | Shelly H&T Gen3 | Sonoff SNZB-02 |
-| Power meter | Shelly EM on HP | Tuya smart plug | Built-in HP metering |
-
-Other confirmed-compatible heat pumps: Mitsubishi Ecodan, Nibe F-series (via Nibe Uplink), Bosch Compress, Stiebel Eltron (via ISG), or any generic MQTT-connected heat pump.
+| Power meter | Shelly EM | Tuya smart plug | Built-in HP metering |
 
 ### Required Entities
 
 | Role | Type | Notes |
 |------|------|-------|
-| Room temperature (per room) | `sensor` (degrees C) | At least one per controlled room |
-| Outdoor temperature | `sensor` (degrees C) | From HP, weather station, or HA weather integration |
-| Supply water temperature | `sensor` (degrees C) | From HP integration |
+| Room temperature (per room) | `sensor` (C) | At least one per controlled room |
+| Outdoor temperature | `sensor` (C) | From HP, weather station, or HA weather integration |
+| Supply water temperature | `sensor` (C) | From HP integration |
 | Valve position (per room) | `number` (0-100%) | Any controllable valve actuator |
-| Heat pump operating mode | `sensor` | Heating / DHW / idle / defrost |
+| Heat pump operating mode | `sensor` | States mapped to: heating / DHW / idle / defrost / cooling |
 
 ### Optional Entities
 
 | Role | Type | When needed |
 |------|------|-------------|
 | Room humidity (per room) | `sensor` (%) | Required for cooling mode (dew point protection) |
-| Floor surface temperature | `sensor` (degrees C) | Improves slab temperature estimation |
+| Floor surface temperature | `sensor` (C) | Improves slab temperature estimation |
 | Split/AC (per room) | `climate` entity | Rooms with dual-source control |
 | HP electrical power | `sensor` (W) | COP calculation, tariff optimization |
-| Return water temperature | `sensor` (degrees C) | Better COP calculation |
-| DHW tank temperature | `sensor` (degrees C) | DHW cycle planning |
+| Return water temperature | `sensor` (C) | Better COP calculation |
+| DHW tank temperature | `sensor` (C) | DHW cycle planning |
 
 ---
 
@@ -125,7 +140,7 @@ Other confirmed-compatible heat pumps: Mitsubishi Ecodan, Nibe F-series (via Nib
 
 1. Open HACS in Home Assistant
 2. Go to **Integrations** and click the three-dot menu
-3. Select **Custom repositories** and add: `https://github.com/hubertus65/pump-ahead`
+3. Select **Custom repositories** and add: `https://github.com/hubertciebiada/pump-ahead`
 4. Search for **PumpAhead** and install
 5. Restart Home Assistant
 6. Go to **Settings > Devices & Services > Add Integration** and search for **PumpAhead**
@@ -145,7 +160,7 @@ PumpAhead is configured entirely through the Home Assistant UI -- no YAML editin
 
 ### Setup Steps
 
-1. **Global entities** -- Map your heat pump's entities: outdoor temperature, supply temperature, operating mode, and (optionally) return temperature, power consumption, and DHW tank temperature.
+1. **Global entities** -- Map your heat pump's entities: outdoor temperature, supply temperature, operating mode. Map the operating mode states to PumpAhead's internal states (heating/cooling/DHW/idle/defrost). Optionally: return temperature, power consumption, DHW tank temperature.
 
 2. **Add rooms** -- For each room, provide:
    - Room name and floor area
@@ -153,23 +168,13 @@ PumpAhead is configured entirely through the Home Assistant UI -- no YAML editin
    - Valve actuator entity
    - Window orientation(s) and area (for solar gain prediction)
    - Whether the room has a split/AC unit (and which `climate` entity)
-   - Humidity sensor (required if you plan to use cooling mode)
+   - Humidity sensor (required for cooling mode)
 
-3. **Set parameters** -- Configure setpoints, deadband (default 0.5 degrees C), valve floor minimum (default 15%), and heating/cooling mode.
+3. **Set parameters** -- Configure setpoints, deadband (default 0.5 C), valve floor minimum (default 15%), and heating/cooling mode.
 
-4. **Start in shadow mode** -- PumpAhead begins by observing and logging recommendations without controlling anything. Diagnostic sensors show what the algorithm would do. Run shadow mode for at least 2-4 weeks to collect data for thermal model identification.
+4. **Start in shadow mode** -- PumpAhead begins by observing and logging recommendations without controlling anything. Run shadow mode for at least 2-4 weeks to collect data for thermal model identification.
 
 5. **Enable control** -- Once the thermal model is identified and you trust the recommendations, enable live control one room at a time.
-
-### Options Flow
-
-After initial setup, you can adjust parameters at any time through the integration's options:
-
-- Per-room setpoints and schedules
-- Controller mode (PID or MPC)
-- Heating/cooling season switching (automatic or manual)
-- Tariff configuration (flat rate or dynamic spot pricing)
-- Re-identification of RC parameters (button entity)
 
 ---
 
@@ -219,7 +224,7 @@ The core library depends only on numpy, scipy, cvxpy, and matplotlib. It can be 
 ### Quick Start
 
 ```bash
-git clone https://github.com/hubertus65/pump-ahead.git
+git clone https://github.com/hubertciebiada/pump-ahead.git
 cd pump-ahead
 pip install -e ".[dev]"
 ```
@@ -243,13 +248,8 @@ pytest --cov=pumpahead --cov-report=html
 ### Code Quality
 
 ```bash
-# Linting
 ruff check .
-
-# Type checking
 mypy pumpahead/
-
-# Format
 ruff format .
 ```
 
@@ -280,79 +280,46 @@ for t in range(scenario.duration_minutes):
 python -m pumpahead.replay
 ```
 
-Opens a Plotly Dash application in your browser with timeline controls, per-room gauges, and synchronized charts for exploring simulation results.
-
-### CI/CD
-
-GitHub Actions runs on every push:
-
-- `pytest` (unit + simulation tests)
-- `ruff` (linting and formatting)
-- `mypy` (type checking)
-- HACS validation
-
 ---
 
 ## FAQ
 
 **Q: Do I need a specific brand of heat pump?**
-A: No. PumpAhead works with any heat pump that has a Home Assistant integration. You map your HA entities to roles during setup.
+A: No. PumpAhead works with any heat pump that has a Home Assistant integration. You map your HA entities to roles during setup. As long as the units match, the brand does not matter.
 
 **Q: Does it work without split/AC units?**
-A: Yes. Dual-source coordination is optional. Most rooms in a typical house have only underfloor heating. PumpAhead works in UFH-only mode -- predictive pre-loading of the slab becomes even more important without a fast fallback source.
+A: Yes. Most rooms have only underfloor heating. PumpAhead works in UFH-only mode -- predictive pre-loading of the slab becomes even more important without a fast comfort source.
 
-**Q: What happens if the internet goes down (no weather forecast)?**
-A: PumpAhead falls back to the most recent forecast (if less than 6 hours old), then to the current outdoor temperature reading with zero solar gains assumed. The system continues to function, just without anticipatory optimization.
+**Q: What happens if the internet goes down?**
+A: PumpAhead falls back to the most recent forecast (if less than 6 hours old), then to the current outdoor temperature with zero solar gains. The system continues to function without anticipatory optimization.
 
 **Q: What happens if PumpAhead crashes?**
-A: The independent safety layer (YAML automations) continues to run regardless of the Python integration's state. A watchdog detects if PumpAhead stops responding and falls back to the heat pump's built-in weather-compensated curve. Floor overheat and condensation protections remain active at all times.
+A: The independent safety layer (YAML automations) continues regardless. A watchdog detects if PumpAhead stops responding and falls back to the heat pump's built-in curve. Floor overheat and condensation protections remain active at all times.
 
 **Q: Is night setback recommended?**
-A: No. With high thermal inertia systems (underfloor heating), night setback is counterproductive. The energy saved overnight is more than offset by the energy needed to reheat the massive slab in the morning. PumpAhead maintains stable temperatures 24/7, leveraging the slab's thermal mass for efficiency.
+A: No. With high thermal inertia systems, night setback is counterproductive. The energy saved overnight is offset by the energy needed to reheat the massive slab in the morning. PumpAhead maintains stable temperatures 24/7.
 
 **Q: Can I use it for cooling?**
-A: Yes. PumpAhead supports floor cooling with automatic dew point protection. A humidity sensor is required in each room where floor cooling is used. The system enforces T_floor >= T_dew + 2 degrees C at all times to prevent condensation.
+A: Yes. PumpAhead supports floor cooling with automatic dew point protection. A humidity sensor is required in each cooled room. The system enforces T_floor >= T_dew + 2 C at all times.
 
 **Q: How long before the system is optimized for my house?**
-A: Shadow mode collects data for 2-4 weeks. During this time, the thermal model learns the specific thermal characteristics of each room (insulation quality, thermal mass, window gains). After identification, you can enable live control.
+A: Shadow mode collects data for 2-4 weeks. The thermal model learns each room's characteristics. After identification, you can enable live control.
 
 ---
 
 ## Academic Foundations
 
-PumpAhead builds on established research in building climate control. The key ideas:
-
 | Concept | Reference | Contribution |
 |---------|-----------|-------------|
-| MPC for radiant + convective systems | Drgona, Picard & Helsen (2020). *Journal of Process Control* | Field-tested MPC on a GEOTABS building: 53.5% energy savings, 36.9% comfort improvement vs rule-based control |
-| Stochastic MPC with weather forecasts | Oldewurtel et al. (2012). *Energy and Buildings* | Affine disturbance feedback with chance constraints; even imperfect forecasts outperform no forecast for high-inertia systems |
-| RC model for pipe-embedded floors | Liu et al. (2016). *Energy and Buildings* | Star-type RC model for slabs with embedded pipes; less than 5.5% error vs finite element methods |
-| MPC for radiant floor optimization | Li et al. (2021). *Energy* | MPC reduces floor heating response time by 56%, heat pump COP improves by 24.5% vs PID |
-| Hierarchical MIMO MPC | Killian & Kozek (2018). *Applied Energy* | Two-level MPC: upper level optimizes slow building dynamics, lower level handles fast component switching |
-| 2nd-order model sufficiency | Sourbron & Verhelst (2013) | 2R2C models are sufficient for MPC; higher-order models do not proportionally improve control performance |
-| Singular perturbation decomposition | Gupta et al. (2017) | C_air/C_slab ratio much less than 1 enables decomposition into slow (slab) and fast (air) subsystems with near-optimal composite control |
-| Priority inversion in radiant systems | Tekmar Essay E006 (Watts) | PWM on the slow source prevents the fast source from taking over; foundational insight for PumpAhead's anti-takeover logic |
-| hybridGEOTABS framework | EU Horizon 2020, KU Leuven / EnergyVille | Two-layer MPC (supervisory 24-48h + local PI) tested in a 32-zone office building |
-
----
-
-## Acknowledgments
-
-### Open-Source Projects
-
-PumpAhead was informed by and is grateful to these projects:
-
-- [ha-dual-smart-thermostat](https://github.com/swingerman/ha-dual-smart-thermostat) -- staging and timeout patterns for dual-source control in HA
-- [SAT (Smart Autotune Thermostat)](https://github.com/Alexwijn/SAT) -- PID with outdoor reset and auto-tuning
-- [roommind](https://github.com/snazzybean/roommind) -- self-learning MPC with Extended Kalman Filter
-- [DarkGreyBox](https://github.com/bsoucisse/DarkGreyBox) -- grey-box RC parameter identification
-- [haos_mpc](https://github.com/sebzuddas/haos_mpc) -- MIMO MPC via HA websocket
-- [Versatile Thermostat](https://github.com/jmcollin78/versatile_thermostat) -- TPI and auto-learning patterns
-
-### Standards
-
-- EN 1264 -- Maximum floor surface temperature (29 degrees C in occupied zones)
-- ISO 13790 / EN ISO 52016-1 -- Simplified building energy models (5R1C reference)
+| MPC for radiant + convective systems | Drgona, Picard & Helsen (2020). *Journal of Process Control* | 53.5% energy savings, 36.9% comfort improvement vs rule-based |
+| Stochastic MPC with weather forecasts | Oldewurtel et al. (2012). *Energy and Buildings* | Imperfect forecasts still outperform no forecast for high-inertia systems |
+| RC model for pipe-embedded floors | Liu et al. (2016). *Energy and Buildings* | Star-type RC model, <5.5% error vs FEM |
+| MPC for radiant floor optimization | Li et al. (2021). *Energy* | 56% faster response, +24.5% COP vs PID |
+| Hierarchical MIMO MPC | Killian & Kozek (2018). *Applied Energy* | Two-level MPC for slow building dynamics + fast component switching |
+| 2nd-order model sufficiency | Sourbron & Verhelst (2013) | 2R2C sufficient for MPC; higher-order models do not proportionally improve control |
+| Singular perturbation decomposition | Gupta et al. (2017) | C_air/C_slab << 1 enables slow/fast subsystem decomposition |
+| Priority inversion in radiant systems | Tekmar Essay E006 (Watts) | PWM on slow source prevents fast source takeover |
+| hybridGEOTABS | EU Horizon 2020, KU Leuven / EnergyVille | Supervisory MPC + local PI in 32-zone building |
 
 ---
 
