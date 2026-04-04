@@ -11,7 +11,7 @@ def test_import_pumpahead() -> None:
     import pumpahead
 
     assert hasattr(pumpahead, "__version__")
-    assert pumpahead.__version__ == "0.0.0"
+    assert pumpahead.__version__ == "0.1.0"
 
 
 @pytest.mark.unit

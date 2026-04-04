@@ -1,3 +1,7 @@
-"""PumpAhead -- Predictive heating/cooling controller using Model Predictive Control."""
+"""PumpAhead — Predictive heating/cooling controller with RC thermal models."""
 
-__version__ = "0.0.0"
+from pumpahead.model import ModelOrder, RCModel, RCParams
+
+__version__ = "0.1.0"
+
+__all__ = ["ModelOrder", "RCModel", "RCParams", "__version__"]
