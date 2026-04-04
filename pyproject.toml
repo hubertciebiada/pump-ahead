@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pumpahead"
+version = "0.0.0"
+description = "Predictive heating/cooling controller for Home Assistant using Model Predictive Control"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12"
+authors = [
+    { name = "Hubert Ciebiada" },
+]
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.12",
+    "cvxpy>=1.5",
+]
+
+[project.optional-dependencies]
+viz = [
+    "matplotlib>=3.8",
+    "plotly>=5.18",
+    "dash>=2.14",
+]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.3",
+    "mypy>=1.8",
+    "pumpahead[viz]",
+]
+
+[tool.setuptools.packages.find]
+include = ["pumpahead*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "unit: Fast, isolated unit tests",
+    "simulation: Slow scenario-based simulation tests",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 99
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
