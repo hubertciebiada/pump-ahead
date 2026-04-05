@@ -2,6 +2,7 @@
 
 import pytest
 
+from pumpahead.estimator import KalmanEstimator
 from pumpahead.model import ModelOrder, RCModel, RCParams
 from pumpahead.solar import (
     EphemerisCalculator,
@@ -124,3 +125,32 @@ def solar_model() -> SolarGainModel:
 def ephemeris_lubcza() -> EphemerisCalculator:
     """EphemerisCalculator for Lubcza, Poland (Hubert's location)."""
     return EphemerisCalculator(latitude=50.69, longitude=17.38)
+
+
+# ---------------------------------------------------------------------------
+# KalmanEstimator fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def kalman_3r3c(model_3r3c: RCModel) -> KalmanEstimator:
+    """3R3C Kalman estimator with T_room only."""
+    return KalmanEstimator(model_3r3c, has_floor_sensor=False)
+
+
+@pytest.fixture()
+def kalman_3r3c_dual(model_3r3c: RCModel) -> KalmanEstimator:
+    """3R3C Kalman estimator with T_room + T_floor_surface."""
+    return KalmanEstimator(model_3r3c, has_floor_sensor=True)
+
+
+@pytest.fixture()
+def kalman_2r2c(model_2r2c: RCModel) -> KalmanEstimator:
+    """2R2C Kalman estimator with T_room only."""
+    return KalmanEstimator(model_2r2c, has_floor_sensor=False)
+
+
+@pytest.fixture()
+def kalman_2r2c_dual(model_2r2c: RCModel) -> KalmanEstimator:
+    """2R2C Kalman estimator with T_room + T_floor_surface."""
+    return KalmanEstimator(model_2r2c, has_floor_sensor=True)
