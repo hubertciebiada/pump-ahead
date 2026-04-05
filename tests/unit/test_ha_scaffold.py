@@ -127,7 +127,14 @@ def test_manifest_json_has_required_keys() -> None:
     """manifest.json must contain all HA-required keys."""
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
 
-    required_keys = {"domain", "name", "version", "documentation", "codeowners", "iot_class"}
+    required_keys = {
+        "domain",
+        "name",
+        "version",
+        "documentation",
+        "codeowners",
+        "iot_class",
+    }
     assert required_keys.issubset(manifest.keys())
 
 

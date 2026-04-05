@@ -145,7 +145,9 @@ class SolarGainModel:
         Returns:
             Dimensionless correction factor in [0, 1].
         """
-        azimuth_diff_rad = math.radians(sun_azimuth_deg - window.orientation.azimuth_deg)
+        azimuth_diff_rad = math.radians(
+            sun_azimuth_deg - window.orientation.azimuth_deg
+        )
         elevation_rad = math.radians(sun_elevation_deg)
 
         raw = math.cos(azimuth_diff_rad) * math.cos(elevation_rad)
@@ -243,10 +245,9 @@ class EphemerisCalculator:
         lat_rad = math.radians(self.latitude)
 
         # Elevation
-        sin_elevation = (
-            math.sin(lat_rad) * math.sin(declination)
-            + math.cos(lat_rad) * math.cos(declination) * math.cos(hour_angle)
-        )
+        sin_elevation = math.sin(lat_rad) * math.sin(declination) + math.cos(
+            lat_rad
+        ) * math.cos(declination) * math.cos(hour_angle)
         # Clamp to [-1, 1] to avoid domain errors from floating point
         sin_elevation = max(-1.0, min(sin_elevation, 1.0))
         elevation_rad = math.asin(sin_elevation)
@@ -265,7 +266,7 @@ class EphemerisCalculator:
             cos_azimuth = max(-1.0, min(cos_azimuth, 1.0))
             azimuth_rad = math.acos(cos_azimuth)
 
-            # atan2-like disambiguation: morning → east (< 180), afternoon → west (> 180)
+            # atan2-like: morning -> east (<180), afternoon -> west (>180)
             if hour_angle > 0:
                 azimuth_deg = 360.0 - math.degrees(azimuth_rad)
             else:

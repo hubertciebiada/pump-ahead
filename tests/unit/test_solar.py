@@ -108,7 +108,9 @@ class TestSolarGainModel:
     ) -> None:
         """GHI=0 returns Q_sol=0 (night time)."""
         result = solar_model.compute(
-            ghi=0.0, elevation_deg=30.0, azimuth_deg=180.0,
+            ghi=0.0,
+            elevation_deg=30.0,
+            azimuth_deg=180.0,
             windows=[south_window],
         )
         assert result == 0.0
@@ -121,7 +123,9 @@ class TestSolarGainModel:
     ) -> None:
         """Negative elevation (sun below horizon) returns Q_sol=0."""
         result = solar_model.compute(
-            ghi=500.0, elevation_deg=-5.0, azimuth_deg=180.0,
+            ghi=500.0,
+            elevation_deg=-5.0,
+            azimuth_deg=180.0,
             windows=[south_window],
         )
         assert result == 0.0
@@ -134,7 +138,9 @@ class TestSolarGainModel:
     ) -> None:
         """Elevation exactly 0 (horizon) returns Q_sol=0."""
         result = solar_model.compute(
-            ghi=500.0, elevation_deg=0.0, azimuth_deg=180.0,
+            ghi=500.0,
+            elevation_deg=0.0,
+            azimuth_deg=180.0,
             windows=[south_window],
         )
         assert result == 0.0
@@ -146,7 +152,9 @@ class TestSolarGainModel:
     ) -> None:
         """Empty windows list returns Q_sol=0."""
         result = solar_model.compute(
-            ghi=500.0, elevation_deg=30.0, azimuth_deg=180.0,
+            ghi=500.0,
+            elevation_deg=30.0,
+            azimuth_deg=180.0,
             windows=[],
         )
         assert result == 0.0
@@ -166,7 +174,9 @@ class TestSolarGainModel:
 
         w = WindowConfig(Orientation.SOUTH, area_m2=3.0, g_value=0.6)
         result = solar_model.compute(
-            ghi=500.0, elevation_deg=20.0, azimuth_deg=180.0,
+            ghi=500.0,
+            elevation_deg=20.0,
+            azimuth_deg=180.0,
             windows=[w],
         )
         expected = 0.6 * 3.0 * 500.0 * math.cos(math.radians(20.0))
@@ -186,11 +196,15 @@ class TestSolarGainModel:
         north = WindowConfig(Orientation.NORTH, area_m2=3.0, g_value=0.6)
 
         q_south = solar_model.compute(
-            ghi=500.0, elevation_deg=20.0, azimuth_deg=180.0,
+            ghi=500.0,
+            elevation_deg=20.0,
+            azimuth_deg=180.0,
             windows=[south],
         )
         q_north = solar_model.compute(
-            ghi=500.0, elevation_deg=20.0, azimuth_deg=180.0,
+            ghi=500.0,
+            elevation_deg=20.0,
+            azimuth_deg=180.0,
             windows=[north],
         )
         assert q_south > 0
@@ -208,11 +222,15 @@ class TestSolarGainModel:
 
         # Sun in the east: azimuth ~90 deg, low elevation
         q_east = solar_model.compute(
-            ghi=300.0, elevation_deg=15.0, azimuth_deg=90.0,
+            ghi=300.0,
+            elevation_deg=15.0,
+            azimuth_deg=90.0,
             windows=[east],
         )
         q_west = solar_model.compute(
-            ghi=300.0, elevation_deg=15.0, azimuth_deg=90.0,
+            ghi=300.0,
+            elevation_deg=15.0,
+            azimuth_deg=90.0,
             windows=[west],
         )
         assert q_east > 0
@@ -229,11 +247,15 @@ class TestSolarGainModel:
         w_half = WindowConfig(Orientation.SOUTH, area_m2=3.0, g_value=0.5)
 
         q_full = solar_model.compute(
-            ghi=500.0, elevation_deg=30.0, azimuth_deg=180.0,
+            ghi=500.0,
+            elevation_deg=30.0,
+            azimuth_deg=180.0,
             windows=[w_full],
         )
         q_half = solar_model.compute(
-            ghi=500.0, elevation_deg=30.0, azimuth_deg=180.0,
+            ghi=500.0,
+            elevation_deg=30.0,
+            azimuth_deg=180.0,
             windows=[w_half],
         )
         assert q_half == pytest.approx(q_full * 0.5, rel=1e-10)
@@ -247,11 +269,15 @@ class TestSolarGainModel:
         w = WindowConfig(Orientation.SOUTH, area_m2=3.0, g_value=0.6)
 
         q_one = solar_model.compute(
-            ghi=500.0, elevation_deg=30.0, azimuth_deg=180.0,
+            ghi=500.0,
+            elevation_deg=30.0,
+            azimuth_deg=180.0,
             windows=[w],
         )
         q_two = solar_model.compute(
-            ghi=500.0, elevation_deg=30.0, azimuth_deg=180.0,
+            ghi=500.0,
+            elevation_deg=30.0,
+            azimuth_deg=180.0,
             windows=[w, w],
         )
         assert q_two == pytest.approx(q_one * 2.0, rel=1e-10)
@@ -264,7 +290,9 @@ class TestSolarGainModel:
         """Sun at north (azimuth=0), south-facing window: factor = 0."""
         south = WindowConfig(Orientation.SOUTH, area_m2=3.0, g_value=0.6)
         result = solar_model.compute(
-            ghi=500.0, elevation_deg=30.0, azimuth_deg=0.0,
+            ghi=500.0,
+            elevation_deg=30.0,
+            azimuth_deg=0.0,
             windows=[south],
         )
         assert result == 0.0
@@ -277,11 +305,15 @@ class TestSolarGainModel:
     ) -> None:
         """Doubling GHI doubles Q_sol (linearity)."""
         q1 = solar_model.compute(
-            ghi=250.0, elevation_deg=30.0, azimuth_deg=180.0,
+            ghi=250.0,
+            elevation_deg=30.0,
+            azimuth_deg=180.0,
             windows=[south_window],
         )
         q2 = solar_model.compute(
-            ghi=500.0, elevation_deg=30.0, azimuth_deg=180.0,
+            ghi=500.0,
+            elevation_deg=30.0,
+            azimuth_deg=180.0,
             windows=[south_window],
         )
         assert q2 == pytest.approx(q1 * 2.0, rel=1e-10)
@@ -296,11 +328,15 @@ class TestSolarGainModel:
         w_large = WindowConfig(Orientation.SOUTH, area_m2=4.0, g_value=0.6)
 
         q_small = solar_model.compute(
-            ghi=500.0, elevation_deg=30.0, azimuth_deg=180.0,
+            ghi=500.0,
+            elevation_deg=30.0,
+            azimuth_deg=180.0,
             windows=[w_small],
         )
         q_large = solar_model.compute(
-            ghi=500.0, elevation_deg=30.0, azimuth_deg=180.0,
+            ghi=500.0,
+            elevation_deg=30.0,
+            azimuth_deg=180.0,
             windows=[w_large],
         )
         assert q_large == pytest.approx(q_small * 2.0, rel=1e-10)
@@ -313,7 +349,9 @@ class TestSolarGainModel:
     ) -> None:
         """Negative GHI (sensor error) still returns 0."""
         result = solar_model.compute(
-            ghi=-100.0, elevation_deg=30.0, azimuth_deg=180.0,
+            ghi=-100.0,
+            elevation_deg=30.0,
+            azimuth_deg=180.0,
             windows=[south_window],
         )
         assert result == 0.0
