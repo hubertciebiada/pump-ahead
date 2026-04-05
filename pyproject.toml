@@ -53,3 +53,11 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
+
+[[tool.mypy.overrides]]
+module = ["homeassistant.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["custom_components.*"]
+ignore_missing_imports = true
