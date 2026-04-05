@@ -484,7 +484,9 @@ class CSVWeather:
                         wind_vals.append(
                             float(row[self._config.wind_speed_column].strip())
                         )
-                        hum_vals.append(float(row[self._config.humidity_column].strip()))
+                        hum_vals.append(
+                            float(row[self._config.humidity_column].strip())
+                        )
                     except (ValueError, KeyError) as exc:
                         msg = f"Error parsing row {row_num}: {exc}"
                         raise CSVParseError(msg) from exc
@@ -495,9 +497,7 @@ class CSVWeather:
             raise CSVParseError(msg) from exc
 
         if len(timestamps) < 2:
-            msg = (
-                f"CSV file must contain at least 2 data rows, got {len(timestamps)}"
-            )
+            msg = f"CSV file must contain at least 2 data rows, got {len(timestamps)}"
             raise CSVParseError(msg)
 
         # Convert absolute timestamps to minutes relative to the first entry.
@@ -547,9 +547,7 @@ class CSVWeather:
         return WeatherPoint(
             T_out=float(np.interp(t_minutes, self._t_minutes, self._t_out)),
             GHI=float(np.interp(t_minutes, self._t_minutes, self._ghi)),
-            wind_speed=float(
-                np.interp(t_minutes, self._t_minutes, self._wind_speed)
-            ),
+            wind_speed=float(np.interp(t_minutes, self._t_minutes, self._wind_speed)),
             humidity=float(np.interp(t_minutes, self._t_minutes, self._humidity)),
         )
 
@@ -770,9 +768,7 @@ class OpenMeteoHistorical:
         return WeatherPoint(
             T_out=float(np.interp(t_minutes, self._t_minutes, self._t_out)),
             GHI=float(np.interp(t_minutes, self._t_minutes, self._ghi)),
-            wind_speed=float(
-                np.interp(t_minutes, self._t_minutes, self._wind_speed)
-            ),
+            wind_speed=float(np.interp(t_minutes, self._t_minutes, self._wind_speed)),
             humidity=float(np.interp(t_minutes, self._t_minutes, self._humidity)),
         )
 
