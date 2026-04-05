@@ -90,8 +90,10 @@ class TestOpenMeteoHistoricalLoad:
         """OpenMeteoHistorical fetches data and constructs without error."""
         mock_url.return_value = _mock_urlopen(_make_response())
         w = OpenMeteoHistorical(
-            lat=50.06, lon=19.94,
-            start=date(2024, 1, 1), end=date(2024, 1, 1),
+            lat=50.06,
+            lon=19.94,
+            start=date(2024, 1, 1),
+            end=date(2024, 1, 1),
         )
         assert isinstance(w, OpenMeteoHistorical)
 
@@ -101,8 +103,10 @@ class TestOpenMeteoHistoricalLoad:
         """The request URL contains the correct lat/lon and date range."""
         mock_url.return_value = _mock_urlopen(_make_response())
         OpenMeteoHistorical(
-            lat=50.06, lon=19.94,
-            start=date(2024, 1, 1), end=date(2024, 1, 7),
+            lat=50.06,
+            lon=19.94,
+            start=date(2024, 1, 1),
+            end=date(2024, 1, 7),
         )
         call_args = mock_url.call_args
         url: str = call_args[0][0]
@@ -120,8 +124,10 @@ class TestOpenMeteoHistoricalLoad:
         mock_url.side_effect = urllib.error.URLError("Connection refused")
         with pytest.raises(WeatherAPIError, match="request failed"):
             OpenMeteoHistorical(
-                lat=50.06, lon=19.94,
-                start=date(2024, 1, 1), end=date(2024, 1, 1),
+                lat=50.06,
+                lon=19.94,
+                start=date(2024, 1, 1),
+                end=date(2024, 1, 1),
             )
 
     @pytest.mark.unit
@@ -135,8 +141,10 @@ class TestOpenMeteoHistoricalLoad:
         mock_url.return_value = mock_resp
         with pytest.raises(WeatherAPIError, match="invalid data"):
             OpenMeteoHistorical(
-                lat=50.06, lon=19.94,
-                start=date(2024, 1, 1), end=date(2024, 1, 1),
+                lat=50.06,
+                lon=19.94,
+                start=date(2024, 1, 1),
+                end=date(2024, 1, 1),
             )
 
     @pytest.mark.unit
@@ -146,8 +154,10 @@ class TestOpenMeteoHistoricalLoad:
         mock_url.return_value = _mock_urlopen({"latitude": 50.0})
         with pytest.raises(WeatherAPIError, match="missing 'hourly'"):
             OpenMeteoHistorical(
-                lat=50.06, lon=19.94,
-                start=date(2024, 1, 1), end=date(2024, 1, 1),
+                lat=50.06,
+                lon=19.94,
+                start=date(2024, 1, 1),
+                end=date(2024, 1, 1),
             )
 
     @pytest.mark.unit
@@ -159,8 +169,10 @@ class TestOpenMeteoHistoricalLoad:
         mock_url.return_value = _mock_urlopen(data)
         with pytest.raises(WeatherAPIError, match="All values are null"):
             OpenMeteoHistorical(
-                lat=50.06, lon=19.94,
-                start=date(2024, 1, 1), end=date(2024, 1, 1),
+                lat=50.06,
+                lon=19.94,
+                start=date(2024, 1, 1),
+                end=date(2024, 1, 1),
             )
 
     @pytest.mark.unit
@@ -183,8 +195,10 @@ class TestOpenMeteoHistoricalGet:
         """get(0) returns the first data point exactly."""
         mock_url.return_value = _mock_urlopen(_make_response())
         w = OpenMeteoHistorical(
-            lat=50.06, lon=19.94,
-            start=date(2024, 1, 1), end=date(2024, 1, 1),
+            lat=50.06,
+            lon=19.94,
+            start=date(2024, 1, 1),
+            end=date(2024, 1, 1),
         )
         p = w.get(0.0)
         assert p.T_out == pytest.approx(-5.0)
@@ -198,8 +212,10 @@ class TestOpenMeteoHistoricalGet:
         """get() linearly interpolates between hourly data points."""
         mock_url.return_value = _mock_urlopen(_make_response())
         w = OpenMeteoHistorical(
-            lat=50.06, lon=19.94,
-            start=date(2024, 1, 1), end=date(2024, 1, 1),
+            lat=50.06,
+            lon=19.94,
+            start=date(2024, 1, 1),
+            end=date(2024, 1, 1),
         )
         # Midpoint between hour 0 and hour 1 = 30 minutes
         # T_out: -5.0 to -4.5 -> midpoint = -4.75
@@ -213,8 +229,10 @@ class TestOpenMeteoHistoricalGet:
         resp = _make_response(n_hours=3)
         mock_url.return_value = _mock_urlopen(resp)
         w = OpenMeteoHistorical(
-            lat=50.06, lon=19.94,
-            start=date(2024, 1, 1), end=date(2024, 1, 1),
+            lat=50.06,
+            lon=19.94,
+            start=date(2024, 1, 1),
+            end=date(2024, 1, 1),
         )
         # Last point: t=120min, T_out = -5 + 0.5*2 = -4.0
         p = w.get(9999.0)
@@ -227,8 +245,10 @@ class TestOpenMeteoHistoricalGet:
         resp = _make_response(n_hours=5, null_indices=[2])
         mock_url.return_value = _mock_urlopen(resp)
         w = OpenMeteoHistorical(
-            lat=50.06, lon=19.94,
-            start=date(2024, 1, 1), end=date(2024, 1, 1),
+            lat=50.06,
+            lon=19.94,
+            start=date(2024, 1, 1),
+            end=date(2024, 1, 1),
         )
         # Hour 2 was null; interpolated between hour 1 and hour 3
         # T_out: hour 1 = -4.5, hour 3 = -3.5 -> hour 2 = -4.0
@@ -250,8 +270,10 @@ class TestOpenMeteoHistoricalProtocol:
         """OpenMeteoHistorical must satisfy isinstance(x, WeatherSource)."""
         mock_url.return_value = _mock_urlopen(_make_response())
         w = OpenMeteoHistorical(
-            lat=50.06, lon=19.94,
-            start=date(2024, 1, 1), end=date(2024, 1, 1),
+            lat=50.06,
+            lon=19.94,
+            start=date(2024, 1, 1),
+            end=date(2024, 1, 1),
         )
         assert isinstance(w, WeatherSource)
 
@@ -270,8 +292,10 @@ class TestOpenMeteoHistoricalTimeRange:
         """time_range_minutes returns (0, total_minutes)."""
         mock_url.return_value = _mock_urlopen(_make_response(n_hours=24))
         w = OpenMeteoHistorical(
-            lat=50.06, lon=19.94,
-            start=date(2024, 1, 1), end=date(2024, 1, 1),
+            lat=50.06,
+            lon=19.94,
+            start=date(2024, 1, 1),
+            end=date(2024, 1, 1),
         )
         t_min, t_max = w.time_range_minutes
         assert t_min == pytest.approx(0.0)
@@ -297,16 +321,20 @@ class TestOpenMeteoHistoricalCache:
 
         # First call: fetches from API
         w1 = OpenMeteoHistorical(
-            lat=50.06, lon=19.94,
-            start=date(2024, 1, 1), end=date(2024, 1, 1),
+            lat=50.06,
+            lon=19.94,
+            start=date(2024, 1, 1),
+            end=date(2024, 1, 1),
             cache_dir=tmp_path,
         )
         assert mock_url.call_count == 1
 
         # Second call: should use cache
         w2 = OpenMeteoHistorical(
-            lat=50.06, lon=19.94,
-            start=date(2024, 1, 1), end=date(2024, 1, 1),
+            lat=50.06,
+            lon=19.94,
+            start=date(2024, 1, 1),
+            end=date(2024, 1, 1),
             cache_dir=tmp_path,
         )
         # API should NOT be called again
