@@ -1,5 +1,6 @@
 """Shared pytest fixtures for PumpAhead tests."""
 
+import numpy as np
 import pytest
 
 from pumpahead.estimator import KalmanEstimator
@@ -154,3 +155,55 @@ def kalman_2r2c(model_2r2c: RCModel) -> KalmanEstimator:
 def kalman_2r2c_dual(model_2r2c: RCModel) -> KalmanEstimator:
     """2R2C Kalman estimator with T_room + T_floor_surface."""
     return KalmanEstimator(model_2r2c, has_floor_sensor=True)
+
+
+# ---------------------------------------------------------------------------
+# Weather / disturbance fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def constant_disturbance() -> np.ndarray:
+    """Constant disturbance vector: T_out=5C, no solar, no internal gains."""
+    return np.array([5.0, 0.0, 0.0])
+
+
+@pytest.fixture()
+def winter_disturbance() -> np.ndarray:
+    """Winter night disturbance: T_out=-10C, no solar, no internal gains."""
+    return np.array([-10.0, 0.0, 0.0])
+
+
+@pytest.fixture()
+def summer_disturbance() -> np.ndarray:
+    """Summer noon disturbance: T_out=30C, Q_sol=400W, Q_int=100W."""
+    return np.array([30.0, 400.0, 100.0])
+
+
+@pytest.fixture()
+def outdoor_temperature_24h() -> np.ndarray:
+    """24h sinusoidal outdoor temperature profile at 1-min resolution.
+
+    Mean=5C, amplitude=10C (range: -5C to 15C).
+    """
+    return np.sin(2.0 * np.pi * np.arange(1440) / 1440) * 10.0 + 5.0
+
+
+@pytest.fixture()
+def disturbance_sequence_24h(outdoor_temperature_24h: np.ndarray) -> np.ndarray:
+    """24h disturbance sequence [T_out, Q_sol, Q_int] at 1-min resolution.
+
+    Column 0: outdoor temperature from *outdoor_temperature_24h*.
+    Column 1: Q_sol — half-sine peaking at 500 W during daylight (minutes 360–1080).
+    Column 2: Q_int — constant 50 W internal gains.
+    """
+    n = 1440
+    q_sol = np.zeros(n)
+    daylight_start, daylight_end = 360, 1080
+    daylight_len = daylight_end - daylight_start
+    daylight_idx = np.arange(daylight_start, daylight_end)
+    q_sol[daylight_idx] = 500.0 * np.sin(np.pi * (daylight_idx - daylight_start) / daylight_len)
+
+    q_int = np.full(n, 50.0)
+
+    return np.column_stack([outdoor_temperature_24h, q_sol, q_int])
