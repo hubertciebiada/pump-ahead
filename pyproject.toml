@@ -41,7 +41,10 @@ markers = [
     "simulation: Slow scenario-based simulation tests",
     "slow: Tests that take more than a few seconds",
 ]
-addopts = "-ra -q"
+addopts = "-ra -q --strict-markers --tb=short"
+filterwarnings = [
+    "error",
+]
 
 [tool.ruff]
 target-version = "py312"
