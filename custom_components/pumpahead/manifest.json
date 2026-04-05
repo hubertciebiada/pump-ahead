@@ -1,10 +1,12 @@
 {
     "domain": "pumpahead",
     "name": "PumpAhead",
-    "version": "0.0.0",
+    "version": "0.1.0",
     "documentation": "https://github.com/hubertciebiada/pump-ahead",
     "codeowners": ["@hubertciebiada"],
     "iot_class": "local_polling",
     "config_flow": true,
+    "integration_type": "hub",
+    "loggers": ["pumpahead"],
     "requirements": []
 }
