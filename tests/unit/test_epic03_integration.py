@@ -143,8 +143,10 @@ timestamp,T_out,GHI,wind_speed,humidity
         """OpenMeteoHistorical satisfies WeatherSource protocol."""
         mock_url.return_value = _mock_urlopen(_make_response())
         src = OpenMeteoHistorical(
-            lat=50.06, lon=19.94,
-            start=date(2024, 1, 1), end=date(2024, 1, 1),
+            lat=50.06,
+            lon=19.94,
+            start=date(2024, 1, 1),
+            end=date(2024, 1, 1),
         )
         assert isinstance(src, WeatherSource)
         wp = src.get(0.0)
@@ -174,9 +176,7 @@ class TestWeatherToSolarGainPipeline:
         # Fixed sun: elevation=30 deg, azimuth=180 deg (due south)
         elevation_deg = 30.0
         azimuth_deg = 180.0
-        q_sol = solar_model.compute(
-            wp.GHI, elevation_deg, azimuth_deg, [south_window]
-        )
+        q_sol = solar_model.compute(wp.GHI, elevation_deg, azimuth_deg, [south_window])
 
         # Expected: g_value * area * GHI * cos(azimuth_diff) * cos(elevation)
         # azimuth_diff = 180 - 180 = 0, cos(0)=1
