@@ -113,7 +113,9 @@ class KalmanEstimator:
 
     @staticmethod
     def _validate_covariance(
-        matrix: NDArray[np.float64], expected_size: int, name: str,
+        matrix: NDArray[np.float64],
+        expected_size: int,
+        name: str,
     ) -> None:
         """Validate that a matrix is square, correctly sized, and symmetric PSD.
 
@@ -168,7 +170,9 @@ class KalmanEstimator:
         return self._C.shape[0]
 
     def initialize(
-        self, x0: NDArray[np.float64], P0: NDArray[np.float64],
+        self,
+        x0: NDArray[np.float64],
+        P0: NDArray[np.float64],
     ) -> None:
         """Set the state estimate and error covariance directly.
 
@@ -245,10 +249,7 @@ class KalmanEstimator:
             Predicted state estimate (copy), shape (n_states,).
         """
         self._x_hat = (
-            self._A_d @ self._x_hat
-            + self._B_d @ u
-            + self._E_d @ d
-            + self._b_d
+            self._A_d @ self._x_hat + self._B_d @ u + self._E_d @ d + self._b_d
         )
         self._P = self._A_d @ self._P @ self._A_d.T + self._Q
         # Symmetrize for numerical stability
@@ -256,7 +257,8 @@ class KalmanEstimator:
         return self._x_hat.copy()
 
     def update(
-        self, z: NDArray[np.float64] | None,
+        self,
+        z: NDArray[np.float64] | None,
     ) -> NDArray[np.float64]:
         """Kalman update step: incorporate measurement.
 

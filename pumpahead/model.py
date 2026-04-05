@@ -116,8 +116,13 @@ class RCParams:
             ValueError: If required parameters for the order are missing or invalid.
         """
         if order == ModelOrder.THREE:
-            required = {"C_wall": self.C_wall, "R_wi": self.R_wi,
-                        "R_wo": self.R_wo, "R_ve": self.R_ve, "R_ins": self.R_ins}
+            required = {
+                "C_wall": self.C_wall,
+                "R_wi": self.R_wi,
+                "R_wo": self.R_wo,
+                "R_ve": self.R_ve,
+                "R_ins": self.R_ins,
+            }
             for name, value in required.items():
                 if value is None:
                     msg = f"{name} is required for 3R3C model"
@@ -268,9 +273,9 @@ class RCModel:
 
         # A matrix (3x3)
         A_c = np.zeros((3, 3))
-        A_c[0, 0] = -(1 / (p.R_sf * p.C_air)
-                       + 1 / (p.R_wi * p.C_air)
-                       + 1 / (p.R_ve * p.C_air))
+        A_c[0, 0] = -(
+            1 / (p.R_sf * p.C_air) + 1 / (p.R_wi * p.C_air) + 1 / (p.R_ve * p.C_air)
+        )
         A_c[0, 1] = 1 / (p.R_sf * p.C_air)
         A_c[0, 2] = 1 / (p.R_wi * p.C_air)
         A_c[1, 0] = 1 / (p.R_sf * p.C_slab)
@@ -285,7 +290,7 @@ class RCModel:
         if self._params.has_split:
             # MIMO: u = [Q_conv, Q_floor]
             B_c = np.zeros((3, 2))
-            B_c[0, 0] = 1 / p.C_air   # Q_conv -> T_air
+            B_c[0, 0] = 1 / p.C_air  # Q_conv -> T_air
             B_c[1, 1] = 1 / p.C_slab  # Q_floor -> T_slab
         else:
             # SISO: u = [Q_floor]
@@ -295,11 +300,11 @@ class RCModel:
 
         # E matrix (3x3): d = [T_out, Q_sol, Q_int]
         E_c = np.zeros((3, 3))
-        E_c[0, 0] = 1 / (p.R_ve * p.C_air)     # T_out -> T_air
-        E_c[0, 1] = p.f_conv / p.C_air          # Q_sol (convective) -> T_air
-        E_c[0, 2] = 1 / p.C_air                 # Q_int -> T_air
-        E_c[2, 0] = 1 / (p.R_wo * p.C_wall)     # T_out -> T_wall
-        E_c[2, 1] = p.f_rad / p.C_wall           # Q_sol (radiative) -> T_wall
+        E_c[0, 0] = 1 / (p.R_ve * p.C_air)  # T_out -> T_air
+        E_c[0, 1] = p.f_conv / p.C_air  # Q_sol (convective) -> T_air
+        E_c[0, 2] = 1 / p.C_air  # Q_int -> T_air
+        E_c[2, 0] = 1 / (p.R_wo * p.C_wall)  # T_out -> T_wall
+        E_c[2, 1] = p.f_rad / p.C_wall  # Q_sol (radiative) -> T_wall
         self._E_c = E_c
 
         # b vector (constant bias from T_ground)
@@ -330,7 +335,7 @@ class RCModel:
         if self._params.has_split:
             # MIMO: u = [Q_conv, Q_floor]
             B_c = np.zeros((2, 2))
-            B_c[0, 0] = 1 / p.C_air   # Q_conv -> T_air
+            B_c[0, 0] = 1 / p.C_air  # Q_conv -> T_air
             B_c[1, 1] = 1 / p.C_slab  # Q_floor -> T_slab
         else:
             # SISO: u = [Q_floor]
@@ -340,8 +345,8 @@ class RCModel:
 
         # E matrix (2x2): d = [T_out, Q_sol]
         E_c = np.zeros((2, 2))
-        E_c[0, 0] = 1 / (p.R_env * p.C_air)    # T_out -> T_air
-        E_c[0, 1] = p.f_conv / p.C_air           # Q_sol (convective) -> T_air
+        E_c[0, 0] = 1 / (p.R_env * p.C_air)  # T_out -> T_air
+        E_c[0, 1] = p.f_conv / p.C_air  # Q_sol (convective) -> T_air
         self._E_c = E_c
 
         # b vector (no T_ground in 2R2C)
@@ -366,16 +371,16 @@ class RCModel:
 
         M = np.zeros((total, total))
         M[:n, :n] = self._A_c
-        M[:n, n:n + m] = self._B_c
-        M[:n, n + m:n + m + p] = self._E_c
-        M[:n, n + m + p:] = self._b_c.reshape(-1, 1)
+        M[:n, n : n + m] = self._B_c
+        M[:n, n + m : n + m + p] = self._E_c
+        M[:n, n + m + p :] = self._b_c.reshape(-1, 1)
 
         Ms = scipy.linalg.expm(M * self._dt)
 
         self._A_d = Ms[:n, :n].copy()
-        self._B_d = Ms[:n, n:n + m].copy()
-        self._E_d = Ms[:n, n + m:n + m + p].copy()
-        self._b_d = Ms[:n, n + m + p:].flatten().copy()
+        self._B_d = Ms[:n, n : n + m].copy()
+        self._E_d = Ms[:n, n + m : n + m + p].copy()
+        self._b_d = Ms[:n, n + m + p :].flatten().copy()
 
     def set_dt(self, dt: float) -> None:
         """Change the discretization time step and re-discretize.
@@ -410,12 +415,7 @@ class RCModel:
         Returns:
             New state vector, shape (n_states,).
         """
-        return (
-            self._A_d @ x
-            + self._B_d @ u
-            + self._E_d @ d
-            + self._b_d
-        )
+        return self._A_d @ x + self._B_d @ u + self._E_d @ d + self._b_d
 
     def predict(
         self,
@@ -447,9 +447,7 @@ class RCModel:
         trajectory = np.zeros((n_steps + 1, self.n_states))
         trajectory[0] = x0
         for k in range(n_steps):
-            trajectory[k + 1] = self.step(
-                trajectory[k], u_sequence[k], d_sequence[k]
-            )
+            trajectory[k + 1] = self.step(trajectory[k], u_sequence[k], d_sequence[k])
         return trajectory
 
     def steady_state(
@@ -474,9 +472,7 @@ class RCModel:
         """
         rhs = self._B_c @ u + self._E_c @ d + self._b_c
         try:
-            x_ss = np.asarray(
-                np.linalg.solve(self._A_c, -rhs), dtype=np.float64
-            )
+            x_ss = np.asarray(np.linalg.solve(self._A_c, -rhs), dtype=np.float64)
         except np.linalg.LinAlgError as e:
             msg = "A_c is singular — no unique steady state exists"
             raise ValueError(msg) from e

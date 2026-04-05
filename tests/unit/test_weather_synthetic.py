@@ -340,7 +340,10 @@ class TestSyntheticWeatherConstant:
     def test_constant_custom_values(self) -> None:
         """Custom constant values are returned at any time."""
         w = SyntheticWeather.constant(
-            T_out=-15.0, GHI=300.0, wind_speed=5.0, humidity=80.0,
+            T_out=-15.0,
+            GHI=300.0,
+            wind_speed=5.0,
+            humidity=80.0,
         )
         for t in [0.0, 60.0, 1440.0, -10.0]:
             p = w.get(t)
@@ -368,7 +371,9 @@ class TestSyntheticWeatherStep:
     def test_step_before_step_time(self) -> None:
         """T_out is baseline before step_time."""
         w = SyntheticWeather.step_t_out(
-            baseline=-5.0, amplitude=15.0, step_time_minutes=120.0,
+            baseline=-5.0,
+            amplitude=15.0,
+            step_time_minutes=120.0,
         )
         p = w.get(60.0)
         assert p.T_out == -5.0
@@ -377,7 +382,9 @@ class TestSyntheticWeatherStep:
     def test_step_at_step_time(self) -> None:
         """T_out is baseline + amplitude at step_time."""
         w = SyntheticWeather.step_t_out(
-            baseline=-5.0, amplitude=15.0, step_time_minutes=120.0,
+            baseline=-5.0,
+            amplitude=15.0,
+            step_time_minutes=120.0,
         )
         p = w.get(120.0)
         assert p.T_out == 10.0
@@ -386,7 +393,9 @@ class TestSyntheticWeatherStep:
     def test_step_after_step_time(self) -> None:
         """T_out is baseline + amplitude after step_time."""
         w = SyntheticWeather.step_t_out(
-            baseline=-5.0, amplitude=15.0, step_time_minutes=120.0,
+            baseline=-5.0,
+            amplitude=15.0,
+            step_time_minutes=120.0,
         )
         p = w.get(240.0)
         assert p.T_out == 10.0
@@ -395,8 +404,12 @@ class TestSyntheticWeatherStep:
     def test_step_other_channels_constant(self) -> None:
         """GHI, wind_speed, humidity remain constant during step."""
         w = SyntheticWeather.step_t_out(
-            baseline=0.0, amplitude=10.0, step_time_minutes=60.0,
-            GHI=100.0, wind_speed=2.0, humidity=70.0,
+            baseline=0.0,
+            amplitude=10.0,
+            step_time_minutes=60.0,
+            GHI=100.0,
+            wind_speed=2.0,
+            humidity=70.0,
         )
         for t in [0.0, 30.0, 60.0, 120.0]:
             p = w.get(t)
@@ -417,7 +430,9 @@ class TestSyntheticWeatherRamp:
     def test_ramp_at_start(self) -> None:
         """T_out at t=0 is baseline."""
         w = SyntheticWeather.ramp_t_out(
-            baseline=-10.0, amplitude=20.0, period_minutes=100.0,
+            baseline=-10.0,
+            amplitude=20.0,
+            period_minutes=100.0,
         )
         assert w.get(0.0).T_out == pytest.approx(-10.0)
 
@@ -425,7 +440,9 @@ class TestSyntheticWeatherRamp:
     def test_ramp_at_midpoint(self) -> None:
         """T_out at t=period/2 is baseline + amplitude/2."""
         w = SyntheticWeather.ramp_t_out(
-            baseline=-10.0, amplitude=20.0, period_minutes=100.0,
+            baseline=-10.0,
+            amplitude=20.0,
+            period_minutes=100.0,
         )
         assert w.get(50.0).T_out == pytest.approx(0.0)
 
@@ -433,7 +450,9 @@ class TestSyntheticWeatherRamp:
     def test_ramp_at_end(self) -> None:
         """T_out at t=period is baseline + amplitude."""
         w = SyntheticWeather.ramp_t_out(
-            baseline=-10.0, amplitude=20.0, period_minutes=100.0,
+            baseline=-10.0,
+            amplitude=20.0,
+            period_minutes=100.0,
         )
         assert w.get(100.0).T_out == pytest.approx(10.0)
 
@@ -441,7 +460,9 @@ class TestSyntheticWeatherRamp:
     def test_ramp_clamped_beyond(self) -> None:
         """T_out beyond period stays at baseline + amplitude."""
         w = SyntheticWeather.ramp_t_out(
-            baseline=-10.0, amplitude=20.0, period_minutes=100.0,
+            baseline=-10.0,
+            amplitude=20.0,
+            period_minutes=100.0,
         )
         assert w.get(200.0).T_out == pytest.approx(10.0)
 
@@ -449,8 +470,12 @@ class TestSyntheticWeatherRamp:
     def test_ramp_other_channels_constant(self) -> None:
         """Non-T_out channels remain constant during ramp."""
         w = SyntheticWeather.ramp_t_out(
-            baseline=0.0, amplitude=10.0, period_minutes=60.0,
-            GHI=50.0, wind_speed=1.0, humidity=40.0,
+            baseline=0.0,
+            amplitude=10.0,
+            period_minutes=60.0,
+            GHI=50.0,
+            wind_speed=1.0,
+            humidity=40.0,
         )
         p = w.get(30.0)
         assert p.GHI == 50.0
@@ -470,7 +495,9 @@ class TestSyntheticWeatherSinusoidal:
     def test_sinusoidal_at_zero(self) -> None:
         """T_out at t=0 equals baseline (sin(0) = 0)."""
         w = SyntheticWeather.sinusoidal_t_out(
-            baseline=5.0, amplitude=10.0, period_minutes=1440.0,
+            baseline=5.0,
+            amplitude=10.0,
+            period_minutes=1440.0,
         )
         assert w.get(0.0).T_out == pytest.approx(5.0)
 
@@ -478,7 +505,9 @@ class TestSyntheticWeatherSinusoidal:
     def test_sinusoidal_at_quarter_period(self) -> None:
         """T_out at t=period/4 equals baseline + amplitude."""
         w = SyntheticWeather.sinusoidal_t_out(
-            baseline=5.0, amplitude=10.0, period_minutes=1440.0,
+            baseline=5.0,
+            amplitude=10.0,
+            period_minutes=1440.0,
         )
         assert w.get(360.0).T_out == pytest.approx(15.0)
 
@@ -486,7 +515,9 @@ class TestSyntheticWeatherSinusoidal:
     def test_sinusoidal_at_half_period(self) -> None:
         """T_out at t=period/2 returns back to baseline."""
         w = SyntheticWeather.sinusoidal_t_out(
-            baseline=5.0, amplitude=10.0, period_minutes=1440.0,
+            baseline=5.0,
+            amplitude=10.0,
+            period_minutes=1440.0,
         )
         assert w.get(720.0).T_out == pytest.approx(5.0)
 
@@ -494,7 +525,9 @@ class TestSyntheticWeatherSinusoidal:
     def test_sinusoidal_at_three_quarter_period(self) -> None:
         """T_out at t=3*period/4 equals baseline - amplitude."""
         w = SyntheticWeather.sinusoidal_t_out(
-            baseline=5.0, amplitude=10.0, period_minutes=1440.0,
+            baseline=5.0,
+            amplitude=10.0,
+            period_minutes=1440.0,
         )
         assert w.get(1080.0).T_out == pytest.approx(-5.0)
 
@@ -502,7 +535,9 @@ class TestSyntheticWeatherSinusoidal:
     def test_sinusoidal_periodicity(self) -> None:
         """Value at t must equal value at t + period."""
         w = SyntheticWeather.sinusoidal_t_out(
-            baseline=0.0, amplitude=8.0, period_minutes=120.0,
+            baseline=0.0,
+            amplitude=8.0,
+            period_minutes=120.0,
         )
         t = 37.0
         assert w.get(t).T_out == pytest.approx(w.get(t + 120.0).T_out)
@@ -518,8 +553,12 @@ class TestSyntheticWeatherSinusoidal:
     def test_sinusoidal_other_channels_constant(self) -> None:
         """Non-T_out channels remain constant during sinusoidal variation."""
         w = SyntheticWeather.sinusoidal_t_out(
-            baseline=0.0, amplitude=10.0, period_minutes=60.0,
-            GHI=200.0, wind_speed=4.0, humidity=55.0,
+            baseline=0.0,
+            amplitude=10.0,
+            period_minutes=60.0,
+            GHI=200.0,
+            wind_speed=4.0,
+            humidity=55.0,
         )
         for t in [0.0, 15.0, 30.0, 45.0]:
             p = w.get(t)
@@ -575,19 +614,27 @@ class TestSyntheticWeatherDirectInit:
         """All four channels can be sinusoidal independently."""
         w = SyntheticWeather(
             t_out=ChannelProfile(
-                kind=ProfileKind.SINUSOIDAL, baseline=0.0, amplitude=10.0,
+                kind=ProfileKind.SINUSOIDAL,
+                baseline=0.0,
+                amplitude=10.0,
                 period_minutes=60.0,
             ),
             ghi=ChannelProfile(
-                kind=ProfileKind.SINUSOIDAL, baseline=500.0, amplitude=500.0,
+                kind=ProfileKind.SINUSOIDAL,
+                baseline=500.0,
+                amplitude=500.0,
                 period_minutes=1440.0,
             ),
             wind_speed=ChannelProfile(
-                kind=ProfileKind.RAMP, baseline=0.0, amplitude=10.0,
+                kind=ProfileKind.RAMP,
+                baseline=0.0,
+                amplitude=10.0,
                 period_minutes=120.0,
             ),
             humidity=ChannelProfile(
-                kind=ProfileKind.STEP, baseline=50.0, amplitude=20.0,
+                kind=ProfileKind.STEP,
+                baseline=50.0,
+                amplitude=20.0,
                 step_time_minutes=30.0,
             ),
         )

@@ -4,8 +4,7 @@ import numpy as np
 import pytest
 
 from pumpahead.estimator import KalmanEstimator
-from pumpahead.model import ModelOrder, RCModel, RCParams
-
+from pumpahead.model import RCModel
 
 # ---------------------------------------------------------------------------
 # TestKalmanEstimatorConstruction — constructor validation
@@ -17,7 +16,8 @@ class TestKalmanEstimatorConstruction:
 
     @pytest.mark.unit
     def test_3r3c_single_sensor_defaults(
-        self, kalman_3r3c: KalmanEstimator,
+        self,
+        kalman_3r3c: KalmanEstimator,
     ) -> None:
         """3R3C with T_room only: correct dimensions and defaults."""
         assert kalman_3r3c.n_states == 3
@@ -27,7 +27,8 @@ class TestKalmanEstimatorConstruction:
 
     @pytest.mark.unit
     def test_3r3c_dual_sensor_defaults(
-        self, kalman_3r3c_dual: KalmanEstimator,
+        self,
+        kalman_3r3c_dual: KalmanEstimator,
     ) -> None:
         """3R3C with T_room + T_floor: correct dimensions."""
         assert kalman_3r3c_dual.n_states == 3
@@ -35,7 +36,8 @@ class TestKalmanEstimatorConstruction:
 
     @pytest.mark.unit
     def test_2r2c_single_sensor_defaults(
-        self, kalman_2r2c: KalmanEstimator,
+        self,
+        kalman_2r2c: KalmanEstimator,
     ) -> None:
         """2R2C with T_room only: correct dimensions and defaults."""
         assert kalman_2r2c.n_states == 2
@@ -45,7 +47,8 @@ class TestKalmanEstimatorConstruction:
 
     @pytest.mark.unit
     def test_2r2c_dual_sensor_defaults(
-        self, kalman_2r2c_dual: KalmanEstimator,
+        self,
+        kalman_2r2c_dual: KalmanEstimator,
     ) -> None:
         """2R2C with both sensors: both states observed."""
         assert kalman_2r2c_dual.n_states == 2
@@ -97,7 +100,8 @@ class TestKalmanEstimatorInitialize:
 
     @pytest.mark.unit
     def test_initialize_sets_state_and_covariance(
-        self, kalman_3r3c: KalmanEstimator,
+        self,
+        kalman_3r3c: KalmanEstimator,
     ) -> None:
         """initialize() should set x_hat and P."""
         x0 = np.array([22.0, 25.0, 18.0])
@@ -108,7 +112,8 @@ class TestKalmanEstimatorInitialize:
 
     @pytest.mark.unit
     def test_initialize_copies_inputs(
-        self, kalman_3r3c: KalmanEstimator,
+        self,
+        kalman_3r3c: KalmanEstimator,
     ) -> None:
         """initialize() should copy x0 and P0, not alias them."""
         x0 = np.array([22.0, 25.0, 18.0])
@@ -121,7 +126,8 @@ class TestKalmanEstimatorInitialize:
 
     @pytest.mark.unit
     def test_initialize_wrong_x0_shape_rejected(
-        self, kalman_3r3c: KalmanEstimator,
+        self,
+        kalman_3r3c: KalmanEstimator,
     ) -> None:
         """initialize() rejects wrong x0 shape."""
         x0 = np.array([22.0, 25.0])  # Wrong: 2 for 3-state
@@ -131,7 +137,8 @@ class TestKalmanEstimatorInitialize:
 
     @pytest.mark.unit
     def test_initialize_from_steady_state(
-        self, model_3r3c: RCModel,
+        self,
+        model_3r3c: RCModel,
     ) -> None:
         """initialize_from_steady_state() sets x_hat to model's steady state."""
         kf = KalmanEstimator(model_3r3c)
@@ -143,7 +150,8 @@ class TestKalmanEstimatorInitialize:
 
     @pytest.mark.unit
     def test_initialize_from_steady_state_default_P(
-        self, model_3r3c: RCModel,
+        self,
+        model_3r3c: RCModel,
     ) -> None:
         """Default P0 from initialize_from_steady_state is diag([5, 10, 5])."""
         kf = KalmanEstimator(model_3r3c)
@@ -164,7 +172,8 @@ class TestKalmanEstimatorPredict:
 
     @pytest.mark.unit
     def test_predict_returns_state_copy(
-        self, kalman_3r3c: KalmanEstimator,
+        self,
+        kalman_3r3c: KalmanEstimator,
     ) -> None:
         """predict() returns a copy of the state, not the internal array."""
         u = np.array([0.0])
@@ -175,7 +184,8 @@ class TestKalmanEstimatorPredict:
 
     @pytest.mark.unit
     def test_predict_advances_state(
-        self, kalman_3r3c: KalmanEstimator,
+        self,
+        kalman_3r3c: KalmanEstimator,
     ) -> None:
         """predict() should change x_hat from initial state."""
         x_before = kalman_3r3c.x_hat.copy()
@@ -186,7 +196,8 @@ class TestKalmanEstimatorPredict:
 
     @pytest.mark.unit
     def test_predict_grows_covariance(
-        self, model_3r3c: RCModel,
+        self,
+        model_3r3c: RCModel,
     ) -> None:
         """P should grow after predict (process noise added)."""
         # Use a small initial P so that Q dominates: A_d @ P @ A_d^T + Q > P
@@ -201,7 +212,8 @@ class TestKalmanEstimatorPredict:
 
     @pytest.mark.unit
     def test_predict_matches_model_step(
-        self, model_3r3c: RCModel,
+        self,
+        model_3r3c: RCModel,
     ) -> None:
         """Predicted state should match model.step() for the state part."""
         kf = KalmanEstimator(model_3r3c)
@@ -215,7 +227,8 @@ class TestKalmanEstimatorPredict:
 
     @pytest.mark.unit
     def test_predict_p_remains_symmetric(
-        self, kalman_3r3c: KalmanEstimator,
+        self,
+        kalman_3r3c: KalmanEstimator,
     ) -> None:
         """P must remain symmetric after predict."""
         u = np.array([500.0])
@@ -236,7 +249,8 @@ class TestKalmanEstimatorUpdate:
 
     @pytest.mark.unit
     def test_update_none_is_noop(
-        self, kalman_3r3c: KalmanEstimator,
+        self,
+        kalman_3r3c: KalmanEstimator,
     ) -> None:
         """update(None) should not change x_hat or P."""
         x_before = kalman_3r3c.x_hat.copy()
@@ -247,7 +261,8 @@ class TestKalmanEstimatorUpdate:
 
     @pytest.mark.unit
     def test_update_shrinks_covariance(
-        self, kalman_3r3c: KalmanEstimator,
+        self,
+        kalman_3r3c: KalmanEstimator,
     ) -> None:
         """P trace should decrease after a measurement update."""
         # First predict to have non-trivial P
@@ -261,7 +276,8 @@ class TestKalmanEstimatorUpdate:
 
     @pytest.mark.unit
     def test_update_moves_state_toward_measurement(
-        self, model_3r3c: RCModel,
+        self,
+        model_3r3c: RCModel,
     ) -> None:
         """After update, T_air estimate should move toward measurement."""
         kf = KalmanEstimator(model_3r3c)
@@ -273,11 +289,13 @@ class TestKalmanEstimatorUpdate:
 
     @pytest.mark.unit
     def test_update_dual_sensor(
-        self, kalman_3r3c_dual: KalmanEstimator,
+        self,
+        kalman_3r3c_dual: KalmanEstimator,
     ) -> None:
         """Dual-sensor update should adjust both T_air and T_slab."""
         kalman_3r3c_dual.initialize(
-            np.array([18.0, 20.0, 20.0]), np.eye(3) * 5.0,
+            np.array([18.0, 20.0, 20.0]),
+            np.eye(3) * 5.0,
         )
         z = np.array([22.0, 25.0])  # T_room=22, T_floor=25
         kalman_3r3c_dual.update(z)
@@ -286,7 +304,8 @@ class TestKalmanEstimatorUpdate:
 
     @pytest.mark.unit
     def test_update_wrong_z_shape_rejected(
-        self, kalman_3r3c: KalmanEstimator,
+        self,
+        kalman_3r3c: KalmanEstimator,
     ) -> None:
         """update() rejects z with wrong shape."""
         z = np.array([20.0, 25.0])  # 2 measurements for single sensor
@@ -295,7 +314,8 @@ class TestKalmanEstimatorUpdate:
 
     @pytest.mark.unit
     def test_update_p_remains_symmetric(
-        self, kalman_3r3c: KalmanEstimator,
+        self,
+        kalman_3r3c: KalmanEstimator,
     ) -> None:
         """P must remain symmetric after update."""
         u = np.array([500.0])
@@ -317,7 +337,8 @@ class TestKalmanEstimatorStep:
 
     @pytest.mark.unit
     def test_step_equals_predict_then_update(
-        self, model_3r3c: RCModel,
+        self,
+        model_3r3c: RCModel,
     ) -> None:
         """step() should produce same result as predict() + update()."""
         x0 = np.array([20.0, 22.0, 19.0])
@@ -342,7 +363,8 @@ class TestKalmanEstimatorStep:
 
     @pytest.mark.unit
     def test_step_with_none_z(
-        self, kalman_3r3c: KalmanEstimator,
+        self,
+        kalman_3r3c: KalmanEstimator,
     ) -> None:
         """step() with z=None should do predict-only."""
         x_before = kalman_3r3c.x_hat.copy()
@@ -407,7 +429,8 @@ class TestKalmanEstimatorConvergence:
         z_seq = np.zeros((n_steps, n_meas))
         for k in range(n_steps):
             z_seq[k] = C @ traj_true[k + 1] + rng.multivariate_normal(
-                np.zeros(n_meas), R_noise,
+                np.zeros(n_meas),
+                R_noise,
             )
 
         # Run Kalman filter with deliberately wrong initial estimate
@@ -420,13 +443,14 @@ class TestKalmanEstimatorConvergence:
 
         # Compute RMSE for T_slab (index 1) over last half
         half = n_steps // 2
-        errors = x_hat_history[half:, 1] - traj_true[half + 1:, 1]
-        rmse = float(np.sqrt(np.mean(errors ** 2)))
+        errors = x_hat_history[half:, 1] - traj_true[half + 1 :, 1]
+        rmse = float(np.sqrt(np.mean(errors**2)))
         return rmse
 
     @pytest.mark.unit
     def test_convergence_3r3c_single_sensor(
-        self, model_3r3c: RCModel,
+        self,
+        model_3r3c: RCModel,
     ) -> None:
         """T_slab RMSE < 1.0 degC with T_room only (3R3C)."""
         rmse = self._run_convergence_test(model_3r3c, has_floor_sensor=False)
@@ -434,17 +458,20 @@ class TestKalmanEstimatorConvergence:
 
     @pytest.mark.unit
     def test_convergence_3r3c_dual_sensor(
-        self, model_3r3c: RCModel,
+        self,
+        model_3r3c: RCModel,
     ) -> None:
         """T_slab RMSE < 0.5 degC with dual sensors (3R3C)."""
         rmse_dual = self._run_convergence_test(
-            model_3r3c, has_floor_sensor=True,
+            model_3r3c,
+            has_floor_sensor=True,
         )
         assert rmse_dual < 0.5, f"Dual T_slab RMSE = {rmse_dual:.4f} (threshold: 0.5)"
 
     @pytest.mark.unit
     def test_convergence_2r2c_single_sensor(
-        self, model_2r2c: RCModel,
+        self,
+        model_2r2c: RCModel,
     ) -> None:
         """T_slab RMSE < 1.0 degC with T_room only (2R2C)."""
         rmse = self._run_convergence_test(model_2r2c, has_floor_sensor=False)
@@ -452,7 +479,8 @@ class TestKalmanEstimatorConvergence:
 
     @pytest.mark.unit
     def test_convergence_2r2c_dual_sensor(
-        self, model_2r2c: RCModel,
+        self,
+        model_2r2c: RCModel,
     ) -> None:
         """T_slab RMSE < 0.5 degC with both sensors (2R2C, fully observed)."""
         rmse = self._run_convergence_test(model_2r2c, has_floor_sensor=True)
@@ -513,7 +541,8 @@ class TestKalmanEstimatorMissingData:
 
     @pytest.mark.unit
     def test_predict_only_diverges_slowly(
-        self, kalman_3r3c: KalmanEstimator,
+        self,
+        kalman_3r3c: KalmanEstimator,
     ) -> None:
         """Predict-only should still track physics (state follows model)."""
         u = np.array([1000.0])
