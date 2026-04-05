@@ -7,70 +7,112 @@ import json
 import sys
 import types
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-# ---------------------------------------------------------------------------
-# Mock homeassistant modules before importing custom_components.pumpahead
-# ---------------------------------------------------------------------------
-
-_ha_const = types.ModuleType("homeassistant.const")
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+MANIFEST_PATH = _REPO_ROOT / "custom_components" / "pumpahead" / "manifest.json"
 
 
-class _Platform:
-    """Minimal stand-in for homeassistant.const.Platform."""
+@pytest.fixture(scope="module")
+def ha_mocks() -> Any:  # noqa: C901
+    """Set up mock homeassistant modules, import custom_components.pumpahead, yield
+    the imported symbols, and clean up sys.modules afterward.
 
-    SENSOR = "sensor"
-    CLIMATE = "climate"
+    This prevents homeassistant mock modules from leaking into other test modules.
+    """
+    # Record which homeassistant/custom_components keys already exist
+    existing_ha_keys = {
+        k for k in sys.modules if k.startswith(("homeassistant", "custom_components"))
+    }
 
+    # Create mock HA modules
+    ha_const = types.ModuleType("homeassistant.const")
 
-_ha_const.Platform = _Platform  # type: ignore[attr-defined]
+    class _Platform:
+        """Minimal stand-in for homeassistant.const.Platform."""
 
-_ha_core = types.ModuleType("homeassistant.core")
-_ha_core.HomeAssistant = MagicMock  # type: ignore[attr-defined]
+        SENSOR = "sensor"
+        CLIMATE = "climate"
 
-_ha_config_entries = types.ModuleType("homeassistant.config_entries")
+    ha_const.Platform = _Platform  # type: ignore[attr-defined]
 
+    ha_core = types.ModuleType("homeassistant.core")
+    ha_core.HomeAssistant = MagicMock  # type: ignore[attr-defined]
 
-class _FakeConfigEntry:
-    """Minimal stand-in for homeassistant.config_entries.ConfigEntry."""
+    ha_config_entries = types.ModuleType("homeassistant.config_entries")
 
-    def __class_getitem__(cls, _item: object) -> type:  # noqa: N804
-        return cls
+    class _FakeConfigEntry:
+        """Minimal stand-in for homeassistant.config_entries.ConfigEntry."""
 
+        def __class_getitem__(cls, _item: object) -> type:  # noqa: N804
+            return cls
 
-_ha_config_entries.ConfigEntry = _FakeConfigEntry  # type: ignore[attr-defined]
+    ha_config_entries.ConfigEntry = _FakeConfigEntry  # type: ignore[attr-defined]
 
-_ha = types.ModuleType("homeassistant")
+    ha = types.ModuleType("homeassistant")
 
-sys.modules.setdefault("homeassistant", _ha)
-sys.modules.setdefault("homeassistant.const", _ha_const)
-sys.modules.setdefault("homeassistant.core", _ha_core)
-sys.modules.setdefault("homeassistant.config_entries", _ha_config_entries)
+    # Inject mock modules into sys.modules
+    sys.modules["homeassistant"] = ha
+    sys.modules["homeassistant.const"] = ha_const
+    sys.modules["homeassistant.core"] = ha_core
+    sys.modules["homeassistant.config_entries"] = ha_config_entries
 
-# Ensure the custom_components package is importable
-_repo_root = Path(__file__).resolve().parents[2]
-if str(_repo_root) not in sys.path:
-    sys.path.insert(0, str(_repo_root))
+    # Ensure the custom_components package is importable
+    repo_root_str = str(_REPO_ROOT)
+    path_added = repo_root_str not in sys.path
+    if path_added:
+        sys.path.insert(0, repo_root_str)
 
-# Now safe to import the integration modules
-from custom_components.pumpahead import (  # noqa: E402
-    PumpAheadData,
-    async_setup_entry,
-    async_unload_entry,
-)
-from custom_components.pumpahead.const import (  # noqa: E402
-    CONF_ENTITY_TEMP_FLOOR,
-    CONF_ENTITY_TEMP_OUTDOOR,
-    CONF_ENTITY_TEMP_ROOM,
-    CONF_ENTITY_VALVE,
-    CONF_ROOM_NAME,
-    DOMAIN,
-    PLATFORMS,
-)
+    # Import the integration modules
+    from custom_components.pumpahead import (
+        PumpAheadData,
+        async_setup_entry,
+        async_unload_entry,
+    )
+    from custom_components.pumpahead.const import (
+        CONF_ENTITY_TEMP_FLOOR,
+        CONF_ENTITY_TEMP_OUTDOOR,
+        CONF_ENTITY_TEMP_ROOM,
+        CONF_ENTITY_VALVE,
+        CONF_ROOM_NAME,
+        DOMAIN,
+        PLATFORMS,
+    )
 
-MANIFEST_PATH = _repo_root / "custom_components" / "pumpahead" / "manifest.json"
+    # Yield all symbols as a namespace object
+    class _Namespace:
+        pass
+
+    ns = _Namespace()
+    ns.PumpAheadData = PumpAheadData  # type: ignore[attr-defined]
+    ns.async_setup_entry = async_setup_entry  # type: ignore[attr-defined]
+    ns.async_unload_entry = async_unload_entry  # type: ignore[attr-defined]
+    ns.DOMAIN = DOMAIN  # type: ignore[attr-defined]
+    ns.PLATFORMS = PLATFORMS  # type: ignore[attr-defined]
+    ns.CONF_ROOM_NAME = CONF_ROOM_NAME  # type: ignore[attr-defined]
+    ns.CONF_ENTITY_TEMP_ROOM = CONF_ENTITY_TEMP_ROOM  # type: ignore[attr-defined]
+    ns.CONF_ENTITY_TEMP_FLOOR = CONF_ENTITY_TEMP_FLOOR  # type: ignore[attr-defined]
+    ns.CONF_ENTITY_VALVE = CONF_ENTITY_VALVE  # type: ignore[attr-defined]
+    ns.CONF_ENTITY_TEMP_OUTDOOR = CONF_ENTITY_TEMP_OUTDOOR  # type: ignore[attr-defined]
+
+    yield ns
+
+    # Teardown: remove all homeassistant/custom_components modules we added
+    keys_to_remove = [
+        k
+        for k in sys.modules
+        if k.startswith(("homeassistant", "custom_components"))
+        and k not in existing_ha_keys
+    ]
+    for k in keys_to_remove:
+        del sys.modules[k]
+
+    # Remove the sys.path entry if we added it
+    if path_added and repo_root_str in sys.path:
+        sys.path.remove(repo_root_str)
 
 
 # ---------------------------------------------------------------------------
@@ -79,27 +121,27 @@ MANIFEST_PATH = _repo_root / "custom_components" / "pumpahead" / "manifest.json"
 
 
 @pytest.mark.unit
-def test_const_domain_value() -> None:
+def test_const_domain_value(ha_mocks: Any) -> None:
     """DOMAIN must be 'pumpahead'."""
-    assert DOMAIN == "pumpahead"
+    assert ha_mocks.DOMAIN == "pumpahead"
 
 
 @pytest.mark.unit
-def test_const_platforms_is_list() -> None:
+def test_const_platforms_is_list(ha_mocks: Any) -> None:
     """PLATFORMS must be a list and currently empty."""
-    assert isinstance(PLATFORMS, list)
-    assert len(PLATFORMS) == 0
+    assert isinstance(ha_mocks.PLATFORMS, list)
+    assert len(ha_mocks.PLATFORMS) == 0
 
 
 @pytest.mark.unit
-def test_const_conf_keys_defined() -> None:
+def test_const_conf_keys_defined(ha_mocks: Any) -> None:
     """All CONF_* constants must be non-empty strings."""
     for key in (
-        CONF_ROOM_NAME,
-        CONF_ENTITY_TEMP_ROOM,
-        CONF_ENTITY_TEMP_FLOOR,
-        CONF_ENTITY_VALVE,
-        CONF_ENTITY_TEMP_OUTDOOR,
+        ha_mocks.CONF_ROOM_NAME,
+        ha_mocks.CONF_ENTITY_TEMP_ROOM,
+        ha_mocks.CONF_ENTITY_TEMP_FLOOR,
+        ha_mocks.CONF_ENTITY_VALVE,
+        ha_mocks.CONF_ENTITY_TEMP_OUTDOOR,
     ):
         assert isinstance(key, str)
         assert len(key) > 0
@@ -111,8 +153,9 @@ def test_const_conf_keys_defined() -> None:
 
 
 @pytest.mark.unit
-def test_manifest_json_valid() -> None:
+def test_manifest_json_valid(ha_mocks: Any) -> None:
     """manifest.json must be parseable and contain correct metadata."""
+    _ = ha_mocks  # fixture ensures HA mocks are active
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
 
     assert manifest["domain"] == "pumpahead"
@@ -123,8 +166,9 @@ def test_manifest_json_valid() -> None:
 
 
 @pytest.mark.unit
-def test_manifest_json_has_required_keys() -> None:
+def test_manifest_json_has_required_keys(ha_mocks: Any) -> None:
     """manifest.json must contain all HA-required keys."""
+    _ = ha_mocks  # fixture ensures HA mocks are active
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
 
     required_keys = {
@@ -157,37 +201,37 @@ def _make_hass_and_entry() -> tuple[MagicMock, MagicMock]:
 
 
 @pytest.mark.unit
-def test_async_setup_entry() -> None:
+def test_async_setup_entry(ha_mocks: Any) -> None:
     """async_setup_entry must return True and store PumpAheadData."""
     hass, entry = _make_hass_and_entry()
 
-    result = asyncio.run(async_setup_entry(hass, entry))
+    result = asyncio.run(ha_mocks.async_setup_entry(hass, entry))
 
     assert result is True
-    assert isinstance(entry.runtime_data, PumpAheadData)
+    assert isinstance(entry.runtime_data, ha_mocks.PumpAheadData)
     assert entry.runtime_data.initialized is True
     hass.config_entries.async_forward_entry_setups.assert_awaited_once()
 
 
 @pytest.mark.unit
-def test_async_unload_entry() -> None:
+def test_async_unload_entry(ha_mocks: Any) -> None:
     """async_unload_entry must return True when unload succeeds."""
     hass, entry = _make_hass_and_entry()
-    entry.runtime_data = PumpAheadData()
+    entry.runtime_data = ha_mocks.PumpAheadData()
 
-    result = asyncio.run(async_unload_entry(hass, entry))
+    result = asyncio.run(ha_mocks.async_unload_entry(hass, entry))
 
     assert result is True
     hass.config_entries.async_unload_platforms.assert_awaited_once()
 
 
 @pytest.mark.unit
-def test_async_unload_entry_failure() -> None:
+def test_async_unload_entry_failure(ha_mocks: Any) -> None:
     """async_unload_entry must return False when unload fails."""
     hass, entry = _make_hass_and_entry()
     hass.config_entries.async_unload_platforms = AsyncMock(return_value=False)
-    entry.runtime_data = PumpAheadData()
+    entry.runtime_data = ha_mocks.PumpAheadData()
 
-    result = asyncio.run(async_unload_entry(hass, entry))
+    result = asyncio.run(ha_mocks.async_unload_entry(hass, entry))
 
     assert result is False
