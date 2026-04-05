@@ -8,17 +8,29 @@ from pumpahead.solar import (
     SolarGainModel,
     WindowConfig,
 )
+from pumpahead.weather import (
+    ChannelProfile,
+    ProfileKind,
+    SyntheticWeather,
+    WeatherPoint,
+    WeatherSource,
+)
 
 __version__ = "0.1.0"
 
 __all__ = [
+    "ChannelProfile",
     "EphemerisCalculator",
     "KalmanEstimator",
     "ModelOrder",
     "Orientation",
+    "ProfileKind",
     "RCModel",
     "RCParams",
     "SolarGainModel",
+    "SyntheticWeather",
+    "WeatherPoint",
+    "WeatherSource",
     "WindowConfig",
     "__version__",
 ]
