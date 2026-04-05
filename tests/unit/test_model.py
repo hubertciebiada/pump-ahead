@@ -5,7 +5,6 @@ import pytest
 
 from pumpahead.model import ModelOrder, RCModel, RCParams
 
-
 # ---------------------------------------------------------------------------
 # TestRCParams — validation and parameter checks
 # ---------------------------------------------------------------------------
@@ -54,16 +53,22 @@ class TestRCParams:
         """f_conv + f_rad > 1.0 must be rejected."""
         with pytest.raises(ValueError, match="f_conv \\+ f_rad must be <= 1.0"):
             RCParams(
-                C_air=60_000, C_slab=3_250_000, R_sf=0.01,
-                f_conv=0.7, f_rad=0.4,
+                C_air=60_000,
+                C_slab=3_250_000,
+                R_sf=0.01,
+                f_conv=0.7,
+                f_rad=0.4,
             )
 
     @pytest.mark.unit
     def test_solar_fraction_sum_equals_one(self) -> None:
         """f_conv + f_rad = 1.0 should be accepted."""
         params = RCParams(
-            C_air=60_000, C_slab=3_250_000, R_sf=0.01,
-            f_conv=0.6, f_rad=0.4,
+            C_air=60_000,
+            C_slab=3_250_000,
+            R_sf=0.01,
+            f_conv=0.6,
+            f_rad=0.4,
         )
         assert params.f_conv + params.f_rad == 1.0
 
@@ -71,8 +76,11 @@ class TestRCParams:
     def test_solar_fraction_below_one_accepted(self) -> None:
         """f_conv + f_rad < 1.0 is valid (remaining fraction reflected)."""
         params = RCParams(
-            C_air=60_000, C_slab=3_250_000, R_sf=0.01,
-            f_conv=0.3, f_rad=0.2,
+            C_air=60_000,
+            C_slab=3_250_000,
+            R_sf=0.01,
+            f_conv=0.3,
+            f_rad=0.2,
         )
         assert params.f_conv + params.f_rad < 1.0
 
@@ -81,8 +89,11 @@ class TestRCParams:
         """Negative solar fraction must be rejected."""
         with pytest.raises(ValueError, match="Solar fractions must be non-negative"):
             RCParams(
-                C_air=60_000, C_slab=3_250_000, R_sf=0.01,
-                f_conv=-0.1, f_rad=0.4,
+                C_air=60_000,
+                C_slab=3_250_000,
+                R_sf=0.01,
+                f_conv=-0.1,
+                f_rad=0.4,
             )
 
     @pytest.mark.unit
@@ -95,8 +106,13 @@ class TestRCParams:
     def test_validate_for_order_3r3c_missing_c_wall(self) -> None:
         """3R3C validation requires C_wall."""
         params = RCParams(
-            C_air=60_000, C_slab=3_250_000, R_sf=0.01,
-            R_wi=0.02, R_wo=0.03, R_ve=0.03, R_ins=0.01,
+            C_air=60_000,
+            C_slab=3_250_000,
+            R_sf=0.01,
+            R_wi=0.02,
+            R_wo=0.03,
+            R_ve=0.03,
+            R_ins=0.01,
         )
         with pytest.raises(ValueError, match="C_wall is required"):
             params.validate_for_order(ModelOrder.THREE)
@@ -105,8 +121,14 @@ class TestRCParams:
     def test_validate_for_order_3r3c_negative_r_ins(self) -> None:
         """3R3C validation rejects negative R_ins."""
         params = RCParams(
-            C_air=60_000, C_slab=3_250_000, R_sf=0.01,
-            C_wall=1_500_000, R_wi=0.02, R_wo=0.03, R_ve=0.03, R_ins=-0.01,
+            C_air=60_000,
+            C_slab=3_250_000,
+            R_sf=0.01,
+            C_wall=1_500_000,
+            R_wi=0.02,
+            R_wo=0.03,
+            R_ve=0.03,
+            R_ins=-0.01,
         )
         with pytest.raises(ValueError, match="R_ins must be positive"):
             params.validate_for_order(ModelOrder.THREE)
@@ -122,7 +144,10 @@ class TestRCParams:
     def test_validate_for_order_2r2c_negative_r_env(self) -> None:
         """2R2C validation rejects negative R_env."""
         params = RCParams(
-            C_air=60_000, C_slab=3_250_000, R_sf=0.01, R_env=-0.03,
+            C_air=60_000,
+            C_slab=3_250_000,
+            R_sf=0.01,
+            R_env=-0.03,
         )
         with pytest.raises(ValueError, match="R_env must be positive"):
             params.validate_for_order(ModelOrder.TWO)
@@ -243,17 +268,17 @@ class TestRCModelConstruction:
         """SISO B_c: only slab row nonzero (Q_floor -> T_slab)."""
         B_c = model_3r3c.get_matrices()["B_c"]
         assert B_c[0, 0] == 0.0  # Q_floor does NOT go to air
-        assert B_c[1, 0] > 0.0   # Q_floor goes to slab
+        assert B_c[1, 0] > 0.0  # Q_floor goes to slab
         assert B_c[2, 0] == 0.0  # Q_floor does NOT go to wall
 
     @pytest.mark.unit
     def test_3r3c_b_c_mimo_structure(self, model_3r3c_mimo: RCModel) -> None:
         """MIMO B_c: Q_conv -> air, Q_floor -> slab, nothing -> wall."""
         B_c = model_3r3c_mimo.get_matrices()["B_c"]
-        assert B_c[0, 0] > 0.0   # Q_conv -> T_air
+        assert B_c[0, 0] > 0.0  # Q_conv -> T_air
         assert B_c[0, 1] == 0.0  # Q_floor does NOT go to air
         assert B_c[1, 0] == 0.0  # Q_conv does NOT go to slab
-        assert B_c[1, 1] > 0.0   # Q_floor -> T_slab
+        assert B_c[1, 1] > 0.0  # Q_floor -> T_slab
         assert B_c[2, 0] == 0.0
         assert B_c[2, 1] == 0.0
 
@@ -308,9 +333,7 @@ class TestRCModelStep:
         np.testing.assert_array_equal(x, x_original)
 
     @pytest.mark.unit
-    def test_step_convergence_to_steady_state(
-        self, model_3r3c: RCModel
-    ) -> None:
+    def test_step_convergence_to_steady_state(self, model_3r3c: RCModel) -> None:
         """Repeated step() should converge to steady state.
 
         With constant inputs and disturbances, the model should converge
@@ -341,9 +364,7 @@ class TestRCModelStep:
         np.testing.assert_allclose(x_next, x_ss, atol=1e-6)
 
     @pytest.mark.unit
-    def test_step_energy_direction_heating(
-        self, model_3r3c: RCModel
-    ) -> None:
+    def test_step_energy_direction_heating(self, model_3r3c: RCModel) -> None:
         """With Q_floor > 0 and cold outdoor, slab should warm."""
         x = np.array([15.0, 15.0, 15.0])
         u = np.array([2000.0])
@@ -375,9 +396,7 @@ class TestRCModelStep:
         assert x_next.shape == (3,)
 
     @pytest.mark.unit
-    def test_step_error_vs_analytical_steady_state(
-        self, params_3r3c: RCParams
-    ) -> None:
+    def test_step_error_vs_analytical_steady_state(self, params_3r3c: RCParams) -> None:
         """step() error vs analytical steady state < 0.01 degC.
 
         This acceptance criterion requires running step() until convergence
@@ -438,9 +457,7 @@ class TestRCModelPredict:
         np.testing.assert_array_equal(x0, x0_copy)
 
     @pytest.mark.unit
-    def test_predict_matches_sequential_step(
-        self, model_3r3c: RCModel
-    ) -> None:
+    def test_predict_matches_sequential_step(self, model_3r3c: RCModel) -> None:
         """predict() must match sequential step() calls within 1e-10."""
         n_steps = 50
         x0 = np.array([18.0, 25.0, 15.0])
@@ -454,7 +471,9 @@ class TestRCModelPredict:
         for k in range(n_steps):
             x = model_3r3c.step(x, u_seq[k], d_seq[k])
             np.testing.assert_allclose(
-                traj[k + 1], x, atol=1e-10,
+                traj[k + 1],
+                x,
+                atol=1e-10,
                 err_msg=f"Mismatch at step {k + 1}",
             )
 
@@ -463,19 +482,19 @@ class TestRCModelPredict:
         """predict() with MIMO inputs."""
         n_steps = 20
         x0 = np.array([20.0, 20.0, 20.0])
-        u_seq = np.column_stack([
-            np.full(n_steps, 500.0),   # Q_conv
-            np.full(n_steps, 1000.0),  # Q_floor
-        ])
+        u_seq = np.column_stack(
+            [
+                np.full(n_steps, 500.0),  # Q_conv
+                np.full(n_steps, 1000.0),  # Q_floor
+            ]
+        )
         d_seq = np.tile([5.0, 0.0, 0.0], (n_steps, 1))
 
         traj = model_3r3c_mimo.predict(x0, u_seq, d_seq)
         assert traj.shape == (n_steps + 1, 3)
 
     @pytest.mark.unit
-    def test_predict_mismatched_lengths_raises(
-        self, model_3r3c: RCModel
-    ) -> None:
+    def test_predict_mismatched_lengths_raises(self, model_3r3c: RCModel) -> None:
         """predict() with mismatched u/d sequence lengths should raise."""
         x0 = np.array([20.0, 20.0, 20.0])
         u_seq = np.zeros((10, 1))
@@ -532,9 +551,7 @@ class TestRCModelSteadyState:
         np.testing.assert_allclose(residual, 0.0, atol=1e-10)
 
     @pytest.mark.unit
-    def test_steady_state_2r2c_analytical(
-        self, model_2r2c: RCModel
-    ) -> None:
+    def test_steady_state_2r2c_analytical(self, model_2r2c: RCModel) -> None:
         """Verify 2R2C steady state analytically.
 
         For 2R2C with Q_floor=0, Q_sol=0, T_out=0, no T_ground:
@@ -549,9 +566,7 @@ class TestRCModelSteadyState:
         np.testing.assert_allclose(x_ss, [0.0, 0.0], atol=1e-10)
 
     @pytest.mark.unit
-    def test_steady_state_2r2c_with_heating(
-        self, model_2r2c: RCModel
-    ) -> None:
+    def test_steady_state_2r2c_with_heating(self, model_2r2c: RCModel) -> None:
         """2R2C with Q_floor=1000 W and T_out=0, T_ground not in 2R2C.
 
         Analytical: At steady state, all heat from Q_floor must flow
@@ -575,9 +590,7 @@ class TestRCModelSteadyState:
         np.testing.assert_allclose(x_ss[1], t_slab_expected, atol=0.001)
 
     @pytest.mark.unit
-    def test_steady_state_3r3c_with_heating(
-        self, model_3r3c: RCModel
-    ) -> None:
+    def test_steady_state_3r3c_with_heating(self, model_3r3c: RCModel) -> None:
         """3R3C with heating: verify within 0.001 degC of analytical.
 
         Uses residual check: A_c @ x_ss + B_c @ u + E_c @ d + b_c = 0
@@ -628,15 +641,11 @@ class TestRCModelDiscretization:
     """Tests for discretization, dt changes, and stability."""
 
     @pytest.mark.unit
-    def test_discrete_eigenvalues_stable_dt_60(
-        self, model_3r3c: RCModel
-    ) -> None:
+    def test_discrete_eigenvalues_stable_dt_60(self, model_3r3c: RCModel) -> None:
         """All discrete A_d eigenvalues must have |lambda| < 1 at dt=60s."""
         eigenvalues = np.linalg.eigvals(model_3r3c.get_matrices()["A_d"])
         magnitudes = np.abs(eigenvalues)
-        assert np.all(magnitudes < 1.0), (
-            f"Eigenvalue magnitudes: {magnitudes}"
-        )
+        assert np.all(magnitudes < 1.0), f"Eigenvalue magnitudes: {magnitudes}"
 
     @pytest.mark.unit
     @pytest.mark.parametrize("dt", [1, 10, 60, 300, 600, 900])
@@ -647,9 +656,7 @@ class TestRCModelDiscretization:
         model = RCModel(params_3r3c, ModelOrder.THREE, dt=float(dt))
         eigenvalues = np.linalg.eigvals(model.get_matrices()["A_d"])
         magnitudes = np.abs(eigenvalues)
-        assert np.all(magnitudes < 1.0), (
-            f"dt={dt}: eigenvalue magnitudes: {magnitudes}"
-        )
+        assert np.all(magnitudes < 1.0), f"dt={dt}: eigenvalue magnitudes: {magnitudes}"
 
     @pytest.mark.unit
     @pytest.mark.parametrize("dt", [1, 10, 60, 300, 600, 900])
@@ -660,14 +667,10 @@ class TestRCModelDiscretization:
         model = RCModel(params_2r2c, ModelOrder.TWO, dt=float(dt))
         eigenvalues = np.linalg.eigvals(model.get_matrices()["A_d"])
         magnitudes = np.abs(eigenvalues)
-        assert np.all(magnitudes < 1.0), (
-            f"dt={dt}: eigenvalue magnitudes: {magnitudes}"
-        )
+        assert np.all(magnitudes < 1.0), f"dt={dt}: eigenvalue magnitudes: {magnitudes}"
 
     @pytest.mark.unit
-    def test_set_dt_changes_discretization(
-        self, model_3r3c: RCModel
-    ) -> None:
+    def test_set_dt_changes_discretization(self, model_3r3c: RCModel) -> None:
         """set_dt() should produce different discrete matrices."""
         A_d_old = model_3r3c.get_matrices()["A_d"].copy()
 
@@ -684,9 +687,7 @@ class TestRCModelDiscretization:
             model_3r3c.set_dt(0.0)
 
     @pytest.mark.unit
-    def test_zoh_vs_euler_for_large_dt(
-        self, params_3r3c: RCParams
-    ) -> None:
+    def test_zoh_vs_euler_for_large_dt(self, params_3r3c: RCParams) -> None:
         """ZOH should be more accurate than forward Euler for large dt.
 
         With dt=900s, forward Euler can be unstable for stiff systems.
@@ -735,7 +736,7 @@ class TestRCModelDiscretization:
         model_fine = RCModel(params_3r3c, ModelOrder.THREE, dt=1.0)
         model_coarse = RCModel(params_3r3c, ModelOrder.THREE, dt=60.0)
 
-        x_ss = model_fine.steady_state(u, d)
+        _x_ss = model_fine.steady_state(u, d)
 
         x_fine = np.array([20.0, 20.0, 20.0])
         for _ in range(3600):  # 3600 steps at dt=1
