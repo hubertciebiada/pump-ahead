@@ -202,7 +202,9 @@ def disturbance_sequence_24h(outdoor_temperature_24h: np.ndarray) -> np.ndarray:
     daylight_start, daylight_end = 360, 1080
     daylight_len = daylight_end - daylight_start
     daylight_idx = np.arange(daylight_start, daylight_end)
-    q_sol[daylight_idx] = 500.0 * np.sin(np.pi * (daylight_idx - daylight_start) / daylight_len)
+    q_sol[daylight_idx] = 500.0 * np.sin(
+        np.pi * (daylight_idx - daylight_start) / daylight_len
+    )
 
     q_int = np.full(n, 50.0)
 
