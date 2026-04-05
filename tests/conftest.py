@@ -3,6 +3,12 @@
 import pytest
 
 from pumpahead.model import ModelOrder, RCModel, RCParams
+from pumpahead.solar import (
+    EphemerisCalculator,
+    Orientation,
+    SolarGainModel,
+    WindowConfig,
+)
 
 
 @pytest.fixture()
@@ -95,3 +101,26 @@ def model_2r2c(params_2r2c: RCParams) -> RCModel:
 def model_2r2c_mimo(params_2r2c_mimo: RCParams) -> RCModel:
     """2R2C MIMO model with default dt=60s."""
     return RCModel(params_2r2c_mimo, ModelOrder.TWO, dt=60.0)
+
+
+# ---------------------------------------------------------------------------
+# Solar fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def south_window() -> WindowConfig:
+    """South-facing window: 3 m^2, g=0.6 (typical double glazing)."""
+    return WindowConfig(Orientation.SOUTH, area_m2=3.0, g_value=0.6)
+
+
+@pytest.fixture()
+def solar_model() -> SolarGainModel:
+    """Stateless solar gain calculator."""
+    return SolarGainModel()
+
+
+@pytest.fixture()
+def ephemeris_lubcza() -> EphemerisCalculator:
+    """EphemerisCalculator for Lubcza, Poland (Hubert's location)."""
+    return EphemerisCalculator(latitude=50.69, longitude=17.38)
