@@ -18,6 +18,20 @@ from pumpahead.config import (
 )
 from pumpahead.estimator import KalmanEstimator
 from pumpahead.model import ModelOrder, RCModel, RCParams
+from pumpahead.scenarios import (
+    PARAMETRIC_SWEEPS,
+    SCENARIO_LIBRARY,
+    cold_snap,
+    cwu_heavy,
+    extreme_cold,
+    full_year_2025,
+    hot_july,
+    insulation_sweep,
+    rapid_warming,
+    screed_sweep,
+    solar_overshoot,
+    steady_state,
+)
 from pumpahead.sensor_noise import SensorNoise
 from pumpahead.simulated_room import SimulatedRoom
 from pumpahead.simulation_log import SimRecord, SimulationLog
@@ -70,10 +84,12 @@ __all__ = [
     "ModelOrder",
     "OpenMeteoHistorical",
     "Orientation",
+    "PARAMETRIC_SWEEPS",
     "ProfileKind",
     "RCModel",
     "RCParams",
     "RoomConfig",
+    "SCENARIO_LIBRARY",
     "SensorNoise",
     "SimRecord",
     "SimScenario",
@@ -89,9 +105,19 @@ __all__ = [
     "WeatherSource",
     "WindowConfig",
     "__version__",
+    "cold_snap",
+    "cwu_heavy",
+    "extreme_cold",
+    "full_year_2025",
     "heavy_construction",
+    "hot_july",
     "hubert_real",
+    "insulation_sweep",
     "leaky_old_house",
+    "rapid_warming",
+    "screed_sweep",
+    "solar_overshoot",
+    "steady_state",
     "thin_screed",
     "well_insulated",
 ]
