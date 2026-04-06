@@ -21,6 +21,7 @@ dependencies = [
 [project.optional-dependencies]
 viz = [
     "matplotlib>=3.8",
+    "pandas>=2.0",
     "plotly>=5.18",
     "dash>=2.14",
 ]
@@ -73,4 +74,8 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["cvxpy.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["pandas.*"]
 ignore_missing_imports = true
