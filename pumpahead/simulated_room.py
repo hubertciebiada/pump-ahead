@@ -102,6 +102,11 @@ class SimulatedRoom:
         """Return whether the room has a split/AC unit."""
         return self._model.params.has_split
 
+    @property
+    def ufh_max_power_w(self) -> float:
+        """Return the maximum UFH heat output at 100 % valve [W]."""
+        return self._ufh_max_power_w
+
     # -- State manipulation --------------------------------------------------
 
     def set_initial_state(self, x: NDArray[np.float64]) -> None:
@@ -137,24 +142,46 @@ class SimulatedRoom:
     def step(self, weather: WeatherPoint, q_sol_w: float = 0.0) -> None:
         """Propagate the thermal state by one time step.
 
-        Converts actuator state to control inputs, builds the disturbance
-        vector from weather data, and calls ``RCModel.step()``.
+        Converts actuator state to control inputs and delegates to
+        :meth:`step_with_power`.
 
         Args:
             weather: Weather conditions at the current time step.
             q_sol_w: Solar heat gain reaching the room [W].
         """
-        # Control inputs
         q_floor = self._valve_position / 100.0 * self._ufh_max_power_w
+        self.step_with_power(weather, q_floor_w=q_floor, q_sol_w=q_sol_w)
+
+    def step_with_power(
+        self,
+        weather: WeatherPoint,
+        q_floor_w: float,
+        q_sol_w: float = 0.0,
+    ) -> None:
+        """Propagate the thermal state with a pre-computed floor power.
+
+        This method is used by multi-room simulation where the HP power
+        distribution logic computes ``q_floor_w`` externally instead of
+        deriving it from ``valve_position * ufh_max_power_w``.
+
+        The split power (``q_conv``) is still read from the internal
+        actuator state set by :meth:`apply_actions`.
+
+        Args:
+            weather: Weather conditions at the current time step.
+            q_floor_w: Floor heating power [W] (pre-computed).
+            q_sol_w: Solar heat gain reaching the room [W].
+        """
+        # Split control input
         q_conv = max(
             -self._split_power_w,
             min(self._split_power_w, self._split_power_request_w),
         )
 
         u = (
-            np.array([q_conv, q_floor])
+            np.array([q_conv, q_floor_w])
             if self.has_split
-            else np.array([q_floor])
+            else np.array([q_floor_w])
         )
 
         # Disturbance vector
