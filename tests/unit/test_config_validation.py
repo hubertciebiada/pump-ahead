@@ -564,6 +564,11 @@ class TestSimScenario:
         scenario = self._make_scenario(dt_seconds=30.0)
         assert scenario.dt_seconds == 30.0
 
+    def test_invalid_mode_raises(self) -> None:
+        """Invalid mode string raises ValueError."""
+        with pytest.raises(ValueError, match="mode must be one of"):
+            self._make_scenario(mode="turbo")  # type: ignore[arg-type]
+
     def test_custom_noise(self) -> None:
         """Custom sensor_noise_std is accepted."""
         scenario = self._make_scenario(sensor_noise_std=0.5)
