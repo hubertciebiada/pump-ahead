@@ -1,5 +1,14 @@
 """PumpAhead — Predictive heating/cooling controller with RC thermal models."""
 
+from pumpahead.building_profiles import (
+    BUILDING_PROFILES,
+    HUBERT_ROOMS,
+    heavy_construction,
+    hubert_real,
+    leaky_old_house,
+    thin_screed,
+    well_insulated,
+)
 from pumpahead.config import (
     BuildingParams,
     ControllerConfig,
@@ -44,6 +53,7 @@ __version__ = "0.1.0"
 
 __all__ = [
     "Actions",
+    "BUILDING_PROFILES",
     "BuildingParams",
     "BuildingSimulator",
     "ControllerConfig",
@@ -53,6 +63,7 @@ __all__ = [
     "CSVWeather",
     "ChannelProfile",
     "EphemerisCalculator",
+    "HUBERT_ROOMS",
     "HeatPumpMode",
     "KalmanEstimator",
     "Measurements",
@@ -78,4 +89,9 @@ __all__ = [
     "WeatherSource",
     "WindowConfig",
     "__version__",
+    "heavy_construction",
+    "hubert_real",
+    "leaky_old_house",
+    "thin_screed",
+    "well_insulated",
 ]
