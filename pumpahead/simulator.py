@@ -26,6 +26,8 @@ import math
 from dataclasses import dataclass
 from enum import Enum
 
+from pumpahead.config import CWUCycle
+from pumpahead.sensor_noise import SensorNoise
 from pumpahead.simulated_room import SimulatedRoom
 from pumpahead.weather import WeatherSource
 
@@ -134,6 +136,8 @@ class BuildingSimulator:
         hp_mode: HeatPumpMode = HeatPumpMode.HEATING,
         split_power_w: float = 2500.0,
         hp_max_power_w: float | None = None,
+        cwu_schedule: list[CWUCycle] | None = None,
+        sensor_noise: SensorNoise | None = None,
     ) -> None:
         """Initialize the simulator.
 
@@ -144,6 +148,11 @@ class BuildingSimulator:
             split_power_w: Maximum split/AC power [W].
             hp_max_power_w: Heat pump total capacity [W].  ``None`` means
                 unlimited (no scaling).
+            cwu_schedule: Optional list of CWU (DHW) interrupt cycles.
+                During an active CWU cycle, Q_floor is forced to 0.
+            sensor_noise: Optional sensor noise source.  When provided,
+                Gaussian noise is added to T_room and T_slab in returned
+                ``Measurements``.  Does not affect physical state.
 
         Raises:
             ValueError: If the room list is empty or contains duplicate
@@ -167,6 +176,8 @@ class BuildingSimulator:
         self._hp_max_power_w = (
             hp_max_power_w if hp_max_power_w is not None else math.inf
         )
+        self._cwu_schedule: list[CWUCycle] = cwu_schedule or []
+        self._sensor_noise = sensor_noise
         self._time_minutes: int = 0
         self._dt_minutes: int = 1
 
@@ -187,28 +198,99 @@ class BuildingSimulator:
         """Return all rooms as a name-keyed dictionary (read-only)."""
         return {r.name: r for r in self._rooms}
 
+    @property
+    def is_cwu_active(self) -> bool:
+        """Return whether a CWU cycle is active at the current time."""
+        return self._check_cwu_active()
+
+    # -- Private helpers -----------------------------------------------------
+
+    def _check_cwu_active(self) -> bool:
+        """Check if any CWU cycle is active at the current simulation time.
+
+        For each cycle in the schedule, the cycle is active when:
+        - The current time is at or after the cycle's start_minute, AND
+        - For repeating cycles (interval > 0): the time within the current
+          period is less than the duration.
+        - For single-shot cycles (interval == 0): the elapsed time since
+          start is less than the duration.
+
+        Returns:
+            True if any CWU cycle is currently active.
+        """
+        t = self._time_minutes
+        for cycle in self._cwu_schedule:
+            if t < cycle.start_minute:
+                continue
+            elapsed = t - cycle.start_minute
+            if cycle.interval_minutes == 0:
+                # Single-shot: active only during first occurrence
+                if elapsed < cycle.duration_minutes:
+                    return True
+            else:
+                # Repeating: check position within period
+                if elapsed % cycle.interval_minutes < cycle.duration_minutes:
+                    return True
+        return False
+
+    def _apply_noise(self, measurements: Measurements) -> Measurements:
+        """Apply sensor noise to temperature fields if noise is configured.
+
+        Only T_room and T_slab are corrupted.  T_outdoor, valve_pos,
+        and hp_mode are returned unchanged.
+
+        Args:
+            measurements: Clean measurements from the physical simulation.
+
+        Returns:
+            A new ``Measurements`` instance with noisy temperatures,
+            or the original instance if no noise source is configured.
+        """
+        if self._sensor_noise is None:
+            return measurements
+        return Measurements(
+            T_room=self._sensor_noise.corrupt(measurements.T_room),
+            T_slab=self._sensor_noise.corrupt(measurements.T_slab),
+            T_outdoor=measurements.T_outdoor,
+            valve_pos=measurements.valve_pos,
+            hp_mode=measurements.hp_mode,
+        )
+
     # -- Public interface — single room (backward compatible) ----------------
 
     def get_measurements(self) -> Measurements:
         """Return current measurements for the first room.
+
+        If a ``SensorNoise`` source is configured, Gaussian noise is
+        applied to T_room and T_slab.  The physical state is unaffected.
 
         Returns:
             A ``Measurements`` snapshot of the current state.
         """
         wp = self._weather.get(float(self._time_minutes))
         first = self._rooms[0]
-        return Measurements(
+        clean = Measurements(
             T_room=first.T_air,
             T_slab=first.T_slab,
             T_outdoor=wp.T_out,
             valve_pos=first.valve_position,
             hp_mode=self._hp_mode,
         )
+        return self._apply_noise(clean)
 
     def step(self, actions: Actions) -> Measurements:
         """Apply actions to the first room, propagate, and return measurements.
 
         This is the original single-room API, fully backward compatible.
+
+        The method follows the ZOH convention:
+        1. Check CWU schedule -- override valve_position to 0 if active.
+        2. Convert ``actions`` to actuator commands.
+        3. Apply actuator commands to the room.
+        4. Query weather at the current time.
+        5. Propagate the RC model by one step.
+        6. Advance the simulation clock.
+        7. Return updated measurements (with optional sensor noise).
 
         Args:
             actions: Controller commands for this time step.
@@ -217,6 +299,11 @@ class BuildingSimulator:
             A ``Measurements`` snapshot after the step.
         """
         first = self._rooms[0]
+
+        # CWU interrupt: force valve closed when HP is in DHW mode
+        effective_valve = actions.valve_position
+        if self._check_cwu_active():
+            effective_valve = 0.0
 
         # Convert split mode to power
         if actions.split_mode == SplitMode.OFF:
@@ -229,7 +316,7 @@ class BuildingSimulator:
 
         # Apply actions to room actuators
         first.apply_actions(
-            valve_position=actions.valve_position,
+            valve_position=effective_valve,
             split_power_w=split_power,
         )
 

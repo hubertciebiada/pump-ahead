@@ -1,7 +1,9 @@
 """PumpAhead — Predictive heating/cooling controller with RC thermal models."""
 
+from pumpahead.config import CWUCycle
 from pumpahead.estimator import KalmanEstimator
 from pumpahead.model import ModelOrder, RCModel, RCParams
+from pumpahead.sensor_noise import SensorNoise
 from pumpahead.simulated_room import SimulatedRoom
 from pumpahead.simulator import (
     Actions,
@@ -36,6 +38,7 @@ __version__ = "0.1.0"
 __all__ = [
     "Actions",
     "BuildingSimulator",
+    "CWUCycle",
     "CSVConfig",
     "CSVParseError",
     "CSVWeather",
@@ -50,6 +53,7 @@ __all__ = [
     "ProfileKind",
     "RCModel",
     "RCParams",
+    "SensorNoise",
     "SimulatedRoom",
     "SolarGainModel",
     "SplitMode",
