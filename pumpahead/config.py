@@ -276,6 +276,7 @@ class SimScenario:
         dt_seconds: Simulation time step [s] (must be > 0).
         cwu_schedule: CWU interrupt schedule entries.
         sensor_noise_std: Sensor noise standard deviation [K] (must be >= 0).
+        description: Human-readable description for reporting (default "").
     """
 
     name: str
@@ -287,6 +288,7 @@ class SimScenario:
     dt_seconds: float = 60.0
     cwu_schedule: tuple[CWUCycle, ...] = ()
     sensor_noise_std: float = 0.0
+    description: str = ""
 
     def __post_init__(self) -> None:
         """Validate scenario parameters.
@@ -296,6 +298,9 @@ class SimScenario:
         """
         if not self.name or not self.name.strip():
             raise ValueError("name must be a non-empty string")
+        if not isinstance(self.description, str):
+            msg = f"description must be a string, got {type(self.description).__name__}"
+            raise ValueError(msg)
         if self.duration_minutes <= 0:
             msg = (
                 f"duration_minutes must be > 0, got {self.duration_minutes}"
