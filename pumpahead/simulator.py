@@ -23,7 +23,7 @@ Units:
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
 
 from pumpahead.config import CWUCycle
@@ -336,20 +336,25 @@ class BuildingSimulator:
     def get_all_measurements(self) -> dict[str, Measurements]:
         """Return current measurements for every room.
 
+        If a ``SensorNoise`` source is configured, Gaussian noise is
+        applied to T_room and T_slab for each room.  The physical state
+        is unaffected.
+
         Returns:
             Dictionary keyed by room name with ``Measurements`` values.
         """
         wp = self._weather.get(float(self._time_minutes))
-        return {
-            r.name: Measurements(
+        result: dict[str, Measurements] = {}
+        for r in self._rooms:
+            clean = Measurements(
                 T_room=r.T_air,
                 T_slab=r.T_slab,
                 T_outdoor=wp.T_out,
                 valve_pos=r.valve_position,
                 hp_mode=self._hp_mode,
             )
-            for r in self._rooms
-        }
+            result[r.name] = self._apply_noise(clean)
+        return result
 
     def step_all(
         self,
@@ -380,9 +385,20 @@ class BuildingSimulator:
             msg = f"Action keys do not match room names: {', '.join(parts)}"
             raise ValueError(msg)
 
+        # CWU interrupt: force valve closed when HP is in DHW mode.
+        # Only valve_position is zeroed; split_mode/split_setpoint are
+        # preserved so that splits continue operating (Axiom #1/#2).
+        cwu_active = self._check_cwu_active()
+        effective_actions = actions
+        if cwu_active:
+            effective_actions = {
+                name: replace(a, valve_position=0.0)
+                for name, a in actions.items()
+            }
+
         # Apply actuator commands to each room
         for r in self._rooms:
-            a = actions[r.name]
+            a = effective_actions[r.name]
             if a.split_mode == SplitMode.OFF:
                 split_power = 0.0
             elif a.split_mode == SplitMode.HEATING:
@@ -394,8 +410,9 @@ class BuildingSimulator:
                 split_power_w=split_power,
             )
 
-        # Distribute HP power
-        allocated = self._distribute_hp_power(actions)
+        # Distribute HP power (uses effective_actions with zeroed valves
+        # during CWU, so all floor allocations will be 0 W)
+        allocated = self._distribute_hp_power(effective_actions)
 
         # Get weather at current time
         wp = self._weather.get(float(self._time_minutes))
