@@ -1,9 +1,13 @@
-"""Building simulation engine with single-room support.
+"""Building simulation engine with single- and multi-room support.
 
 Provides the core simulation loop: ``BuildingSimulator`` manages time
-progression and orchestrates the ``SimulatedRoom`` physics step, while
-``Measurements`` and ``Actions`` dataclasses define the simulator-controller
-interface.
+progression and orchestrates one or more ``SimulatedRoom`` physics steps,
+while ``Measurements`` and ``Actions`` dataclasses define the
+simulator-controller interface.
+
+In multi-room mode the heat pump has finite power (``hp_max_power_w``).
+When total room demand exceeds capacity, power is distributed
+proportionally to each room's demand.
 
 The simulation loop follows a zero-order hold (ZOH) convention: actions
 are applied at the beginning of the time step, held constant for the
@@ -18,6 +22,7 @@ Units:
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from enum import Enum
 
@@ -91,13 +96,20 @@ class Actions:
 
 
 class BuildingSimulator:
-    """Core simulation engine for single-room thermal simulation.
+    """Core simulation engine for single- and multi-room thermal simulation.
 
     Manages the simulation loop: receives ``Actions`` from a controller,
-    applies them to the ``SimulatedRoom``, queries weather, propagates
-    the RC model, and returns ``Measurements``.
+    applies them to one or more ``SimulatedRoom`` instances, queries
+    weather, propagates the RC models, and returns ``Measurements``.
 
-    Typical usage::
+    For single-room usage the API is fully backward compatible: pass a
+    single ``SimulatedRoom`` and use :meth:`step`.
+
+    For multi-room usage pass a list of rooms and optionally an
+    ``hp_max_power_w`` limit.  Use :meth:`step_all` to advance all
+    rooms simultaneously with HP capacity sharing.
+
+    Typical single-room usage::
 
         room = SimulatedRoom("living", model, ufh_max_power_w=5000.0)
         weather = SyntheticWeather.constant(T_out=-5.0, GHI=0.0)
@@ -106,27 +118,55 @@ class BuildingSimulator:
         for _ in range(1440):
             meas = sim.step(Actions(valve_position=50.0))
             print(meas.T_room)
+
+    Typical multi-room usage::
+
+        rooms = [SimulatedRoom(f"room_{i}", model) for i in range(8)]
+        sim = BuildingSimulator(rooms, weather, hp_max_power_w=6000.0)
+        actions = {r.name: Actions(valve_position=50.0) for r in rooms}
+        results = sim.step_all(actions)
     """
 
     def __init__(
         self,
-        room: SimulatedRoom,
+        room: SimulatedRoom | list[SimulatedRoom],
         weather: WeatherSource,
         hp_mode: HeatPumpMode = HeatPumpMode.HEATING,
         split_power_w: float = 2500.0,
+        hp_max_power_w: float | None = None,
     ) -> None:
         """Initialize the simulator.
 
         Args:
-            room: The simulated room to manage.
+            room: A single ``SimulatedRoom`` or a list of rooms.
             weather: Weather data source.
             hp_mode: Heat pump operating mode.
             split_power_w: Maximum split/AC power [W].
+            hp_max_power_w: Heat pump total capacity [W].  ``None`` means
+                unlimited (no scaling).
+
+        Raises:
+            ValueError: If the room list is empty or contains duplicate
+                room names.
         """
-        self._room = room
+        if isinstance(room, list):
+            if len(room) == 0:
+                msg = "room list must not be empty"
+                raise ValueError(msg)
+            names = [r.name for r in room]
+            if len(names) != len(set(names)):
+                msg = f"room names must be unique, got duplicates in {names}"
+                raise ValueError(msg)
+            self._rooms: list[SimulatedRoom] = room
+        else:
+            self._rooms = [room]
+
         self._weather = weather
         self._hp_mode = hp_mode
         self._split_power_w = split_power_w
+        self._hp_max_power_w = (
+            hp_max_power_w if hp_max_power_w is not None else math.inf
+        )
         self._time_minutes: int = 0
         self._dt_minutes: int = 1
 
@@ -139,36 +179,36 @@ class BuildingSimulator:
 
     @property
     def room(self) -> SimulatedRoom:
-        """Return the simulated room (read-only access)."""
-        return self._room
+        """Return the first (or only) simulated room for backward compat."""
+        return self._rooms[0]
 
-    # -- Public interface ----------------------------------------------------
+    @property
+    def rooms(self) -> dict[str, SimulatedRoom]:
+        """Return all rooms as a name-keyed dictionary (read-only)."""
+        return {r.name: r for r in self._rooms}
+
+    # -- Public interface — single room (backward compatible) ----------------
 
     def get_measurements(self) -> Measurements:
-        """Return current measurements without advancing time.
+        """Return current measurements for the first room.
 
         Returns:
             A ``Measurements`` snapshot of the current state.
         """
         wp = self._weather.get(float(self._time_minutes))
+        first = self._rooms[0]
         return Measurements(
-            T_room=self._room.T_air,
-            T_slab=self._room.T_slab,
+            T_room=first.T_air,
+            T_slab=first.T_slab,
             T_outdoor=wp.T_out,
-            valve_pos=self._room.valve_position,
+            valve_pos=first.valve_position,
             hp_mode=self._hp_mode,
         )
 
     def step(self, actions: Actions) -> Measurements:
-        """Apply actions, propagate physics, and return new measurements.
+        """Apply actions to the first room, propagate, and return measurements.
 
-        The method follows the ZOH convention:
-        1. Convert ``actions`` to actuator commands.
-        2. Apply actuator commands to the room.
-        3. Query weather at the current time.
-        4. Propagate the RC model by one step.
-        5. Advance the simulation clock.
-        6. Return updated measurements.
+        This is the original single-room API, fully backward compatible.
 
         Args:
             actions: Controller commands for this time step.
@@ -176,6 +216,8 @@ class BuildingSimulator:
         Returns:
             A ``Measurements`` snapshot after the step.
         """
+        first = self._rooms[0]
+
         # Convert split mode to power
         if actions.split_mode == SplitMode.OFF:
             split_power = 0.0
@@ -186,7 +228,7 @@ class BuildingSimulator:
             split_power = -self._split_power_w
 
         # Apply actions to room actuators
-        self._room.apply_actions(
+        first.apply_actions(
             valve_position=actions.valve_position,
             split_power_w=split_power,
         )
@@ -195,9 +237,122 @@ class BuildingSimulator:
         wp = self._weather.get(float(self._time_minutes))
 
         # Propagate physics
-        self._room.step(wp, q_sol_w=0.0)
+        first.step(wp, q_sol_w=0.0)
 
         # Advance clock
         self._time_minutes += self._dt_minutes
 
         return self.get_measurements()
+
+    # -- Public interface — multi-room ---------------------------------------
+
+    def get_all_measurements(self) -> dict[str, Measurements]:
+        """Return current measurements for every room.
+
+        Returns:
+            Dictionary keyed by room name with ``Measurements`` values.
+        """
+        wp = self._weather.get(float(self._time_minutes))
+        return {
+            r.name: Measurements(
+                T_room=r.T_air,
+                T_slab=r.T_slab,
+                T_outdoor=wp.T_out,
+                valve_pos=r.valve_position,
+                hp_mode=self._hp_mode,
+            )
+            for r in self._rooms
+        }
+
+    def step_all(
+        self,
+        actions: dict[str, Actions],
+    ) -> dict[str, Measurements]:
+        """Apply per-room actions, distribute HP power, and propagate all rooms.
+
+        Args:
+            actions: Dictionary of ``Actions`` keyed by room name.  Must
+                contain exactly one entry per room managed by this simulator.
+
+        Returns:
+            Dictionary of ``Measurements`` keyed by room name after the step.
+
+        Raises:
+            ValueError: If action keys do not match room names exactly.
+        """
+        room_names = {r.name for r in self._rooms}
+        action_names = set(actions.keys())
+        if action_names != room_names:
+            missing = room_names - action_names
+            extra = action_names - room_names
+            parts: list[str] = []
+            if missing:
+                parts.append(f"missing rooms: {sorted(missing)}")
+            if extra:
+                parts.append(f"unknown rooms: {sorted(extra)}")
+            msg = f"Action keys do not match room names: {', '.join(parts)}"
+            raise ValueError(msg)
+
+        # Apply actuator commands to each room
+        for r in self._rooms:
+            a = actions[r.name]
+            if a.split_mode == SplitMode.OFF:
+                split_power = 0.0
+            elif a.split_mode == SplitMode.HEATING:
+                split_power = self._split_power_w
+            else:
+                split_power = -self._split_power_w
+            r.apply_actions(
+                valve_position=a.valve_position,
+                split_power_w=split_power,
+            )
+
+        # Distribute HP power
+        allocated = self._distribute_hp_power(actions)
+
+        # Get weather at current time
+        wp = self._weather.get(float(self._time_minutes))
+
+        # Propagate physics for each room with allocated power
+        for r in self._rooms:
+            r.step_with_power(wp, q_floor_w=allocated[r.name], q_sol_w=0.0)
+
+        # Advance clock
+        self._time_minutes += self._dt_minutes
+
+        return self.get_all_measurements()
+
+    # -- Private helpers -----------------------------------------------------
+
+    def _distribute_hp_power(
+        self,
+        actions: dict[str, Actions],
+    ) -> dict[str, float]:
+        """Compute per-room floor power respecting HP capacity.
+
+        Algorithm:
+        1. For each room compute demand = (valve / 100) * ufh_max_power_w.
+        2. If total demand <= hp_max_power_w, each room gets its full demand.
+        3. Otherwise, scale down proportionally:
+           allocated_i = demand_i * (hp_max_power_w / total_demand).
+
+        Returns:
+            Dictionary of allocated floor power [W] keyed by room name.
+        """
+        demands: dict[str, float] = {}
+        for r in self._rooms:
+            valve = actions[r.name].valve_position
+            # Use the clamped value that apply_actions would compute
+            clamped = max(0.0, min(100.0, valve))
+            demands[r.name] = clamped / 100.0 * r.ufh_max_power_w
+
+        total_demand = sum(demands.values())
+
+        if total_demand == 0.0:
+            return {name: 0.0 for name in demands}
+
+        if total_demand <= self._hp_max_power_w:
+            return demands
+
+        scale = self._hp_max_power_w / total_demand
+        return {name: d * scale for name, d in demands.items()}
