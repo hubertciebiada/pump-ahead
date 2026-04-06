@@ -5,6 +5,7 @@ from pumpahead.estimator import KalmanEstimator
 from pumpahead.model import ModelOrder, RCModel, RCParams
 from pumpahead.sensor_noise import SensorNoise
 from pumpahead.simulated_room import SimulatedRoom
+from pumpahead.simulation_log import SimRecord, SimulationLog
 from pumpahead.simulator import (
     Actions,
     BuildingSimulator,
@@ -54,7 +55,9 @@ __all__ = [
     "RCModel",
     "RCParams",
     "SensorNoise",
+    "SimRecord",
     "SimulatedRoom",
+    "SimulationLog",
     "SolarGainModel",
     "SplitMode",
     "SyntheticWeather",
