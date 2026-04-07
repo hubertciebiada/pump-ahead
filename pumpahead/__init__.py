@@ -18,6 +18,7 @@ from pumpahead.config import (
 )
 from pumpahead.metrics import SimMetrics
 from pumpahead.estimator import KalmanEstimator
+from pumpahead.identifier import IdentificationResult, RCIdentifier
 from pumpahead.model import ModelOrder, RCModel, RCParams
 from pumpahead.scenarios import (
     PARAMETRIC_SWEEPS,
@@ -80,6 +81,7 @@ __all__ = [
     "EphemerisCalculator",
     "HUBERT_ROOMS",
     "HeatPumpMode",
+    "IdentificationResult",
     "KalmanEstimator",
     "Measurements",
     "ModelOrder",
@@ -87,6 +89,7 @@ __all__ = [
     "Orientation",
     "PARAMETRIC_SWEEPS",
     "ProfileKind",
+    "RCIdentifier",
     "RCModel",
     "RCParams",
     "RoomConfig",

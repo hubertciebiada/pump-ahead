@@ -209,3 +209,41 @@ def disturbance_sequence_24h(outdoor_temperature_24h: np.ndarray) -> np.ndarray:
     q_int = np.full(n, 50.0)
 
     return np.column_stack([outdoor_temperature_24h, q_sol, q_int])
+
+
+# ---------------------------------------------------------------------------
+# Identifier fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def identifier_2r2c_synth_data(
+    params_2r2c: RCParams,
+    model_2r2c: RCModel,
+) -> tuple[RCParams, np.ndarray, np.ndarray, np.ndarray]:
+    """Synthetic 2R2C identification data: cyclic heating, 2 days at dt=60s.
+
+    Returns (true_params, u_sequence, d_sequence, T_room_measured).
+
+    Starts from thermal equilibrium at T_out=5C (T_air = T_slab = 5C),
+    then alternates Q_floor between 1500 W and 0 in 4-hour blocks.
+    Constant T_out and no Q_sol keep the landscape smooth while the
+    cycling excitation ensures both fast (C_air) and slow (C_slab) modes
+    are identifiable.
+    """
+    n_steps = 2880  # 2 days
+    u_seq = np.zeros((n_steps, 1))
+    for i in range(n_steps):
+        block = (i // 240) % 2  # 4-hour blocks (240 min)
+        # First block is OFF so x0 matches cost function exactly
+        u_seq[i, 0] = 0.0 if block == 0 else 1500.0
+
+    d_seq = np.zeros((n_steps, 2))
+    d_seq[:, 0] = 5.0  # constant T_out = 5 C
+
+    # Start from equilibrium: T_air = T_slab = T_out = 5 C
+    x0 = np.array([5.0, 5.0])
+    traj = model_2r2c.predict(x0, u_seq, d_seq)
+    T_room = traj[1:, 0]  # T_air at each step (skip x0)
+
+    return params_2r2c, u_seq, d_seq, T_room
