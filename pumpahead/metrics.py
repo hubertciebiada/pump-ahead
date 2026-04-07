@@ -1,4 +1,4 @@
-"""Simulation quality metrics computed from a SimulationLog.
+"""Simulation quality metrics and assertion functions.
 
 Provides ``SimMetrics``, a frozen dataclass that aggregates per-timestep
 simulation records into numeric quality indicators covering comfort,
@@ -6,6 +6,16 @@ energy, safety, and system behaviour.
 
 Metrics are computed deterministically via the ``from_log()`` classmethod:
 the same ``SimulationLog`` and parameters always produce the same result.
+
+Also provides five assertion functions that validate simulation logs for
+correctness.  Each raises ``AssertionError`` with a diagnostic message
+when a constraint is violated:
+
+    - ``assert_comfort`` — comfort percentage above threshold
+    - ``assert_floor_temp_safe`` — floor temperature within safe bounds
+    - ``assert_no_priority_inversion`` — split runtime below threshold
+    - ``assert_no_opposing_action`` — no split opposing the HP mode
+    - ``assert_energy_vs_baseline`` — energy not exceeding baseline
 
 Units follow the simulation convention:
     Temperatures: degC
@@ -21,7 +31,7 @@ from __future__ import annotations
 from dataclasses import dataclass, fields
 
 from pumpahead.simulation_log import SimulationLog
-from pumpahead.simulator import SplitMode
+from pumpahead.simulator import HeatPumpMode, SplitMode
 
 # ---------------------------------------------------------------------------
 # Private helpers
@@ -329,3 +339,253 @@ class SimMetrics:
             # Skip non-numeric fields (none currently, but future-proof)
 
         return result
+
+
+# ---------------------------------------------------------------------------
+# Assertion functions
+# ---------------------------------------------------------------------------
+
+
+def assert_comfort(
+    log: SimulationLog,
+    setpoint: float,
+    *,
+    comfort_band: float = 0.5,
+    threshold: float = 90.0,
+) -> None:
+    """Assert that the comfort percentage meets or exceeds *threshold*.
+
+    A timestep is "comfortable" when ``|T_room - setpoint| <= comfort_band``.
+    The comfort percentage is the fraction of comfortable timesteps (0-100).
+
+    Args:
+        log: Simulation log to check.
+        setpoint: Target room temperature [degC].
+        comfort_band: Half-width of the comfort band [degC].
+        threshold: Minimum acceptable comfort percentage [0-100 %].
+
+    Raises:
+        AssertionError: If the log is empty (no data to assess comfort) or
+            the comfort percentage is below *threshold*.
+    """
+    n = len(log)
+    if n == 0:
+        msg = "assert_comfort: empty log — cannot assess comfort"
+        raise AssertionError(msg)
+
+    comfort_count = 0
+    for rec in log:
+        if abs(rec.T_room - setpoint) <= comfort_band:
+            comfort_count += 1
+
+    comfort_pct = (comfort_count / n) * 100.0
+
+    if comfort_pct < threshold:
+        msg = (
+            f"assert_comfort: comfort {comfort_pct:.1f}% is below "
+            f"threshold {threshold:.1f}% "
+            f"(setpoint={setpoint}, band={comfort_band}, "
+            f"comfortable={comfort_count}/{n})"
+        )
+        raise AssertionError(msg)
+
+
+def assert_floor_temp_safe(
+    log: SimulationLog,
+    *,
+    max_temp: float = 34.0,
+) -> None:
+    """Assert floor temperature is safe at every timestep.
+
+    Checks two constraints per record (Axioms #4 and #5):
+
+    1. ``T_floor <= max_temp`` — hard ceiling (default 34 degC).
+    2. ``T_floor >= T_dew + 2`` — condensation protection.
+
+    Empty logs pass silently (no records to violate).
+
+    Args:
+        log: Simulation log to check.
+        max_temp: Maximum allowed floor temperature [degC].
+
+    Raises:
+        AssertionError: On the first record that violates either
+            constraint.  The message includes the timestep and
+            temperature values.
+    """
+    for rec in log:
+        t_floor = rec.T_floor
+
+        if t_floor > max_temp:
+            msg = (
+                f"assert_floor_temp_safe: T_floor={t_floor:.2f} degC "
+                f"exceeds max {max_temp:.2f} degC at t={rec.t}"
+            )
+            raise AssertionError(msg)
+
+        t_dew = _dew_point(rec.T_room, rec.humidity)
+        if t_floor < t_dew + 2.0:
+            msg = (
+                f"assert_floor_temp_safe: T_floor={t_floor:.2f} degC "
+                f"< T_dew+2={t_dew + 2.0:.2f} degC "
+                f"(condensation risk) at t={rec.t}"
+            )
+            raise AssertionError(msg)
+
+
+def assert_no_priority_inversion(
+    log: SimulationLog,
+    *,
+    max_split_pct: float = 50.0,
+) -> None:
+    """Assert that split runtime does not exceed *max_split_pct*.
+
+    Priority inversion occurs when the split/AC unit runs for too large a
+    fraction of the simulation, becoming the de-facto primary heat source
+    (violating Axiom #2).
+
+    Args:
+        log: Simulation log to check.
+        max_split_pct: Maximum allowed split runtime percentage [0-100 %].
+
+    Raises:
+        AssertionError: If the log is empty (no data to assess) or the
+            split runtime percentage exceeds *max_split_pct*.
+    """
+    n = len(log)
+    if n == 0:
+        msg = (
+            "assert_no_priority_inversion: empty log "
+            "— cannot assess split runtime"
+        )
+        raise AssertionError(msg)
+
+    split_on_count = 0
+    for rec in log:
+        if rec.split_mode != SplitMode.OFF:
+            split_on_count += 1
+
+    split_pct = (split_on_count / n) * 100.0
+
+    if split_pct > max_split_pct:
+        msg = (
+            f"assert_no_priority_inversion: split runtime "
+            f"{split_pct:.1f}% exceeds max {max_split_pct:.1f}% "
+            f"(split_on={split_on_count}/{n})"
+        )
+        raise AssertionError(msg)
+
+
+def assert_no_opposing_action(log: SimulationLog) -> None:
+    """Assert that no split action opposes the heat-pump mode.
+
+    Axiom #3: splits never oppose the mode.  Specifically:
+
+    - In ``HEATING`` mode the split must not be ``COOLING``.
+    - In ``COOLING`` mode the split must not be ``HEATING``.
+    - When the heat pump is ``OFF``, any split mode is acceptable.
+
+    Empty logs pass silently (no records to violate).
+
+    Args:
+        log: Simulation log to check.
+
+    Raises:
+        AssertionError: On the first record where the split opposes
+            the HP mode.  The message includes the timestep and modes.
+    """
+    for rec in log:
+        if rec.hp_mode == HeatPumpMode.OFF:
+            continue
+
+        if (
+            rec.hp_mode == HeatPumpMode.HEATING
+            and rec.split_mode == SplitMode.COOLING
+        ):
+            msg = (
+                f"assert_no_opposing_action: split COOLING while HP "
+                f"HEATING at t={rec.t}"
+            )
+            raise AssertionError(msg)
+
+        if (
+            rec.hp_mode == HeatPumpMode.COOLING
+            and rec.split_mode == SplitMode.HEATING
+        ):
+            msg = (
+                f"assert_no_opposing_action: split HEATING while HP "
+                f"COOLING at t={rec.t}"
+            )
+            raise AssertionError(msg)
+
+
+def assert_energy_vs_baseline(
+    log: SimulationLog,
+    baseline_log: SimulationLog,
+    *,
+    max_increase: float = 0.1,
+    setpoint: float,
+    ufh_max_power_w: float,
+    split_power_w: float,
+    dt_minutes: int = 1,
+) -> None:
+    """Assert that total energy does not exceed the baseline by too much.
+
+    Computes ``SimMetrics.from_log()`` for both *log* and *baseline_log*,
+    then checks that the test energy is within
+    ``(1 + max_increase) * baseline_energy``.
+
+    Args:
+        log: Test simulation log.
+        baseline_log: Baseline simulation log for comparison.
+        max_increase: Maximum allowed fractional increase (e.g. 0.1 = 10%).
+        setpoint: Target room temperature [degC] (passed to ``from_log``).
+        ufh_max_power_w: Maximum UFH power [W].
+        split_power_w: Maximum split power [W].
+        dt_minutes: Simulation timestep length [minutes].
+
+    Raises:
+        AssertionError: If the test energy exceeds the baseline by more
+            than *max_increase* fraction.  Also raises when the baseline
+            has zero energy but the test has non-zero energy.
+    """
+    test_metrics = SimMetrics.from_log(
+        log,
+        setpoint=setpoint,
+        ufh_max_power_w=ufh_max_power_w,
+        split_power_w=split_power_w,
+        dt_minutes=dt_minutes,
+    )
+    baseline_metrics = SimMetrics.from_log(
+        baseline_log,
+        setpoint=setpoint,
+        ufh_max_power_w=ufh_max_power_w,
+        split_power_w=split_power_w,
+        dt_minutes=dt_minutes,
+    )
+
+    assert test_metrics.energy_kwh is not None
+    assert baseline_metrics.energy_kwh is not None
+
+    test_energy = test_metrics.energy_kwh
+    baseline_energy = baseline_metrics.energy_kwh
+
+    if baseline_energy == 0.0:
+        if test_energy > 0.0:
+            msg = (
+                f"assert_energy_vs_baseline: test energy "
+                f"{test_energy:.4f} kWh > 0 with zero baseline"
+            )
+            raise AssertionError(msg)
+        return
+
+    increase = (test_energy - baseline_energy) / baseline_energy
+
+    if increase > max_increase:
+        msg = (
+            f"assert_energy_vs_baseline: test energy "
+            f"{test_energy:.4f} kWh exceeds baseline "
+            f"{baseline_energy:.4f} kWh by {increase:.1%} "
+            f"(max allowed: {max_increase:.1%})"
+        )
+        raise AssertionError(msg)
