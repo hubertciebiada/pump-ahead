@@ -23,6 +23,20 @@ Every design decision must satisfy all ten. If a proposed solution violates any 
 9. **Comfort > cost.** Tariff optimization is a soft objective. Comfort is a hard constraint. T_room < T_min is never acceptable for cost savings.
 10. **Prediction >= 24h.** Slab tau = 4-6h. Reactive control loses to physics. MPC horizon must cover at least one full slab time constant.
 
+## Production HA Server -- HANDS OFF
+
+**ABSOLUTELY FORBIDDEN: Do NOT install, deploy, run, or modify anything on the user's Home Assistant server.** This is a PRODUCTION server running real hardware. Violating this rule can cause physical damage to the heating system or leave the house without heat.
+
+| Action | Allowed? |
+|--------|----------|
+| Reading HA entity states, checking what HeishaMon exposes, querying sensor values | YES |
+| Installing PumpAhead integration on HA | **NO** |
+| Modifying HA configuration, automations, scripts, or entities | **NO** |
+| Running any HA service call that changes state (e.g., `climate.set_temperature`, `switch.turn_on`) | **NO** |
+| Making "temporary" or "testing" changes on HA | **NO** |
+
+This restriction remains in effect until an explicit deployment task is created in the GitHub project and approved by the user. Until then, all development and testing happens locally in simulation only.
+
 ## Architecture
 
 ```
