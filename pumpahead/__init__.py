@@ -16,6 +16,14 @@ from pumpahead.config import (
     RoomConfig,
     SimScenario,
 )
+from pumpahead.cross_validation import (
+    DEFAULT_HORIZONS,
+    DEFAULT_OVERFITTING_THRESHOLD,
+    CrossValidationResult,
+    HorizonRMSE,
+    cross_validate,
+    cross_validate_rooms,
+)
 from pumpahead.estimator import KalmanEstimator
 from pumpahead.identifier import IdentificationResult, RCIdentifier
 from pumpahead.metrics import (
@@ -84,15 +92,21 @@ __all__ = [
     "assert_no_priority_inversion",
     "BuildingParams",
     "BuildingSimulator",
+    "ChannelProfile",
     "ControllerConfig",
-    "CWUCycle",
+    "CrossValidationResult",
     "CSVConfig",
     "CSVParseError",
     "CSVWeather",
-    "ChannelProfile",
+    "CWUCycle",
+    "cross_validate",
+    "cross_validate_rooms",
+    "DEFAULT_HORIZONS",
+    "DEFAULT_OVERFITTING_THRESHOLD",
     "EphemerisCalculator",
     "HUBERT_ROOMS",
     "HeatPumpMode",
+    "HorizonRMSE",
     "IdentificationResult",
     "KalmanEstimator",
     "Measurements",
