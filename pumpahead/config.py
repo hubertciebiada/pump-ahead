@@ -50,9 +50,7 @@ class CWUCycle:
     def __post_init__(self) -> None:
         """Validate CWU cycle parameters."""
         if self.start_minute < 0:
-            raise ValueError(
-                f"start_minute must be >= 0, got {self.start_minute}"
-            )
+            raise ValueError(f"start_minute must be >= 0, got {self.start_minute}")
         if self.duration_minutes <= 0:
             raise ValueError(
                 f"duration_minutes must be > 0, got {self.duration_minutes}"
@@ -61,10 +59,7 @@ class CWUCycle:
             raise ValueError(
                 f"interval_minutes must be >= 0, got {self.interval_minutes}"
             )
-        if (
-            self.interval_minutes > 0
-            and self.interval_minutes <= self.duration_minutes
-        ):
+        if self.interval_minutes > 0 and self.interval_minutes <= self.duration_minutes:
             raise ValueError(
                 f"interval_minutes ({self.interval_minutes}) must be > "
                 f"duration_minutes ({self.duration_minutes}) when repeating"
@@ -241,10 +236,7 @@ class ControllerConfig:
             msg = f"deadband must be >= 0, got {self.deadband}"
             raise ValueError(msg)
         if self.valve_floor_pct < 0 or self.valve_floor_pct > 100:
-            msg = (
-                f"valve_floor_pct must be in [0, 100], "
-                f"got {self.valve_floor_pct}"
-            )
+            msg = f"valve_floor_pct must be in [0, 100], got {self.valve_floor_pct}"
             raise ValueError(msg)
         if self.w_comfort < 0:
             msg = f"w_comfort must be >= 0, got {self.w_comfort}"
@@ -302,17 +294,13 @@ class SimScenario:
             msg = f"description must be a string, got {type(self.description).__name__}"
             raise ValueError(msg)
         if self.duration_minutes <= 0:
-            msg = (
-                f"duration_minutes must be > 0, got {self.duration_minutes}"
-            )
+            msg = f"duration_minutes must be > 0, got {self.duration_minutes}"
             raise ValueError(msg)
         if self.dt_seconds <= 0:
             msg = f"dt_seconds must be > 0, got {self.dt_seconds}"
             raise ValueError(msg)
         if self.sensor_noise_std < 0:
-            msg = (
-                f"sensor_noise_std must be >= 0, got {self.sensor_noise_std}"
-            )
+            msg = f"sensor_noise_std must be >= 0, got {self.sensor_noise_std}"
             raise ValueError(msg)
         allowed_modes = ("heating", "cooling", "auto")
         if self.mode not in allowed_modes:

@@ -392,8 +392,7 @@ class BuildingSimulator:
         effective_actions = actions
         if cwu_active:
             effective_actions = {
-                name: replace(a, valve_position=0.0)
-                for name, a in actions.items()
+                name: replace(a, valve_position=0.0) for name, a in actions.items()
             }
 
         # Apply actuator commands to each room

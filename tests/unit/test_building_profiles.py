@@ -46,16 +46,18 @@ class TestHubertReal:
         """Room names match the known layout."""
         building = hubert_real()
         names = sorted(r.name for r in building.rooms)
-        expected = sorted([
-            "salon",
-            "kuchnia",
-            "sypialnia",
-            "gabinet",
-            "pokoj_dzieci",
-            "lazienka",
-            "garderoba",
-            "korytarz",
-        ])
+        expected = sorted(
+            [
+                "salon",
+                "kuchnia",
+                "sypialnia",
+                "gabinet",
+                "pokoj_dzieci",
+                "lazienka",
+                "garderoba",
+                "korytarz",
+            ]
+        )
         assert names == expected
 
     def test_total_ufh_loops_is_13(self) -> None:
@@ -145,9 +147,7 @@ class TestHubertReal:
         building = hubert_real()
         for room in building.rooms:
             if not room.has_split:
-                assert room.split_power_w == 0.0, (
-                    f"{room.name}: split_power_w != 0"
-                )
+                assert room.split_power_w == 0.0, f"{room.name}: split_power_w != 0"
 
 
 # ---------------------------------------------------------------------------
@@ -229,12 +229,8 @@ class TestAllProfiles:
         building = BUILDING_PROFILES[name]()
         for room in building.rooms:
             p = room.params
-            assert 0.0 <= p.f_conv <= 1.0, (
-                f"{name}/{room.name}: f_conv={p.f_conv}"
-            )
-            assert 0.0 <= p.f_rad <= 1.0, (
-                f"{name}/{room.name}: f_rad={p.f_rad}"
-            )
+            assert 0.0 <= p.f_conv <= 1.0, f"{name}/{room.name}: f_conv={p.f_conv}"
+            assert 0.0 <= p.f_rad <= 1.0, f"{name}/{room.name}: f_rad={p.f_rad}"
             assert p.f_conv + p.f_rad <= 1.0, (
                 f"{name}/{room.name}: f_conv+f_rad={p.f_conv + p.f_rad}"
             )
@@ -325,8 +321,7 @@ class TestPhysicalSensibility:
             building = factory()
             for room in building.rooms:
                 assert 500 <= room.ufh_max_power_w <= 10_000, (
-                    f"{name}/{room.name}: ufh_max_power_w="
-                    f"{room.ufh_max_power_w}"
+                    f"{name}/{room.name}: ufh_max_power_w={room.ufh_max_power_w}"
                 )
 
     def test_heavy_construction_higher_c_wall(self) -> None:

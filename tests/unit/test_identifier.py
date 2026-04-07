@@ -71,9 +71,7 @@ class TestIdentificationResult:
             )
 
     @pytest.mark.unit
-    def test_all_costs_length_mismatch_rejected(
-        self, params_2r2c: RCParams
-    ) -> None:
+    def test_all_costs_length_mismatch_rejected(self, params_2r2c: RCParams) -> None:
         """all_costs length != n_starts raises ValueError."""
         with pytest.raises(ValueError, match="all_costs length"):
             IdentificationResult(
@@ -236,9 +234,7 @@ class TestRCIdentifierCostFunction:
     def test_cost_zero_at_true_params(
         self,
         params_2r2c: RCParams,
-        identifier_2r2c_synth_data: tuple[
-            RCParams, np.ndarray, np.ndarray, np.ndarray
-        ],
+        identifier_2r2c_synth_data: tuple[RCParams, np.ndarray, np.ndarray, np.ndarray],
     ) -> None:
         """Cost is near zero when evaluated at the true parameters."""
         true_params, u_seq, d_seq, T_room = identifier_2r2c_synth_data
@@ -250,9 +246,7 @@ class TestRCIdentifierCostFunction:
     @pytest.mark.unit
     def test_cost_positive_at_perturbed_params(
         self,
-        identifier_2r2c_synth_data: tuple[
-            RCParams, np.ndarray, np.ndarray, np.ndarray
-        ],
+        identifier_2r2c_synth_data: tuple[RCParams, np.ndarray, np.ndarray, np.ndarray],
     ) -> None:
         """Cost is positive when parameters differ from truth."""
         true_params, u_seq, d_seq, T_room = identifier_2r2c_synth_data
@@ -302,9 +296,7 @@ class TestRCIdentifier2R2CConvergence:
     @pytest.mark.unit
     def test_recovers_params_within_10_percent(
         self,
-        identifier_2r2c_synth_data: tuple[
-            RCParams, np.ndarray, np.ndarray, np.ndarray
-        ],
+        identifier_2r2c_synth_data: tuple[RCParams, np.ndarray, np.ndarray, np.ndarray],
     ) -> None:
         """2R2C identification recovers all 4 parameters within 10% error."""
         true_params, u_seq, d_seq, T_room = identifier_2r2c_synth_data
@@ -317,25 +309,15 @@ class TestRCIdentifier2R2CConvergence:
         result = ident.identify(u_seq, d_seq, T_room)
 
         # Check each parameter within 10% relative error
-        assert result.params.R_sf == pytest.approx(
-            true_params.R_sf, rel=0.10
-        )
-        assert result.params.R_env == pytest.approx(
-            true_params.R_env, rel=0.10
-        )
-        assert result.params.C_air == pytest.approx(
-            true_params.C_air, rel=0.10
-        )
-        assert result.params.C_slab == pytest.approx(
-            true_params.C_slab, rel=0.10
-        )
+        assert result.params.R_sf == pytest.approx(true_params.R_sf, rel=0.10)
+        assert result.params.R_env == pytest.approx(true_params.R_env, rel=0.10)
+        assert result.params.C_air == pytest.approx(true_params.C_air, rel=0.10)
+        assert result.params.C_slab == pytest.approx(true_params.C_slab, rel=0.10)
 
     @pytest.mark.unit
     def test_best_of_n_starts(
         self,
-        identifier_2r2c_synth_data: tuple[
-            RCParams, np.ndarray, np.ndarray, np.ndarray
-        ],
+        identifier_2r2c_synth_data: tuple[RCParams, np.ndarray, np.ndarray, np.ndarray],
     ) -> None:
         """Best cost equals minimum of all_costs."""
         _, u_seq, d_seq, T_room = identifier_2r2c_synth_data
@@ -355,9 +337,7 @@ class TestRCIdentifier2R2CConvergence:
     @pytest.mark.unit
     def test_converged_flag_set(
         self,
-        identifier_2r2c_synth_data: tuple[
-            RCParams, np.ndarray, np.ndarray, np.ndarray
-        ],
+        identifier_2r2c_synth_data: tuple[RCParams, np.ndarray, np.ndarray, np.ndarray],
     ) -> None:
         """Converged flag is True for well-conditioned synthetic data."""
         _, u_seq, d_seq, T_room = identifier_2r2c_synth_data
@@ -373,9 +353,7 @@ class TestRCIdentifier2R2CConvergence:
     @pytest.mark.unit
     def test_cost_near_zero_on_noiseless_data(
         self,
-        identifier_2r2c_synth_data: tuple[
-            RCParams, np.ndarray, np.ndarray, np.ndarray
-        ],
+        identifier_2r2c_synth_data: tuple[RCParams, np.ndarray, np.ndarray, np.ndarray],
     ) -> None:
         """Identification achieves near-zero cost on noiseless data."""
         _, u_seq, d_seq, T_room = identifier_2r2c_synth_data
@@ -440,9 +418,7 @@ class TestRCIdentifier3R3CConvergence:
     @pytest.mark.unit
     def test_recovers_params_within_10_percent(
         self,
-        synth_3r3c_data: tuple[
-            RCParams, np.ndarray, np.ndarray, np.ndarray
-        ],
+        synth_3r3c_data: tuple[RCParams, np.ndarray, np.ndarray, np.ndarray],
     ) -> None:
         """3R3C identification recovers 7 parameters within 10% error.
 
@@ -463,34 +439,18 @@ class TestRCIdentifier3R3CConvergence:
         )
         result = ident.identify(u_seq, d_seq, T_room)
 
-        assert result.params.R_sf == pytest.approx(
-            true_params.R_sf, rel=0.10
-        )
-        assert result.params.R_wi == pytest.approx(
-            true_params.R_wi, rel=0.10
-        )
-        assert result.params.R_wo == pytest.approx(
-            true_params.R_wo, rel=0.10
-        )
-        assert result.params.R_ve == pytest.approx(
-            true_params.R_ve, rel=0.10
-        )
-        assert result.params.C_air == pytest.approx(
-            true_params.C_air, rel=0.10
-        )
-        assert result.params.C_slab == pytest.approx(
-            true_params.C_slab, rel=0.10
-        )
-        assert result.params.C_wall == pytest.approx(
-            true_params.C_wall, rel=0.10
-        )
+        assert result.params.R_sf == pytest.approx(true_params.R_sf, rel=0.10)
+        assert result.params.R_wi == pytest.approx(true_params.R_wi, rel=0.10)
+        assert result.params.R_wo == pytest.approx(true_params.R_wo, rel=0.10)
+        assert result.params.R_ve == pytest.approx(true_params.R_ve, rel=0.10)
+        assert result.params.C_air == pytest.approx(true_params.C_air, rel=0.10)
+        assert result.params.C_slab == pytest.approx(true_params.C_slab, rel=0.10)
+        assert result.params.C_wall == pytest.approx(true_params.C_wall, rel=0.10)
 
     @pytest.mark.unit
     def test_cost_near_zero_on_noiseless_data(
         self,
-        synth_3r3c_data: tuple[
-            RCParams, np.ndarray, np.ndarray, np.ndarray
-        ],
+        synth_3r3c_data: tuple[RCParams, np.ndarray, np.ndarray, np.ndarray],
     ) -> None:
         """3R3C identification achieves near-zero cost on noiseless data."""
         true_params, u_seq, d_seq, T_room = synth_3r3c_data
@@ -520,9 +480,7 @@ class TestRCIdentifierBoxConstraints:
     @pytest.mark.unit
     def test_params_within_default_bounds(
         self,
-        identifier_2r2c_synth_data: tuple[
-            RCParams, np.ndarray, np.ndarray, np.ndarray
-        ],
+        identifier_2r2c_synth_data: tuple[RCParams, np.ndarray, np.ndarray, np.ndarray],
     ) -> None:
         """All identified parameters lie within default bounds."""
         _, u_seq, d_seq, T_room = identifier_2r2c_synth_data
@@ -531,16 +489,12 @@ class TestRCIdentifierBoxConstraints:
 
         for name, (lo, hi) in DEFAULT_BOUNDS_2R2C.items():
             value = getattr(result.params, name)
-            assert lo <= value <= hi, (
-                f"{name}={value} outside bounds [{lo}, {hi}]"
-            )
+            assert lo <= value <= hi, f"{name}={value} outside bounds [{lo}, {hi}]"
 
     @pytest.mark.unit
     def test_custom_narrow_bounds(
         self,
-        identifier_2r2c_synth_data: tuple[
-            RCParams, np.ndarray, np.ndarray, np.ndarray
-        ],
+        identifier_2r2c_synth_data: tuple[RCParams, np.ndarray, np.ndarray, np.ndarray],
     ) -> None:
         """Narrow custom bounds constrain the solution."""
         _, u_seq, d_seq, T_room = identifier_2r2c_synth_data
@@ -551,9 +505,7 @@ class TestRCIdentifierBoxConstraints:
             "C_air": (50_000.0, 70_000.0),
             "C_slab": (3_000_000.0, 3_500_000.0),
         }
-        ident = RCIdentifier(
-            ModelOrder.TWO, n_starts=3, seed=42, bounds=narrow_bounds
-        )
+        ident = RCIdentifier(ModelOrder.TWO, n_starts=3, seed=42, bounds=narrow_bounds)
         result = ident.identify(u_seq, d_seq, T_room)
 
         for name, (lo, hi) in narrow_bounds.items():
@@ -624,9 +576,7 @@ class TestRCIdentifierEdgeCases:
     @pytest.mark.unit
     def test_single_start(
         self,
-        identifier_2r2c_synth_data: tuple[
-            RCParams, np.ndarray, np.ndarray, np.ndarray
-        ],
+        identifier_2r2c_synth_data: tuple[RCParams, np.ndarray, np.ndarray, np.ndarray],
     ) -> None:
         """Single start (n_starts=1) produces valid result."""
         _, u_seq, d_seq, T_room = identifier_2r2c_synth_data
@@ -664,9 +614,7 @@ class TestRCIdentifierEdgeCases:
     @pytest.mark.unit
     def test_all_costs_sorted_ascending(
         self,
-        identifier_2r2c_synth_data: tuple[
-            RCParams, np.ndarray, np.ndarray, np.ndarray
-        ],
+        identifier_2r2c_synth_data: tuple[RCParams, np.ndarray, np.ndarray, np.ndarray],
     ) -> None:
         """all_costs tuple is sorted in ascending order."""
         _, u_seq, d_seq, T_room = identifier_2r2c_synth_data

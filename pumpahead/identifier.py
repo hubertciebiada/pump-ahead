@@ -425,9 +425,7 @@ class RCIdentifier:
         if T_room_measured.ndim != 1:
             msg = f"T_room_measured must be 1D, got {T_room_measured.ndim}D"
             raise ValueError(msg)
-        if not (
-            u_sequence.shape[0] == d_sequence.shape[0] == T_room_measured.shape[0]
-        ):
+        if not (u_sequence.shape[0] == d_sequence.shape[0] == T_room_measured.shape[0]):
             msg = (
                 f"Sequence lengths must match: "
                 f"u_sequence={u_sequence.shape[0]}, "
@@ -437,9 +435,7 @@ class RCIdentifier:
             raise ValueError(msg)
 
         # --- Multi-start optimization in log-space ---
-        log_bounds = [
-            (np.log(lo), np.log(hi)) for lo, hi in self._bounds_list
-        ]
+        log_bounds = [(np.log(lo), np.log(hi)) for lo, hi in self._bounds_list]
         initial_points = self._sample_initial_points()
         results: list[OptimizeResult] = []
 

@@ -169,9 +169,7 @@ class SimMetrics:
 
         # -- Empty log --------------------------------------------------------
         if n == 0:
-            has_energy = (
-                ufh_max_power_w is not None and split_power_w is not None
-            )
+            has_energy = ufh_max_power_w is not None and split_power_w is not None
             return cls(
                 comfort_pct=0.0,
                 max_overshoot=0.0,
@@ -204,9 +202,7 @@ class SimMetrics:
         prev_hp_mode = None
 
         # Energy accumulators (only when power params provided)
-        compute_energy = (
-            ufh_max_power_w is not None and split_power_w is not None
-        )
+        compute_energy = ufh_max_power_w is not None and split_power_w is not None
         total_floor_energy_j = 0.0
         total_split_energy_j = 0.0
         peak_power = 0.0
@@ -253,11 +249,7 @@ class SimMetrics:
                 assert ufh_max_power_w is not None
                 assert split_power_w is not None
                 floor_power = (rec.valve_position / 100.0) * ufh_max_power_w
-                split_power = (
-                    split_power_w
-                    if rec.split_mode != SplitMode.OFF
-                    else 0.0
-                )
+                split_power = split_power_w if rec.split_mode != SplitMode.OFF else 0.0
                 total_power = floor_power + split_power
 
                 total_floor_energy_j += floor_power * dt_seconds
@@ -280,9 +272,7 @@ class SimMetrics:
             energy_kwh = total_energy_j / 3_600_000.0
             peak_power_w = peak_power
             if total_energy_j > 0.0:
-                floor_energy_pct = (
-                    total_floor_energy_j / total_energy_j
-                ) * 100.0
+                floor_energy_pct = (total_floor_energy_j / total_energy_j) * 100.0
             else:
                 floor_energy_pct = 0.0
         else:
@@ -454,10 +444,7 @@ def assert_no_priority_inversion(
     """
     n = len(log)
     if n == 0:
-        msg = (
-            "assert_no_priority_inversion: empty log "
-            "— cannot assess split runtime"
-        )
+        msg = "assert_no_priority_inversion: empty log — cannot assess split runtime"
         raise AssertionError(msg)
 
     split_on_count = 0
@@ -498,20 +485,14 @@ def assert_no_opposing_action(log: SimulationLog) -> None:
         if rec.hp_mode == HeatPumpMode.OFF:
             continue
 
-        if (
-            rec.hp_mode == HeatPumpMode.HEATING
-            and rec.split_mode == SplitMode.COOLING
-        ):
+        if rec.hp_mode == HeatPumpMode.HEATING and rec.split_mode == SplitMode.COOLING:
             msg = (
                 f"assert_no_opposing_action: split COOLING while HP "
                 f"HEATING at t={rec.t}"
             )
             raise AssertionError(msg)
 
-        if (
-            rec.hp_mode == HeatPumpMode.COOLING
-            and rec.split_mode == SplitMode.HEATING
-        ):
+        if rec.hp_mode == HeatPumpMode.COOLING and rec.split_mode == SplitMode.HEATING:
             msg = (
                 f"assert_no_opposing_action: split HEATING while HP "
                 f"COOLING at t={rec.t}"

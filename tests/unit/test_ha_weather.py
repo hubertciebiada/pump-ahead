@@ -175,17 +175,13 @@ class TestHAWeatherSourceInit:
         assert src.has_data is False
 
     @pytest.mark.unit
-    def test_forecast_horizon_zero_before_update(
-        self, ha_weather_mocks: Any
-    ) -> None:
+    def test_forecast_horizon_zero_before_update(self, ha_weather_mocks: Any) -> None:
         """forecast_horizon_hours must be 0 before the first update."""
         src = ha_weather_mocks.HAWeatherSource(_ENTITY_ID, _LATITUDE, _LONGITUDE)
         assert src.forecast_horizon_hours == 0.0
 
     @pytest.mark.unit
-    def test_get_returns_fallback_before_update(
-        self, ha_weather_mocks: Any
-    ) -> None:
+    def test_get_returns_fallback_before_update(self, ha_weather_mocks: Any) -> None:
         """get() must return the default fallback before any update."""
         src = ha_weather_mocks.HAWeatherSource(_ENTITY_ID, _LATITUDE, _LONGITUDE)
         point = src.get(0.0)
@@ -241,16 +237,12 @@ class TestHAWeatherSourceUpdate:
         assert point.T_out == 2.0
 
     @pytest.mark.unit
-    def test_update_short_horizon_logs_warning(
-        self, ha_weather_mocks: Any
-    ) -> None:
+    def test_update_short_horizon_logs_warning(self, ha_weather_mocks: Any) -> None:
         """Forecast horizon < 24h must trigger a warning log."""
         response = _make_forecast_response(hours=12)  # only 12 h
         src = ha_weather_mocks.HAWeatherSource(_ENTITY_ID, _LATITUDE, _LONGITUDE)
         hass = _make_hass_mock(forecast_response=response)
-        with patch(
-            "custom_components.pumpahead.ha_weather._LOGGER"
-        ) as mock_logger:
+        with patch("custom_components.pumpahead.ha_weather._LOGGER") as mock_logger:
             asyncio.run(src.async_update(hass))
             # Check that warning was called with the Axiom 10 message.
             assert mock_logger.warning.called
@@ -278,9 +270,7 @@ class TestHAWeatherSourceGet:
         assert abs(point.T_out - 5.0) < 1.0
 
     @pytest.mark.unit
-    def test_get_interpolates_between_points(
-        self, ha_weather_mocks: Any
-    ) -> None:
+    def test_get_interpolates_between_points(self, ha_weather_mocks: Any) -> None:
         """get() at 30 min between two hourly points must interpolate."""
         src = ha_weather_mocks.HAWeatherSource(_ENTITY_ID, _LATITUDE, _LONGITUDE)
         hass = _make_hass_mock()
@@ -303,9 +293,7 @@ class TestHAWeatherSourceGet:
         assert abs(point.T_out - 5.5) < 1.0
 
     @pytest.mark.unit
-    def test_get_returns_fallback_when_stale(
-        self, ha_weather_mocks: Any
-    ) -> None:
+    def test_get_returns_fallback_when_stale(self, ha_weather_mocks: Any) -> None:
         """get() must return fallback when data is older than max_age_hours."""
         src = ha_weather_mocks.HAWeatherSource(
             _ENTITY_ID, _LATITUDE, _LONGITUDE, max_age_hours=1.0
@@ -319,9 +307,7 @@ class TestHAWeatherSourceGet:
         assert point.wind_speed == 0.0
 
     @pytest.mark.unit
-    def test_get_returns_fallback_when_no_data(
-        self, ha_weather_mocks: Any
-    ) -> None:
+    def test_get_returns_fallback_when_no_data(self, ha_weather_mocks: Any) -> None:
         """get() must return fallback when async_update was never called."""
         src = ha_weather_mocks.HAWeatherSource(_ENTITY_ID, _LATITUDE, _LONGITUDE)
         point = src.get(60.0)
@@ -338,9 +324,7 @@ class TestHAWeatherSourceGHI:
     """Tests for GHI estimation from cloud coverage."""
 
     @pytest.mark.unit
-    def test_ghi_positive_daytime_with_cloud_data(
-        self, ha_weather_mocks: Any
-    ) -> None:
+    def test_ghi_positive_daytime_with_cloud_data(self, ha_weather_mocks: Any) -> None:
         """GHI must be > 0 when sun is up and cloud data is provided."""
         src = ha_weather_mocks.HAWeatherSource(_ENTITY_ID, _LATITUDE, _LONGITUDE)
         # Summer noon UTC — sun is well above the horizon at lat 50.
@@ -436,9 +420,7 @@ class TestHAWeatherSourceForecastParsing:
     """Tests for _parse_forecast_response()."""
 
     @pytest.mark.unit
-    def test_parse_standard_response_format(
-        self, ha_weather_mocks: Any
-    ) -> None:
+    def test_parse_standard_response_format(self, ha_weather_mocks: Any) -> None:
         """Standard HA format {entity_id: {"forecast": [...]}} is parsed."""
         src = ha_weather_mocks.HAWeatherSource(_ENTITY_ID, _LATITUDE, _LONGITUDE)
         response = _make_forecast_response(hours=24)
@@ -498,9 +480,7 @@ class TestHAWeatherSourceForecastParsing:
         assert len(entries) == 2
 
     @pytest.mark.unit
-    def test_parse_defaults_missing_humidity(
-        self, ha_weather_mocks: Any
-    ) -> None:
+    def test_parse_defaults_missing_humidity(self, ha_weather_mocks: Any) -> None:
         """Forecast entries without humidity must use the default (50%)."""
         src = ha_weather_mocks.HAWeatherSource(_ENTITY_ID, _LATITUDE, _LONGITUDE)
         now = datetime.now(UTC)
@@ -521,9 +501,7 @@ class TestHAWeatherSourceForecastParsing:
         assert point.humidity == 50.0
 
     @pytest.mark.unit
-    def test_parse_defaults_missing_wind_speed(
-        self, ha_weather_mocks: Any
-    ) -> None:
+    def test_parse_defaults_missing_wind_speed(self, ha_weather_mocks: Any) -> None:
         """Forecast entries without wind_speed must default to 0.0."""
         src = ha_weather_mocks.HAWeatherSource(_ENTITY_ID, _LATITUDE, _LONGITUDE)
         now = datetime.now(UTC)

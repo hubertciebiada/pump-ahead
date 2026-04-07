@@ -11,6 +11,7 @@ from pumpahead.solar import (
     SolarGainModel,
     WindowConfig,
 )
+from pumpahead.solar_gti import GTIModel
 
 
 @pytest.fixture()
@@ -126,6 +127,18 @@ def solar_model() -> SolarGainModel:
 def ephemeris_lubcza() -> EphemerisCalculator:
     """EphemerisCalculator for Lubcza, Poland (Hubert's location)."""
     return EphemerisCalculator(latitude=50.69, longitude=17.38)
+
+
+@pytest.fixture()
+def gti_model() -> GTIModel:
+    """GTI model with default albedo (0.2)."""
+    return GTIModel()
+
+
+@pytest.fixture()
+def gti_model_no_albedo() -> GTIModel:
+    """GTI model with zero albedo (no ground reflection)."""
+    return GTIModel(albedo=0.0)
 
 
 # ---------------------------------------------------------------------------

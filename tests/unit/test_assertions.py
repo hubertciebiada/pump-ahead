@@ -78,9 +78,7 @@ class TestAssertComfort:
 
     def test_passes_when_above_threshold(self) -> None:
         """100% comfort passes the default 90% threshold."""
-        log = _make_log(
-            [_make_record(t=i, T_room=21.0) for i in range(10)]
-        )
+        log = _make_log([_make_record(t=i, T_room=21.0) for i in range(10)])
         assert_comfort(log, setpoint=21.0)  # should not raise
 
     def test_passes_at_exact_threshold(self) -> None:
@@ -111,27 +109,19 @@ class TestAssertComfort:
         """Custom threshold=50.0 passes with 60% comfort."""
         # 6 comfortable, 4 outside -> 60%
         records = [_make_record(t=i, T_room=21.0) for i in range(6)]
-        records.extend(
-            _make_record(t=6 + i, T_room=25.0) for i in range(4)
-        )
+        records.extend(_make_record(t=6 + i, T_room=25.0) for i in range(4))
         log = _make_log(records)
         assert_comfort(log, setpoint=21.0, threshold=50.0)  # should not raise
 
     def test_custom_comfort_band(self) -> None:
         """Wider comfort_band=1.0 allows more deviation."""
         # T_room=21.8, setpoint=21.0 -> |dev|=0.8 <= 1.0 -> comfortable
-        log = _make_log(
-            [_make_record(t=i, T_room=21.8) for i in range(10)]
-        )
-        assert_comfort(
-            log, setpoint=21.0, comfort_band=1.0
-        )  # should not raise
+        log = _make_log([_make_record(t=i, T_room=21.8) for i in range(10)])
+        assert_comfort(log, setpoint=21.0, comfort_band=1.0)  # should not raise
 
     def test_narrow_comfort_band_fails(self) -> None:
         """Narrow comfort_band=0.1 rejects deviation of 0.3."""
-        log = _make_log(
-            [_make_record(t=i, T_room=21.3) for i in range(10)]
-        )
+        log = _make_log([_make_record(t=i, T_room=21.3) for i in range(10)])
         with pytest.raises(AssertionError, match="comfort 0.0%"):
             assert_comfort(log, setpoint=21.0, comfort_band=0.1)
 
@@ -161,18 +151,22 @@ class TestAssertFloorTempSafe:
 
     def test_passes_safe_temperatures(self) -> None:
         """Temperatures well within limits pass."""
-        log = _make_log([
-            _make_record(t=0, T_slab=25.0, humidity=50.0),
-            _make_record(t=1, T_slab=30.0, humidity=50.0),
-        ])
+        log = _make_log(
+            [
+                _make_record(t=0, T_slab=25.0, humidity=50.0),
+                _make_record(t=1, T_slab=30.0, humidity=50.0),
+            ]
+        )
         assert_floor_temp_safe(log)  # should not raise
 
     def test_raises_on_high_floor_temp(self) -> None:
         """T_floor > 34.0 raises AssertionError."""
-        log = _make_log([
-            _make_record(t=0, T_slab=25.0),
-            _make_record(t=1, T_slab=35.0),
-        ])
+        log = _make_log(
+            [
+                _make_record(t=0, T_slab=25.0),
+                _make_record(t=1, T_slab=35.0),
+            ]
+        )
         with pytest.raises(AssertionError, match="exceeds max 34.00"):
             assert_floor_temp_safe(log)
 
@@ -188,9 +182,11 @@ class TestAssertFloorTempSafe:
         Threshold = 17.0 + 2.0 = 19.0
         T_slab=18.0 < 19.0 -> condensation risk.
         """
-        log = _make_log([
-            _make_record(t=5, T_slab=18.0, humidity=80.0),
-        ])
+        log = _make_log(
+            [
+                _make_record(t=5, T_slab=18.0, humidity=80.0),
+            ]
+        )
         with pytest.raises(AssertionError, match="condensation risk"):
             assert_floor_temp_safe(log)
 
@@ -228,19 +224,19 @@ class TestAssertFloorTempSafe:
 
     def test_detects_first_violation_only(self) -> None:
         """Raises on the first violation, not later ones."""
-        log = _make_log([
-            _make_record(t=0, T_slab=25.0, humidity=50.0),  # safe
-            _make_record(t=1, T_slab=35.0, humidity=50.0),  # violation
-            _make_record(t=2, T_slab=36.0, humidity=50.0),  # also violation
-        ])
+        log = _make_log(
+            [
+                _make_record(t=0, T_slab=25.0, humidity=50.0),  # safe
+                _make_record(t=1, T_slab=35.0, humidity=50.0),  # violation
+                _make_record(t=2, T_slab=36.0, humidity=50.0),  # also violation
+            ]
+        )
         with pytest.raises(AssertionError, match="t=1"):
             assert_floor_temp_safe(log)
 
     def test_checks_every_timestep(self) -> None:
         """Violation at the last timestep is still caught."""
-        records = [
-            _make_record(t=i, T_slab=25.0, humidity=50.0) for i in range(9)
-        ]
+        records = [_make_record(t=i, T_slab=25.0, humidity=50.0) for i in range(9)]
         records.append(_make_record(t=9, T_slab=35.0, humidity=50.0))
         log = _make_log(records)
         with pytest.raises(AssertionError, match="t=9"):
@@ -259,13 +255,9 @@ class TestAssertNoPriorityInversion:
     def test_passes_low_split_runtime(self) -> None:
         """30% split runtime passes the default 50% threshold."""
         # 3 split ON, 7 OFF -> 30%
-        records = [
-            _make_record(t=i, split_mode=SplitMode.HEATING)
-            for i in range(3)
-        ]
+        records = [_make_record(t=i, split_mode=SplitMode.HEATING) for i in range(3)]
         records.extend(
-            _make_record(t=3 + i, split_mode=SplitMode.OFF)
-            for i in range(7)
+            _make_record(t=3 + i, split_mode=SplitMode.OFF) for i in range(7)
         )
         log = _make_log(records)
         assert_no_priority_inversion(log)  # should not raise
@@ -273,13 +265,9 @@ class TestAssertNoPriorityInversion:
     def test_passes_at_exact_threshold(self) -> None:
         """Exactly 50% split runtime passes (check is >, not >=)."""
         # 5 ON, 5 OFF -> 50%
-        records = [
-            _make_record(t=i, split_mode=SplitMode.HEATING)
-            for i in range(5)
-        ]
+        records = [_make_record(t=i, split_mode=SplitMode.HEATING) for i in range(5)]
         records.extend(
-            _make_record(t=5 + i, split_mode=SplitMode.OFF)
-            for i in range(5)
+            _make_record(t=5 + i, split_mode=SplitMode.OFF) for i in range(5)
         )
         log = _make_log(records)
         assert_no_priority_inversion(log)  # should not raise
@@ -287,13 +275,9 @@ class TestAssertNoPriorityInversion:
     def test_raises_above_threshold(self) -> None:
         """60% split runtime raises with default 50% threshold."""
         # 6 ON, 4 OFF -> 60%
-        records = [
-            _make_record(t=i, split_mode=SplitMode.HEATING)
-            for i in range(6)
-        ]
+        records = [_make_record(t=i, split_mode=SplitMode.HEATING) for i in range(6)]
         records.extend(
-            _make_record(t=6 + i, split_mode=SplitMode.OFF)
-            for i in range(4)
+            _make_record(t=6 + i, split_mode=SplitMode.OFF) for i in range(4)
         )
         log = _make_log(records)
         with pytest.raises(AssertionError, match="split runtime 60.0%"):
@@ -307,10 +291,7 @@ class TestAssertNoPriorityInversion:
 
     def test_cooling_counts_as_split_on(self) -> None:
         """SplitMode.COOLING counts as split ON."""
-        records = [
-            _make_record(t=i, split_mode=SplitMode.COOLING)
-            for i in range(10)
-        ]
+        records = [_make_record(t=i, split_mode=SplitMode.COOLING) for i in range(10)]
         log = _make_log(records)
         with pytest.raises(AssertionError, match="split runtime 100.0%"):
             assert_no_priority_inversion(log)
@@ -318,13 +299,9 @@ class TestAssertNoPriorityInversion:
     def test_custom_threshold(self) -> None:
         """Custom max_split_pct=30.0 rejects 40% runtime."""
         # 4 ON, 6 OFF -> 40%
-        records = [
-            _make_record(t=i, split_mode=SplitMode.HEATING)
-            for i in range(4)
-        ]
+        records = [_make_record(t=i, split_mode=SplitMode.HEATING) for i in range(4)]
         records.extend(
-            _make_record(t=4 + i, split_mode=SplitMode.OFF)
-            for i in range(6)
+            _make_record(t=4 + i, split_mode=SplitMode.OFF) for i in range(6)
         )
         log = _make_log(records)
         with pytest.raises(AssertionError, match="split runtime 40.0%"):
@@ -332,13 +309,9 @@ class TestAssertNoPriorityInversion:
 
     def test_error_message_contains_diagnostics(self) -> None:
         """Error message includes percentages and counts."""
-        records = [
-            _make_record(t=i, split_mode=SplitMode.HEATING)
-            for i in range(8)
-        ]
+        records = [_make_record(t=i, split_mode=SplitMode.HEATING) for i in range(8)]
         records.extend(
-            _make_record(t=8 + i, split_mode=SplitMode.OFF)
-            for i in range(2)
+            _make_record(t=8 + i, split_mode=SplitMode.OFF) for i in range(2)
         )
         log = _make_log(records)
         with pytest.raises(AssertionError, match="split_on=8/10"):
@@ -363,80 +336,94 @@ class TestAssertNoOpposingAction:
 
     def test_passes_consistent_heating(self) -> None:
         """Split HEATING in HEATING mode passes."""
-        log = _make_log([
-            _make_record(
-                t=0,
-                hp_mode=HeatPumpMode.HEATING,
-                split_mode=SplitMode.HEATING,
-            ),
-        ])
+        log = _make_log(
+            [
+                _make_record(
+                    t=0,
+                    hp_mode=HeatPumpMode.HEATING,
+                    split_mode=SplitMode.HEATING,
+                ),
+            ]
+        )
         assert_no_opposing_action(log)  # should not raise
 
     def test_passes_consistent_cooling(self) -> None:
         """Split COOLING in COOLING mode passes."""
-        log = _make_log([
-            _make_record(
-                t=0,
-                hp_mode=HeatPumpMode.COOLING,
-                split_mode=SplitMode.COOLING,
-            ),
-        ])
+        log = _make_log(
+            [
+                _make_record(
+                    t=0,
+                    hp_mode=HeatPumpMode.COOLING,
+                    split_mode=SplitMode.COOLING,
+                ),
+            ]
+        )
         assert_no_opposing_action(log)  # should not raise
 
     def test_passes_split_off_in_heating(self) -> None:
         """Split OFF in any HP mode passes."""
-        log = _make_log([
-            _make_record(
-                t=0,
-                hp_mode=HeatPumpMode.HEATING,
-                split_mode=SplitMode.OFF,
-            ),
-        ])
+        log = _make_log(
+            [
+                _make_record(
+                    t=0,
+                    hp_mode=HeatPumpMode.HEATING,
+                    split_mode=SplitMode.OFF,
+                ),
+            ]
+        )
         assert_no_opposing_action(log)  # should not raise
 
     def test_passes_hp_off_with_split_heating(self) -> None:
         """HP OFF with any split mode passes (Axiom #3 only applies when HP active)."""
-        log = _make_log([
-            _make_record(
-                t=0,
-                hp_mode=HeatPumpMode.OFF,
-                split_mode=SplitMode.HEATING,
-            ),
-        ])
+        log = _make_log(
+            [
+                _make_record(
+                    t=0,
+                    hp_mode=HeatPumpMode.OFF,
+                    split_mode=SplitMode.HEATING,
+                ),
+            ]
+        )
         assert_no_opposing_action(log)  # should not raise
 
     def test_passes_hp_off_with_split_cooling(self) -> None:
         """HP OFF with split COOLING passes."""
-        log = _make_log([
-            _make_record(
-                t=0,
-                hp_mode=HeatPumpMode.OFF,
-                split_mode=SplitMode.COOLING,
-            ),
-        ])
+        log = _make_log(
+            [
+                _make_record(
+                    t=0,
+                    hp_mode=HeatPumpMode.OFF,
+                    split_mode=SplitMode.COOLING,
+                ),
+            ]
+        )
         assert_no_opposing_action(log)  # should not raise
 
     def test_raises_cooling_in_heating_mode(self) -> None:
         """Split COOLING while HP HEATING raises AssertionError."""
-        log = _make_log([
-            _make_record(
-                t=3,
-                hp_mode=HeatPumpMode.HEATING,
-                split_mode=SplitMode.COOLING,
-            ),
-        ])
+        log = _make_log(
+            [
+                _make_record(
+                    t=3,
+                    hp_mode=HeatPumpMode.HEATING,
+                    split_mode=SplitMode.COOLING,
+                ),
+            ]
+        )
         with pytest.raises(AssertionError, match="split COOLING while HP HEATING"):
             assert_no_opposing_action(log)
 
     def test_raises_heating_in_cooling_mode(self) -> None:
         """Split HEATING while HP COOLING raises AssertionError."""
-        log = _make_log([
-            _make_record(
-                t=7,
-                hp_mode=HeatPumpMode.COOLING,
-                split_mode=SplitMode.HEATING,
-            ),
-        ])
+        log = _make_log(
+            [
+                _make_record(
+                    t=7,
+                    hp_mode=HeatPumpMode.COOLING,
+                    split_mode=SplitMode.HEATING,
+                ),
+            ]
+        )
         with pytest.raises(AssertionError, match="split HEATING while HP COOLING"):
             assert_no_opposing_action(log)
 
@@ -447,62 +434,68 @@ class TestAssertNoOpposingAction:
 
     def test_error_message_includes_timestep(self) -> None:
         """Error message includes the violating timestep."""
-        log = _make_log([
-            _make_record(
-                t=99,
-                hp_mode=HeatPumpMode.HEATING,
-                split_mode=SplitMode.COOLING,
-            ),
-        ])
+        log = _make_log(
+            [
+                _make_record(
+                    t=99,
+                    hp_mode=HeatPumpMode.HEATING,
+                    split_mode=SplitMode.COOLING,
+                ),
+            ]
+        )
         with pytest.raises(AssertionError, match="t=99"):
             assert_no_opposing_action(log)
 
     def test_detects_first_violation(self) -> None:
         """Raises on the first opposing action, not later ones."""
-        log = _make_log([
-            _make_record(
-                t=0,
-                hp_mode=HeatPumpMode.HEATING,
-                split_mode=SplitMode.OFF,
-            ),
-            _make_record(
-                t=1,
-                hp_mode=HeatPumpMode.HEATING,
-                split_mode=SplitMode.COOLING,
-            ),
-            _make_record(
-                t=2,
-                hp_mode=HeatPumpMode.COOLING,
-                split_mode=SplitMode.HEATING,
-            ),
-        ])
+        log = _make_log(
+            [
+                _make_record(
+                    t=0,
+                    hp_mode=HeatPumpMode.HEATING,
+                    split_mode=SplitMode.OFF,
+                ),
+                _make_record(
+                    t=1,
+                    hp_mode=HeatPumpMode.HEATING,
+                    split_mode=SplitMode.COOLING,
+                ),
+                _make_record(
+                    t=2,
+                    hp_mode=HeatPumpMode.COOLING,
+                    split_mode=SplitMode.HEATING,
+                ),
+            ]
+        )
         with pytest.raises(AssertionError, match="t=1"):
             assert_no_opposing_action(log)
 
     def test_mixed_valid_records_pass(self) -> None:
         """Mix of valid modes (OFF, consistent) passes."""
-        log = _make_log([
-            _make_record(
-                t=0,
-                hp_mode=HeatPumpMode.HEATING,
-                split_mode=SplitMode.HEATING,
-            ),
-            _make_record(
-                t=1,
-                hp_mode=HeatPumpMode.OFF,
-                split_mode=SplitMode.COOLING,
-            ),
-            _make_record(
-                t=2,
-                hp_mode=HeatPumpMode.COOLING,
-                split_mode=SplitMode.OFF,
-            ),
-            _make_record(
-                t=3,
-                hp_mode=HeatPumpMode.COOLING,
-                split_mode=SplitMode.COOLING,
-            ),
-        ])
+        log = _make_log(
+            [
+                _make_record(
+                    t=0,
+                    hp_mode=HeatPumpMode.HEATING,
+                    split_mode=SplitMode.HEATING,
+                ),
+                _make_record(
+                    t=1,
+                    hp_mode=HeatPumpMode.OFF,
+                    split_mode=SplitMode.COOLING,
+                ),
+                _make_record(
+                    t=2,
+                    hp_mode=HeatPumpMode.COOLING,
+                    split_mode=SplitMode.OFF,
+                ),
+                _make_record(
+                    t=3,
+                    hp_mode=HeatPumpMode.COOLING,
+                    split_mode=SplitMode.COOLING,
+                ),
+            ]
+        )
         assert_no_opposing_action(log)  # should not raise
 
 
@@ -541,23 +534,29 @@ class TestAssertEnergyVsBaseline:
 
     def test_passes_same_energy(self) -> None:
         """Identical logs pass (0% increase)."""
-        log = _make_log([
-            _make_record(t=0, valve_position=50.0, split_mode=SplitMode.OFF),
-        ])
+        log = _make_log(
+            [
+                _make_record(t=0, valve_position=50.0, split_mode=SplitMode.OFF),
+            ]
+        )
         self._assert_energy(log, log)  # should not raise
 
     def test_passes_lower_energy(self) -> None:
         """Test log with less energy than baseline passes."""
-        baseline = _make_log([
-            _make_record(
-                t=0,
-                valve_position=100.0,
-                split_mode=SplitMode.HEATING,
-            ),
-        ])
-        test = _make_log([
-            _make_record(t=0, valve_position=50.0, split_mode=SplitMode.OFF),
-        ])
+        baseline = _make_log(
+            [
+                _make_record(
+                    t=0,
+                    valve_position=100.0,
+                    split_mode=SplitMode.HEATING,
+                ),
+            ]
+        )
+        test = _make_log(
+            [
+                _make_record(t=0, valve_position=50.0, split_mode=SplitMode.OFF),
+            ]
+        )
         self._assert_energy(test, baseline)  # should not raise
 
     def test_passes_within_max_increase(self) -> None:
@@ -565,71 +564,87 @@ class TestAssertEnergyVsBaseline:
         # baseline: valve=50% -> 2500W floor, split OFF -> 0W
         # test: valve=54% -> 2700W floor, split OFF -> 0W
         # increase = (2700 - 2500) / 2500 = 8% < 10%
-        baseline = _make_log([
-            _make_record(t=0, valve_position=50.0, split_mode=SplitMode.OFF),
-        ])
-        test = _make_log([
-            _make_record(t=0, valve_position=54.0, split_mode=SplitMode.OFF),
-        ])
+        baseline = _make_log(
+            [
+                _make_record(t=0, valve_position=50.0, split_mode=SplitMode.OFF),
+            ]
+        )
+        test = _make_log(
+            [
+                _make_record(t=0, valve_position=54.0, split_mode=SplitMode.OFF),
+            ]
+        )
         self._assert_energy(test, baseline)  # should not raise
 
     def test_raises_exceeds_max_increase(self) -> None:
         """Energy >10% above baseline raises AssertionError."""
         # baseline: valve=50% -> 2500W
         # test: valve=100% -> 5000W, increase = 100% > 10%
-        baseline = _make_log([
-            _make_record(t=0, valve_position=50.0, split_mode=SplitMode.OFF),
-        ])
-        test = _make_log([
-            _make_record(
-                t=0, valve_position=100.0, split_mode=SplitMode.OFF
-            ),
-        ])
+        baseline = _make_log(
+            [
+                _make_record(t=0, valve_position=50.0, split_mode=SplitMode.OFF),
+            ]
+        )
+        test = _make_log(
+            [
+                _make_record(t=0, valve_position=100.0, split_mode=SplitMode.OFF),
+            ]
+        )
         with pytest.raises(AssertionError, match="exceeds baseline"):
             self._assert_energy(test, baseline)
 
     def test_raises_nonzero_vs_zero_baseline(self) -> None:
         """Non-zero test energy with zero baseline raises."""
-        baseline = _make_log([
-            _make_record(t=0, valve_position=0.0, split_mode=SplitMode.OFF),
-        ])
-        test = _make_log([
-            _make_record(t=0, valve_position=50.0, split_mode=SplitMode.OFF),
-        ])
+        baseline = _make_log(
+            [
+                _make_record(t=0, valve_position=0.0, split_mode=SplitMode.OFF),
+            ]
+        )
+        test = _make_log(
+            [
+                _make_record(t=0, valve_position=50.0, split_mode=SplitMode.OFF),
+            ]
+        )
         with pytest.raises(AssertionError, match="zero baseline"):
             self._assert_energy(test, baseline)
 
     def test_passes_both_zero_energy(self) -> None:
         """Both logs with zero energy passes."""
-        log = _make_log([
-            _make_record(t=0, valve_position=0.0, split_mode=SplitMode.OFF),
-        ])
+        log = _make_log(
+            [
+                _make_record(t=0, valve_position=0.0, split_mode=SplitMode.OFF),
+            ]
+        )
         self._assert_energy(log, log)  # should not raise
 
     def test_custom_max_increase(self) -> None:
         """Custom max_increase=0.5 allows 50% increase."""
         # baseline: valve=50% -> 2500W
         # test: valve=70% -> 3500W, increase = 40% < 50%
-        baseline = _make_log([
-            _make_record(t=0, valve_position=50.0, split_mode=SplitMode.OFF),
-        ])
-        test = _make_log([
-            _make_record(t=0, valve_position=70.0, split_mode=SplitMode.OFF),
-        ])
-        self._assert_energy(
-            test, baseline, max_increase=0.5
-        )  # should not raise
+        baseline = _make_log(
+            [
+                _make_record(t=0, valve_position=50.0, split_mode=SplitMode.OFF),
+            ]
+        )
+        test = _make_log(
+            [
+                _make_record(t=0, valve_position=70.0, split_mode=SplitMode.OFF),
+            ]
+        )
+        self._assert_energy(test, baseline, max_increase=0.5)  # should not raise
 
     def test_error_message_contains_diagnostics(self) -> None:
         """Error message includes energy values and percentage."""
-        baseline = _make_log([
-            _make_record(t=0, valve_position=50.0, split_mode=SplitMode.OFF),
-        ])
-        test = _make_log([
-            _make_record(
-                t=0, valve_position=100.0, split_mode=SplitMode.OFF
-            ),
-        ])
+        baseline = _make_log(
+            [
+                _make_record(t=0, valve_position=50.0, split_mode=SplitMode.OFF),
+            ]
+        )
+        test = _make_log(
+            [
+                _make_record(t=0, valve_position=100.0, split_mode=SplitMode.OFF),
+            ]
+        )
         with pytest.raises(AssertionError, match="kWh"):
             self._assert_energy(test, baseline)
 

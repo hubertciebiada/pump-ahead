@@ -24,15 +24,14 @@ from pumpahead.config import CWUCycle
 from pumpahead.model import ModelOrder, RCModel, RCParams
 from pumpahead.sensor_noise import SensorNoise
 from pumpahead.simulated_room import SimulatedRoom
-from pumpahead.simulation_log import SimRecord, SimulationLog
+from pumpahead.simulation_log import SimulationLog
 from pumpahead.simulator import (
     Actions,
     BuildingSimulator,
-    HeatPumpMode,
     Measurements,
     SplitMode,
 )
-from pumpahead.weather import SyntheticWeather, WeatherPoint
+from pumpahead.weather import SyntheticWeather
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -151,8 +150,7 @@ class TestFullPipelineIntegration:
         for t in range(n_steps):
             # Different valves for different rooms
             actions = {
-                f"room_{i}": Actions(valve_position=i * 100.0 / 7.0)
-                for i in range(8)
+                f"room_{i}": Actions(valve_position=i * 100.0 / 7.0) for i in range(8)
             }
             results = sim.step_all(actions)
 
@@ -185,8 +183,6 @@ class TestFullPipelineIntegration:
 
         # Valve-temperature correlation: room_0 (valve=0%) should be
         # colder than room_7 (valve=100%) after 24 hours
-        final_room_0 = log.get_room("room_0")[-1]
-        final_room_7 = log.get_room("room_7")[-1]
         # Use underlying physics state (not noisy measurement) to check trend
         assert sim.rooms["room_0"].T_air < sim.rooms["room_7"].T_air
 
@@ -288,14 +284,18 @@ class TestCWUInterruptMultiRoom:
         )
 
         for _ in range(30):
-            sim_cwu.step_all({
-                "room_0": Actions(valve_position=100.0),
-                "room_1": Actions(valve_position=100.0),
-            })
-            sim_ref.step_all({
-                "room_0": Actions(valve_position=0.0),
-                "room_1": Actions(valve_position=0.0),
-            })
+            sim_cwu.step_all(
+                {
+                    "room_0": Actions(valve_position=100.0),
+                    "room_1": Actions(valve_position=100.0),
+                }
+            )
+            sim_ref.step_all(
+                {
+                    "room_0": Actions(valve_position=0.0),
+                    "room_1": Actions(valve_position=0.0),
+                }
+            )
 
         # T_slab must match the zero-valve reference exactly
         for name in ("room_0", "room_1"):
@@ -339,14 +339,18 @@ class TestCWUInterruptMultiRoom:
 
         # CWU phase: 10 steps with valve=100 (overridden to 0)
         for _ in range(10):
-            meas = sim.step_all({
-                "room_0": Actions(valve_position=100.0),
-                "room_1": Actions(valve_position=100.0),
-            })
-            sim_ref.step_all({
-                "room_0": Actions(valve_position=0.0),
-                "room_1": Actions(valve_position=0.0),
-            })
+            sim.step_all(
+                {
+                    "room_0": Actions(valve_position=100.0),
+                    "room_1": Actions(valve_position=100.0),
+                }
+            )
+            sim_ref.step_all(
+                {
+                    "room_0": Actions(valve_position=0.0),
+                    "room_1": Actions(valve_position=0.0),
+                }
+            )
 
         # Physics state should match zero-valve reference
         for name in ("room_0", "room_1"):
@@ -357,10 +361,12 @@ class TestCWUInterruptMultiRoom:
         # After CWU: valve=100 should now heat the slab
         t_slab_after_cwu = rooms[0].T_slab
         for _ in range(100):
-            sim.step_all({
-                "room_0": Actions(valve_position=100.0),
-                "room_1": Actions(valve_position=100.0),
-            })
+            sim.step_all(
+                {
+                    "room_0": Actions(valve_position=100.0),
+                    "room_1": Actions(valve_position=100.0),
+                }
+            )
 
         # Slab should warm up now that CWU is over
         assert rooms[0].T_slab > t_slab_after_cwu
@@ -401,16 +407,20 @@ class TestCWUInterruptMultiRoom:
         )
 
         for _ in range(50):
-            sim.step_all({
-                "room_0": Actions(valve_position=100.0),
-                "room_1": Actions(valve_position=50.0),
-                "room_2": Actions(valve_position=75.0),
-            })
-            sim_ref.step_all({
-                "room_0": Actions(valve_position=0.0),
-                "room_1": Actions(valve_position=0.0),
-                "room_2": Actions(valve_position=0.0),
-            })
+            sim.step_all(
+                {
+                    "room_0": Actions(valve_position=100.0),
+                    "room_1": Actions(valve_position=50.0),
+                    "room_2": Actions(valve_position=75.0),
+                }
+            )
+            sim_ref.step_all(
+                {
+                    "room_0": Actions(valve_position=0.0),
+                    "room_1": Actions(valve_position=0.0),
+                    "room_2": Actions(valve_position=0.0),
+                }
+            )
 
         # All rooms should have identical state
         for name in ("room_0", "room_1", "room_2"):
@@ -434,8 +444,18 @@ class TestCWUInterruptMultiRoom:
         """
         # CWU sim: valve=100 (overridden to 0), split=HEATING
         rooms_cwu = [
-            _make_room("room_0", params_mimo, ufh_max_power_w=5000.0, split_power_w=2500.0),
-            _make_room("room_1", params_mimo, ufh_max_power_w=5000.0, split_power_w=2500.0),
+            _make_room(
+                "room_0",
+                params_mimo,
+                ufh_max_power_w=5000.0,
+                split_power_w=2500.0,
+            ),
+            _make_room(
+                "room_1",
+                params_mimo,
+                ufh_max_power_w=5000.0,
+                split_power_w=2500.0,
+            ),
         ]
         cwu_cycle = CWUCycle(start_minute=0, duration_minutes=50, interval_minutes=0)
         sim_cwu = BuildingSimulator(
@@ -447,8 +467,18 @@ class TestCWUInterruptMultiRoom:
 
         # Reference: valve=0, split=HEATING, no CWU
         rooms_ref = [
-            _make_room("room_0", params_mimo, ufh_max_power_w=5000.0, split_power_w=2500.0),
-            _make_room("room_1", params_mimo, ufh_max_power_w=5000.0, split_power_w=2500.0),
+            _make_room(
+                "room_0",
+                params_mimo,
+                ufh_max_power_w=5000.0,
+                split_power_w=2500.0,
+            ),
+            _make_room(
+                "room_1",
+                params_mimo,
+                ufh_max_power_w=5000.0,
+                split_power_w=2500.0,
+            ),
         ]
         sim_ref = BuildingSimulator(
             rooms_ref,
@@ -457,14 +487,34 @@ class TestCWUInterruptMultiRoom:
         )
 
         for _ in range(50):
-            sim_cwu.step_all({
-                "room_0": Actions(valve_position=100.0, split_mode=SplitMode.HEATING, split_setpoint=22.0),
-                "room_1": Actions(valve_position=100.0, split_mode=SplitMode.HEATING, split_setpoint=22.0),
-            })
-            sim_ref.step_all({
-                "room_0": Actions(valve_position=0.0, split_mode=SplitMode.HEATING, split_setpoint=22.0),
-                "room_1": Actions(valve_position=0.0, split_mode=SplitMode.HEATING, split_setpoint=22.0),
-            })
+            sim_cwu.step_all(
+                {
+                    "room_0": Actions(
+                        valve_position=100.0,
+                        split_mode=SplitMode.HEATING,
+                        split_setpoint=22.0,
+                    ),
+                    "room_1": Actions(
+                        valve_position=100.0,
+                        split_mode=SplitMode.HEATING,
+                        split_setpoint=22.0,
+                    ),
+                }
+            )
+            sim_ref.step_all(
+                {
+                    "room_0": Actions(
+                        valve_position=0.0,
+                        split_mode=SplitMode.HEATING,
+                        split_setpoint=22.0,
+                    ),
+                    "room_1": Actions(
+                        valve_position=0.0,
+                        split_mode=SplitMode.HEATING,
+                        split_setpoint=22.0,
+                    ),
+                }
+            )
 
         # Both should match exactly: splits active, floor zeroed in both
         for name in ("room_0", "room_1"):
@@ -510,15 +560,17 @@ class TestSensorNoiseMultiRoom:
         true_t_airs: list[float] = []
 
         for _ in range(50):
-            results = sim.step_all({
-                "room_0": Actions(valve_position=50.0),
-                "room_1": Actions(valve_position=50.0),
-            })
+            results = sim.step_all(
+                {
+                    "room_0": Actions(valve_position=50.0),
+                    "room_1": Actions(valve_position=50.0),
+                }
+            )
             noisy_t_rooms.append(results["room_0"].T_room)
             true_t_airs.append(sim.rooms["room_0"].T_air)
 
         # Noisy measurements should differ from true physics state
-        diffs = [abs(n - t) for n, t in zip(noisy_t_rooms, true_t_airs)]
+        diffs = [abs(n - t) for n, t in zip(noisy_t_rooms, true_t_airs, strict=True)]
         max_diff = max(diffs)
         assert max_diff > 0.01, (
             f"Expected noise to create differences, but max diff was {max_diff}"
@@ -545,6 +597,7 @@ class TestSensorNoiseMultiRoom:
         This is critical for test reproducibility: the sensor noise must
         be deterministic given the same seed.
         """
+
         def run_sim(seed: int) -> list[float]:
             rooms = _make_rooms(2, params, ufh_max_power_w=5000.0)
             noise = SensorNoise(std=0.5, seed=seed)
@@ -556,10 +609,12 @@ class TestSensorNoiseMultiRoom:
             )
             t_rooms: list[float] = []
             for _ in range(30):
-                results = sim.step_all({
-                    "room_0": Actions(valve_position=50.0),
-                    "room_1": Actions(valve_position=50.0),
-                })
+                results = sim.step_all(
+                    {
+                        "room_0": Actions(valve_position=50.0),
+                        "room_1": Actions(valve_position=50.0),
+                    }
+                )
                 t_rooms.append(results["room_0"].T_room)
             return t_rooms
 

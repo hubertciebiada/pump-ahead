@@ -218,9 +218,7 @@ class TestCWUInterruptSimulation:
         """CWU interrupt forces Q_floor=0 but splits continue operating."""
         # CWU active for the entire run
         cycle = CWUCycle(start_minute=0, duration_minutes=100, interval_minutes=0)
-        sim = BuildingSimulator(
-            mimo_room, constant_weather, cwu_schedule=[cycle]
-        )
+        sim = BuildingSimulator(mimo_room, constant_weather, cwu_schedule=[cycle])
 
         # Reference: same room type, no CWU, valve=0, split heating
         params_mimo = mimo_room._model.params
@@ -300,9 +298,7 @@ class TestCWUInterruptSimulation:
         constant_weather: SyntheticWeather,
     ) -> None:
         """CWU cycle is inactive before start_minute even with repeating."""
-        cycle = CWUCycle(
-            start_minute=100, duration_minutes=10, interval_minutes=60
-        )
+        cycle = CWUCycle(start_minute=100, duration_minutes=10, interval_minutes=60)
         sim = BuildingSimulator(siso_room, constant_weather, cwu_schedule=[cycle])
 
         # Minutes 0-99: should be inactive

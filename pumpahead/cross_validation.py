@@ -240,9 +240,7 @@ def cross_validate(
     x0_train = np.full(model.n_states, T_train[0])
     train_trajectory = model.predict(x0_train, u_train, d_train)
     pred_train_T_air = train_trajectory[1:, 0]
-    train_rmse = float(
-        np.sqrt(np.mean((pred_train_T_air - T_train) ** 2))
-    )
+    train_rmse = float(np.sqrt(np.mean((pred_train_T_air - T_train) ** 2)))
 
     # --- Derive test initial state from end of training trajectory ---
     # Using the model's end-of-training state provides realistic initial
@@ -251,9 +249,7 @@ def cross_validate(
     x0_test = train_trajectory[-1]
 
     # --- Compute overall test RMSE (full test segment) ---
-    test_rmse = _forward_rmse(
-        model, x0_test, u_test, d_test, T_test, test_size
-    )
+    test_rmse = _forward_rmse(model, x0_test, u_test, d_test, T_test, test_size)
 
     # --- Overfitting detection (overall) ---
     # When train_rmse is near zero (< 1e-3 degC), the ratio is numerically

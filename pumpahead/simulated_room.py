@@ -178,11 +178,7 @@ class SimulatedRoom:
             min(self._split_power_w, self._split_power_request_w),
         )
 
-        u = (
-            np.array([q_conv, q_floor_w])
-            if self.has_split
-            else np.array([q_floor_w])
-        )
+        u = np.array([q_conv, q_floor_w]) if self.has_split else np.array([q_floor_w])
 
         # Disturbance vector
         n_dist = self._model.n_disturbances

@@ -254,9 +254,7 @@ class SimulationLog:
         Returns:
             A ``SimulationLog`` with the filtered records.
         """
-        return SimulationLog(
-            [r for r in self._records if start <= r.t <= end]
-        )
+        return SimulationLog([r for r in self._records if start <= r.t <= end])
 
     # -- Export ---------------------------------------------------------------
 
