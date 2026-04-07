@@ -25,6 +25,16 @@ from pumpahead.cross_validation import (
     cross_validate_rooms,
 )
 from pumpahead.estimator import KalmanEstimator
+from pumpahead.identification_report import (
+    DEFAULT_RMSE_PASS_THRESHOLD,
+    DEFAULT_RMSE_REIDENTIFICATION_THRESHOLD,
+    IdentificationReport,
+    QualityMonitor,
+    RoomReport,
+    plot_predicted_vs_measured,
+    plot_residuals,
+    plot_rmse_over_time,
+)
 from pumpahead.identifier import IdentificationResult, RCIdentifier
 from pumpahead.metrics import (
     SimMetrics,
@@ -85,6 +95,8 @@ __version__ = "0.1.0"
 __all__ = [
     "Actions",
     "BUILDING_PROFILES",
+    "DEFAULT_RMSE_PASS_THRESHOLD",
+    "DEFAULT_RMSE_REIDENTIFICATION_THRESHOLD",
     "assert_comfort",
     "assert_energy_vs_baseline",
     "assert_floor_temp_safe",
@@ -107,6 +119,7 @@ __all__ = [
     "HUBERT_ROOMS",
     "HeatPumpMode",
     "HorizonRMSE",
+    "IdentificationReport",
     "IdentificationResult",
     "KalmanEstimator",
     "Measurements",
@@ -115,10 +128,12 @@ __all__ = [
     "Orientation",
     "PARAMETRIC_SWEEPS",
     "ProfileKind",
+    "QualityMonitor",
     "RCIdentifier",
     "RCModel",
     "RCParams",
     "RoomConfig",
+    "RoomReport",
     "SCENARIO_LIBRARY",
     "SensorNoise",
     "SimMetrics",
@@ -145,6 +160,9 @@ __all__ = [
     "hubert_real",
     "insulation_sweep",
     "leaky_old_house",
+    "plot_predicted_vs_measured",
+    "plot_residuals",
+    "plot_rmse_over_time",
     "rapid_warming",
     "screed_sweep",
     "solar_overshoot",
