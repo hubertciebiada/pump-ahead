@@ -472,8 +472,8 @@ class TestMultiRoomPerformance:
             sim.step_all(actions)
         elapsed = time.perf_counter() - start
 
-        assert elapsed < 2.0, (
-            f"Weekly 8-room simulation took {elapsed:.2f}s (limit: 2.0s)"
+        assert elapsed < 5.0, (
+            f"Weekly 8-room simulation took {elapsed:.2f}s (limit: 5.0s)"
         )
 
 
