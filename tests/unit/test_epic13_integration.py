@@ -542,9 +542,7 @@ class TestAcceptanceCriteriaVerification:
         for name, value in param_map.items():
             assert value is not None
             lo, hi = DEFAULT_BOUNDS_2R2C[name]
-            assert lo <= value <= hi, (
-                f"{name}={value} outside bounds [{lo}, {hi}]"
-            )
+            assert lo <= value <= hi, f"{name}={value} outside bounds [{lo}, {hi}]"
 
     @pytest.mark.unit
     def test_no_overfitting_on_cross_validation(
@@ -646,12 +644,8 @@ class TestArchitecturalIntegrity:
         assert "cross_validation" in source, (
             "identification_report.py must import cross_validation"
         )
-        assert "identifier" in source, (
-            "identification_report.py must import identifier"
-        )
-        assert "model" in source, (
-            "identification_report.py must import model"
-        )
+        assert "identifier" in source, "identification_report.py must import identifier"
+        assert "model" in source, "identification_report.py must import model"
 
     @pytest.mark.unit
     def test_no_homeassistant_imports_in_core(self) -> None:
@@ -697,6 +691,4 @@ class TestArchitecturalIntegrity:
             assert hasattr(pumpahead, symbol), (
                 f"{symbol} not exported from pumpahead.__init__"
             )
-            assert symbol in pumpahead.__all__, (
-                f"{symbol} not in pumpahead.__all__"
-            )
+            assert symbol in pumpahead.__all__, f"{symbol} not in pumpahead.__all__"
