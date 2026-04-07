@@ -136,9 +136,7 @@ class HAWeatherSource:
                     self._fallback_t_out = float(attrs["temperature"])
 
         if not forecasts:
-            _LOGGER.warning(
-                "No usable forecast entries from %s", self._entity_id
-            )
+            _LOGGER.warning("No usable forecast entries from %s", self._entity_id)
             return
 
         now = datetime.now(UTC)
@@ -213,9 +211,7 @@ class HAWeatherSource:
         return WeatherPoint(
             T_out=float(np.interp(adjusted_t, self._t_minutes, self._t_out)),
             GHI=max(0.0, float(np.interp(adjusted_t, self._t_minutes, self._ghi))),
-            wind_speed=float(
-                np.interp(adjusted_t, self._t_minutes, self._wind_speed)
-            ),
+            wind_speed=float(np.interp(adjusted_t, self._t_minutes, self._wind_speed)),
             humidity=float(np.interp(adjusted_t, self._t_minutes, self._humidity)),
         )
 
