@@ -75,6 +75,11 @@ from pumpahead.solar import (
     SolarGainModel,
     WindowConfig,
 )
+from pumpahead.solar_gti import (
+    GTIModel,
+    erbs_decomposition,
+    extraterrestrial_horizontal,
+)
 from pumpahead.weather import (
     ChannelProfile,
     CSVConfig,
@@ -115,6 +120,7 @@ __all__ = [
     "cross_validate_rooms",
     "DEFAULT_HORIZONS",
     "DEFAULT_OVERFITTING_THRESHOLD",
+    "GTIModel",
     "EphemerisCalculator",
     "HUBERT_ROOMS",
     "HeatPumpMode",
@@ -151,6 +157,8 @@ __all__ = [
     "WeatherSource",
     "WindowConfig",
     "__version__",
+    "erbs_decomposition",
+    "extraterrestrial_horizontal",
     "cold_snap",
     "cwu_heavy",
     "extreme_cold",
