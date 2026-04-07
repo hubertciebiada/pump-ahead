@@ -16,6 +16,7 @@ from pumpahead.config import (
     RoomConfig,
     SimScenario,
 )
+from pumpahead.metrics import SimMetrics
 from pumpahead.estimator import KalmanEstimator
 from pumpahead.model import ModelOrder, RCModel, RCParams
 from pumpahead.scenarios import (
@@ -91,6 +92,7 @@ __all__ = [
     "RoomConfig",
     "SCENARIO_LIBRARY",
     "SensorNoise",
+    "SimMetrics",
     "SimRecord",
     "SimScenario",
     "SimulatedRoom",
