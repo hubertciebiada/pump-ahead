@@ -115,14 +115,14 @@ _HUBERT_LON = 17.38
 _HUBERT_HP_MAX_W = 9000.0
 
 # Internal gains: occupancy + appliances (conservative estimate per room)
-_Q_INT_LIVING = 150.0   # W — living room (TV, lights, people)
+_Q_INT_LIVING = 150.0  # W — living room (TV, lights, people)
 _Q_INT_KITCHEN = 200.0  # W — kitchen (fridge, cooking residual)
-_Q_INT_BEDROOM = 50.0   # W — sleeping occupants
-_Q_INT_OFFICE = 120.0   # W — computer + monitor
-_Q_INT_CHILD = 80.0     # W — child room
-_Q_INT_BATH = 30.0      # W — lights only
-_Q_INT_CLOSET = 0.0     # W — unoccupied
-_Q_INT_HALL = 20.0      # W — passage lights
+_Q_INT_BEDROOM = 50.0  # W — sleeping occupants
+_Q_INT_OFFICE = 120.0  # W — computer + monitor
+_Q_INT_CHILD = 80.0  # W — child room
+_Q_INT_BATH = 30.0  # W — lights only
+_Q_INT_CLOSET = 0.0  # W — unoccupied
+_Q_INT_HALL = 20.0  # W — passage lights
 
 HUBERT_ROOMS: tuple[RoomConfig, ...] = (
     # salon — 30 m^2, 2 loops, split, south + west windows
@@ -145,9 +145,7 @@ HUBERT_ROOMS: tuple[RoomConfig, ...] = (
         name="kuchnia",
         area_m2=15.0,
         params=_make_3r3c_params(area_m2=15.0, has_split=True),
-        windows=(
-            WindowConfig(orientation=Orientation.EAST, area_m2=2.0, g_value=0.6),
-        ),
+        windows=(WindowConfig(orientation=Orientation.EAST, area_m2=2.0, g_value=0.6),),
         has_split=True,
         split_power_w=2500.0,
         ufh_max_power_w=3500.0,
@@ -187,9 +185,7 @@ HUBERT_ROOMS: tuple[RoomConfig, ...] = (
         name="pokoj_dzieci",
         area_m2=14.0,
         params=_make_3r3c_params(area_m2=14.0, has_split=True),
-        windows=(
-            WindowConfig(orientation=Orientation.EAST, area_m2=2.0, g_value=0.6),
-        ),
+        windows=(WindowConfig(orientation=Orientation.EAST, area_m2=2.0, g_value=0.6),),
         has_split=True,
         split_power_w=2500.0,
         ufh_max_power_w=3200.0,
@@ -282,8 +278,8 @@ def well_insulated() -> BuildingParams:
         C_wall_ref=2_000_000.0,
         R_sf_ref=0.01,
         R_wi_ref=0.04,
-        R_wo_ref=0.08,   # thick walls — high R
-        R_ve_ref=0.10,   # MVHR — very high ventilation R
+        R_wo_ref=0.08,  # thick walls — high R
+        R_ve_ref=0.10,  # MVHR — very high ventilation R
         R_ins_ref=0.02,  # thick sub-slab insulation
     )
     room = RoomConfig(
@@ -332,7 +328,7 @@ def leaky_old_house() -> BuildingParams:
         R_wi_ref=0.015,
         R_wo_ref=0.012,  # thin uninsulated walls — low R
         R_ve_ref=0.008,  # leaky envelope — very low R
-        R_ins_ref=0.005, # minimal sub-slab insulation
+        R_ins_ref=0.005,  # minimal sub-slab insulation
     )
     room = RoomConfig(
         name="main",
@@ -378,7 +374,7 @@ def thin_screed() -> BuildingParams:
         C_air_ref=60_000.0,
         C_slab_ref=1_300_000.0,  # ~40% of standard 80 mm screed
         C_wall_ref=1_500_000.0,
-        R_sf_ref=0.008,          # thinner slab — lower R
+        R_sf_ref=0.008,  # thinner slab — lower R
         R_wi_ref=0.02,
         R_wo_ref=0.03,
         R_ve_ref=0.03,
@@ -427,7 +423,7 @@ def heavy_construction() -> BuildingParams:
         C_air_ref=60_000.0,
         C_slab_ref=4_875_000.0,  # ~150% of standard 80 mm (120 mm screed)
         C_wall_ref=3_000_000.0,  # massive walls — double C
-        R_sf_ref=0.012,          # thicker slab — slightly higher R
+        R_sf_ref=0.012,  # thicker slab — slightly higher R
         R_wi_ref=0.02,
         R_wo_ref=0.035,
         R_ve_ref=0.03,

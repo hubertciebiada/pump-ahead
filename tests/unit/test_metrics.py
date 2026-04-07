@@ -77,9 +77,7 @@ def comfort_log() -> SimulationLog:
     Outside: 20.0 (dev=-1.0), 22.0 (dev=+1.0)
     """
     temps = [21.0, 21.2, 20.8, 21.5, 20.5, 20.0, 22.0, 21.3, 20.6, 21.1]
-    return _make_log(
-        [_make_record(t=i, T_room=temp) for i, temp in enumerate(temps)]
-    )
+    return _make_log([_make_record(t=i, T_room=temp) for i, temp in enumerate(temps)])
 
 
 @pytest.fixture()
@@ -88,9 +86,7 @@ def mixed_split_log() -> SimulationLog:
     records = []
     for i in range(10):
         mode = SplitMode.HEATING if i < 4 else SplitMode.OFF
-        records.append(
-            _make_record(t=i, split_mode=mode, split_setpoint=22.0)
-        )
+        records.append(_make_record(t=i, split_mode=mode, split_setpoint=22.0))
     return _make_log(records)
 
 
@@ -127,9 +123,7 @@ def mode_switch_log() -> SimulationLog:
         HeatPumpMode.HEATING,
         HeatPumpMode.COOLING,
     ]
-    return _make_log(
-        [_make_record(t=i, hp_mode=m) for i, m in enumerate(modes)]
-    )
+    return _make_log([_make_record(t=i, hp_mode=m) for i, m in enumerate(modes)])
 
 
 # ---------------------------------------------------------------------------
@@ -148,27 +142,25 @@ class TestSimMetricsComfort:
 
     def test_comfort_pct_all_comfortable(self) -> None:
         """All records exactly at setpoint -> 100.0%."""
-        log = _make_log(
-            [_make_record(t=i, T_room=21.0) for i in range(5)]
-        )
+        log = _make_log([_make_record(t=i, T_room=21.0) for i in range(5)])
         m = SimMetrics.from_log(log, setpoint=21.0)
         assert m.comfort_pct == pytest.approx(100.0)
 
     def test_comfort_pct_none_comfortable(self) -> None:
         """All records 2 degC above setpoint -> 0.0%."""
-        log = _make_log(
-            [_make_record(t=i, T_room=23.0) for i in range(5)]
-        )
+        log = _make_log([_make_record(t=i, T_room=23.0) for i in range(5)])
         m = SimMetrics.from_log(log, setpoint=21.0)
         assert m.comfort_pct == pytest.approx(0.0)
 
     def test_comfort_band_zero(self) -> None:
         """comfort_band=0.0 only counts exact matches."""
-        log = _make_log([
-            _make_record(t=0, T_room=21.0),
-            _make_record(t=1, T_room=21.0),
-            _make_record(t=2, T_room=21.1),
-        ])
+        log = _make_log(
+            [
+                _make_record(t=0, T_room=21.0),
+                _make_record(t=1, T_room=21.0),
+                _make_record(t=2, T_room=21.1),
+            ]
+        )
         m = SimMetrics.from_log(log, setpoint=21.0, comfort_band=0.0)
         assert m.comfort_pct == pytest.approx(200.0 / 3.0)
 
@@ -191,11 +183,13 @@ class TestSimMetricsComfort:
     def test_mean_deviation(self) -> None:
         """Mean absolute deviation with known values."""
         # Deviations from 21.0: |0|, |1|, |-1| -> mean = 2/3
-        log = _make_log([
-            _make_record(t=0, T_room=21.0),
-            _make_record(t=1, T_room=22.0),
-            _make_record(t=2, T_room=20.0),
-        ])
+        log = _make_log(
+            [
+                _make_record(t=0, T_room=21.0),
+                _make_record(t=1, T_room=22.0),
+                _make_record(t=2, T_room=20.0),
+            ]
+        )
         m = SimMetrics.from_log(log, setpoint=21.0)
         assert m.mean_deviation == pytest.approx(2.0 / 3.0)
 
@@ -209,28 +203,21 @@ class TestSimMetricsComfort:
 class TestSimMetricsSplit:
     """Tests for split runtime percentage."""
 
-    def test_split_runtime_typical(
-        self, mixed_split_log: SimulationLog
-    ) -> None:
+    def test_split_runtime_typical(self, mixed_split_log: SimulationLog) -> None:
         """4/10 records with split on -> 40.0%."""
         m = SimMetrics.from_log(mixed_split_log, setpoint=21.0)
         assert m.split_runtime_pct == pytest.approx(40.0)
 
     def test_split_runtime_all_off(self) -> None:
         """All split OFF -> 0.0%."""
-        log = _make_log(
-            [_make_record(t=i, split_mode=SplitMode.OFF) for i in range(5)]
-        )
+        log = _make_log([_make_record(t=i, split_mode=SplitMode.OFF) for i in range(5)])
         m = SimMetrics.from_log(log, setpoint=21.0)
         assert m.split_runtime_pct == pytest.approx(0.0)
 
     def test_split_runtime_cooling_counts(self) -> None:
         """Cooling mode also counts as split ON."""
         log = _make_log(
-            [
-                _make_record(t=i, split_mode=SplitMode.COOLING)
-                for i in range(5)
-            ]
+            [_make_record(t=i, split_mode=SplitMode.COOLING) for i in range(5)]
         )
         m = SimMetrics.from_log(log, setpoint=21.0)
         assert m.split_runtime_pct == pytest.approx(100.0)
@@ -245,9 +232,7 @@ class TestSimMetricsSplit:
 class TestSimMetricsSafety:
     """Tests for safety metrics: condensation events, floor temperature bounds."""
 
-    def test_condensation_events(
-        self, condensation_log: SimulationLog
-    ) -> None:
+    def test_condensation_events(self, condensation_log: SimulationLog) -> None:
         """2 records have T_floor < T_dew + 2."""
         m = SimMetrics.from_log(condensation_log, setpoint=21.0)
         assert m.condensation_events == 2
@@ -256,29 +241,31 @@ class TestSimMetricsSafety:
         """With low humidity (20%), dew point is low -> no condensation."""
         # T_dew = 21.0 - (100-20)/5 = 21.0 - 16.0 = 5.0
         # Threshold = 5.0 + 2.0 = 7.0, T_slab=23.0 >> 7.0
-        log = _make_log(
-            [_make_record(t=0, T_slab=23.0, humidity=20.0)]
-        )
+        log = _make_log([_make_record(t=0, T_slab=23.0, humidity=20.0)])
         m = SimMetrics.from_log(log, setpoint=21.0)
         assert m.condensation_events == 0
 
     def test_max_floor_temp(self) -> None:
         """Maximum floor temperature across records."""
-        log = _make_log([
-            _make_record(t=0, T_slab=22.0),
-            _make_record(t=1, T_slab=30.0),
-            _make_record(t=2, T_slab=25.0),
-        ])
+        log = _make_log(
+            [
+                _make_record(t=0, T_slab=22.0),
+                _make_record(t=1, T_slab=30.0),
+                _make_record(t=2, T_slab=25.0),
+            ]
+        )
         m = SimMetrics.from_log(log, setpoint=21.0)
         assert m.max_floor_temp == pytest.approx(30.0)
 
     def test_min_floor_temp(self) -> None:
         """Minimum floor temperature across records."""
-        log = _make_log([
-            _make_record(t=0, T_slab=22.0),
-            _make_record(t=1, T_slab=18.0),
-            _make_record(t=2, T_slab=25.0),
-        ])
+        log = _make_log(
+            [
+                _make_record(t=0, T_slab=22.0),
+                _make_record(t=1, T_slab=18.0),
+                _make_record(t=2, T_slab=25.0),
+            ]
+        )
         m = SimMetrics.from_log(log, setpoint=21.0)
         assert m.min_floor_temp == pytest.approx(18.0)
 
@@ -292,9 +279,7 @@ class TestSimMetricsSafety:
 class TestSimMetricsModeSwitches:
     """Tests for heat-pump mode switch counting."""
 
-    def test_mode_switches_typical(
-        self, mode_switch_log: SimulationLog
-    ) -> None:
+    def test_mode_switches_typical(self, mode_switch_log: SimulationLog) -> None:
         """HEATING->OFF->HEATING->COOLING = 3 switches."""
         m = SimMetrics.from_log(mode_switch_log, setpoint=21.0)
         assert m.mode_switches == 3
@@ -302,10 +287,7 @@ class TestSimMetricsModeSwitches:
     def test_mode_switches_no_change(self) -> None:
         """All same mode -> 0 switches."""
         log = _make_log(
-            [
-                _make_record(t=i, hp_mode=HeatPumpMode.HEATING)
-                for i in range(5)
-            ]
+            [_make_record(t=i, hp_mode=HeatPumpMode.HEATING) for i in range(5)]
         )
         m = SimMetrics.from_log(log, setpoint=21.0)
         assert m.mode_switches == 0
@@ -313,9 +295,7 @@ class TestSimMetricsModeSwitches:
     def test_mode_switches_every_step(self) -> None:
         """Alternating modes -> n-1 switches."""
         modes = [HeatPumpMode.HEATING, HeatPumpMode.OFF] * 3
-        log = _make_log(
-            [_make_record(t=i, hp_mode=m) for i, m in enumerate(modes)]
-        )
+        log = _make_log([_make_record(t=i, hp_mode=m) for i, m in enumerate(modes)])
         m = SimMetrics.from_log(log, setpoint=21.0)
         assert m.mode_switches == 5
 
@@ -343,9 +323,9 @@ class TestSimMetricsEnergy:
         Record: valve_position=50% -> floor_power=2500W, split OFF -> 0W.
         1 step at dt=1min -> energy = 2500 * 60 / 3_600_000 kWh.
         """
-        log = _make_log([
-            _make_record(t=0, valve_position=50.0, split_mode=SplitMode.OFF)
-        ])
+        log = _make_log(
+            [_make_record(t=0, valve_position=50.0, split_mode=SplitMode.OFF)]
+        )
         m = SimMetrics.from_log(
             log,
             setpoint=21.0,
@@ -358,14 +338,16 @@ class TestSimMetricsEnergy:
 
     def test_peak_power(self) -> None:
         """Peak power is max of floor + split at any timestep."""
-        log = _make_log([
-            _make_record(
-                t=0,
-                valve_position=100.0,
-                split_mode=SplitMode.HEATING,
-            ),
-            _make_record(t=1, valve_position=50.0, split_mode=SplitMode.OFF),
-        ])
+        log = _make_log(
+            [
+                _make_record(
+                    t=0,
+                    valve_position=100.0,
+                    split_mode=SplitMode.HEATING,
+                ),
+                _make_record(t=1, valve_position=50.0, split_mode=SplitMode.OFF),
+            ]
+        )
         m = SimMetrics.from_log(
             log,
             setpoint=21.0,
@@ -378,9 +360,9 @@ class TestSimMetricsEnergy:
 
     def test_floor_energy_pct_ufh_only(self) -> None:
         """100% floor energy when split is always OFF."""
-        log = _make_log([
-            _make_record(t=0, valve_position=50.0, split_mode=SplitMode.OFF)
-        ])
+        log = _make_log(
+            [_make_record(t=0, valve_position=50.0, split_mode=SplitMode.OFF)]
+        )
         m = SimMetrics.from_log(
             log,
             setpoint=21.0,
@@ -391,13 +373,15 @@ class TestSimMetricsEnergy:
 
     def test_floor_energy_pct_mixed(self) -> None:
         """Floor energy percentage with mixed UFH + split."""
-        log = _make_log([
-            _make_record(
-                t=0,
-                valve_position=50.0,
-                split_mode=SplitMode.HEATING,
-            ),
-        ])
+        log = _make_log(
+            [
+                _make_record(
+                    t=0,
+                    valve_position=50.0,
+                    split_mode=SplitMode.HEATING,
+                ),
+            ]
+        )
         m = SimMetrics.from_log(
             log,
             setpoint=21.0,
@@ -409,9 +393,9 @@ class TestSimMetricsEnergy:
 
     def test_zero_energy_floor_pct_zero(self) -> None:
         """When valve=0 and split=OFF, floor_energy_pct=0.0 (not NaN)."""
-        log = _make_log([
-            _make_record(t=0, valve_position=0.0, split_mode=SplitMode.OFF)
-        ])
+        log = _make_log(
+            [_make_record(t=0, valve_position=0.0, split_mode=SplitMode.OFF)]
+        )
         m = SimMetrics.from_log(
             log,
             setpoint=21.0,
@@ -507,9 +491,7 @@ class TestSimMetricsCompare:
 
     def test_compare_identical(self) -> None:
         """Comparing identical metrics yields all-zero deltas."""
-        log = _make_log(
-            [_make_record(t=i, T_room=21.0) for i in range(5)]
-        )
+        log = _make_log([_make_record(t=i, T_room=21.0) for i in range(5)])
         m = SimMetrics.from_log(log, setpoint=21.0)
         diff = m.compare(m)
         for key, val in diff.items():
@@ -518,12 +500,8 @@ class TestSimMetricsCompare:
 
     def test_compare_comfort_delta(self) -> None:
         """Better controller has higher comfort_pct -> positive delta."""
-        good_log = _make_log(
-            [_make_record(t=i, T_room=21.0) for i in range(10)]
-        )
-        bad_log = _make_log(
-            [_make_record(t=i, T_room=23.0) for i in range(10)]
-        )
+        good_log = _make_log([_make_record(t=i, T_room=21.0) for i in range(10)])
+        bad_log = _make_log([_make_record(t=i, T_room=23.0) for i in range(10)])
         good = SimMetrics.from_log(good_log, setpoint=21.0)
         bad = SimMetrics.from_log(bad_log, setpoint=21.0)
         diff = good.compare(bad)
@@ -557,12 +535,8 @@ class TestSimMetricsCompare:
 
     def test_compare_negative_delta(self) -> None:
         """Lower comfort_pct produces negative delta."""
-        good_log = _make_log(
-            [_make_record(t=i, T_room=21.0) for i in range(10)]
-        )
-        bad_log = _make_log(
-            [_make_record(t=i, T_room=23.0) for i in range(10)]
-        )
+        good_log = _make_log([_make_record(t=i, T_room=21.0) for i in range(10)])
+        bad_log = _make_log([_make_record(t=i, T_room=23.0) for i in range(10)])
         good = SimMetrics.from_log(good_log, setpoint=21.0)
         bad = SimMetrics.from_log(bad_log, setpoint=21.0)
         diff = bad.compare(good)
@@ -571,14 +545,18 @@ class TestSimMetricsCompare:
 
     def test_compare_mode_switches_int_delta(self) -> None:
         """mode_switches delta is numeric (int field)."""
-        log1 = _make_log([
-            _make_record(t=0, hp_mode=HeatPumpMode.HEATING),
-            _make_record(t=1, hp_mode=HeatPumpMode.OFF),
-        ])
-        log2 = _make_log([
-            _make_record(t=0, hp_mode=HeatPumpMode.HEATING),
-            _make_record(t=1, hp_mode=HeatPumpMode.HEATING),
-        ])
+        log1 = _make_log(
+            [
+                _make_record(t=0, hp_mode=HeatPumpMode.HEATING),
+                _make_record(t=1, hp_mode=HeatPumpMode.OFF),
+            ]
+        )
+        log2 = _make_log(
+            [
+                _make_record(t=0, hp_mode=HeatPumpMode.HEATING),
+                _make_record(t=1, hp_mode=HeatPumpMode.HEATING),
+            ]
+        )
         m1 = SimMetrics.from_log(log1, setpoint=21.0)
         m2 = SimMetrics.from_log(log2, setpoint=21.0)
         diff = m1.compare(m2)
@@ -603,9 +581,7 @@ class TestSimMetricsDeterminism:
                 T_slab=22.0 + i * 0.1,
                 valve_position=float(i * 10),
                 split_mode=SplitMode.HEATING if i % 3 == 0 else SplitMode.OFF,
-                hp_mode=(
-                    HeatPumpMode.HEATING if i < 5 else HeatPumpMode.COOLING
-                ),
+                hp_mode=(HeatPumpMode.HEATING if i < 5 else HeatPumpMode.COOLING),
                 humidity=50.0 + i * 2.0,
             )
             for i in range(10)

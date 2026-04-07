@@ -222,8 +222,11 @@ class TestGTIVertical:
         beam, diffuse = 500.0, 100.0
         ghi = beam + diffuse
         result = gti_vertical(
-            beam, diffuse, ghi,
-            sun_elevation_deg=45.0, sun_azimuth_deg=180.0,
+            beam,
+            diffuse,
+            ghi,
+            sun_elevation_deg=45.0,
+            sun_azimuth_deg=180.0,
             window_azimuth_deg=180.0,
         )
         # Beam component: DNI * cos(theta_incidence)
@@ -242,8 +245,11 @@ class TestGTIVertical:
     def test_diffuse_always_present(self) -> None:
         """Even when beam=0, diffuse and ground components remain."""
         result = gti_vertical(
-            beam=0.0, diffuse=200.0, ghi=200.0,
-            sun_elevation_deg=45.0, sun_azimuth_deg=180.0,
+            beam=0.0,
+            diffuse=200.0,
+            ghi=200.0,
+            sun_elevation_deg=45.0,
+            sun_azimuth_deg=180.0,
             window_azimuth_deg=0.0,  # North window: no beam
         )
         expected = 200.0 * 0.5 + 200.0 * DEFAULT_ALBEDO * 0.5
@@ -253,14 +259,22 @@ class TestGTIVertical:
     def test_ground_reflection(self) -> None:
         """Ground-reflected component scales with albedo."""
         result_low = gti_vertical(
-            beam=0.0, diffuse=100.0, ghi=100.0,
-            sun_elevation_deg=45.0, sun_azimuth_deg=180.0,
-            window_azimuth_deg=0.0, albedo=0.1,
+            beam=0.0,
+            diffuse=100.0,
+            ghi=100.0,
+            sun_elevation_deg=45.0,
+            sun_azimuth_deg=180.0,
+            window_azimuth_deg=0.0,
+            albedo=0.1,
         )
         result_high = gti_vertical(
-            beam=0.0, diffuse=100.0, ghi=100.0,
-            sun_elevation_deg=45.0, sun_azimuth_deg=180.0,
-            window_azimuth_deg=0.0, albedo=0.5,
+            beam=0.0,
+            diffuse=100.0,
+            ghi=100.0,
+            sun_elevation_deg=45.0,
+            sun_azimuth_deg=180.0,
+            window_azimuth_deg=0.0,
+            albedo=0.5,
         )
         # Diffuse is same (100*0.5=50), ground differs
         # Low: 50 + 100*0.1*0.5 = 55
@@ -272,9 +286,13 @@ class TestGTIVertical:
     def test_zero_albedo(self) -> None:
         """With albedo=0, no ground-reflected component."""
         result = gti_vertical(
-            beam=0.0, diffuse=200.0, ghi=200.0,
-            sun_elevation_deg=45.0, sun_azimuth_deg=180.0,
-            window_azimuth_deg=0.0, albedo=0.0,
+            beam=0.0,
+            diffuse=200.0,
+            ghi=200.0,
+            sun_elevation_deg=45.0,
+            sun_azimuth_deg=180.0,
+            window_azimuth_deg=0.0,
+            albedo=0.0,
         )
         # Only diffuse: 200 * 0.5 = 100
         assert result == pytest.approx(100.0, rel=1e-6)
@@ -283,8 +301,11 @@ class TestGTIVertical:
     def test_night_returns_zero(self) -> None:
         """All-zero inputs produce zero GTI."""
         result = gti_vertical(
-            beam=0.0, diffuse=0.0, ghi=0.0,
-            sun_elevation_deg=-10.0, sun_azimuth_deg=180.0,
+            beam=0.0,
+            diffuse=0.0,
+            ghi=0.0,
+            sun_elevation_deg=-10.0,
+            sun_azimuth_deg=180.0,
             window_azimuth_deg=180.0,
         )
         assert result == 0.0
@@ -293,8 +314,11 @@ class TestGTIVertical:
     def test_low_elevation_no_beam(self) -> None:
         """Below 1 deg elevation, beam is excluded to avoid DNI blowup."""
         result = gti_vertical(
-            beam=100.0, diffuse=50.0, ghi=150.0,
-            sun_elevation_deg=0.5, sun_azimuth_deg=180.0,
+            beam=100.0,
+            diffuse=50.0,
+            ghi=150.0,
+            sun_elevation_deg=0.5,
+            sun_azimuth_deg=180.0,
             window_azimuth_deg=180.0,
         )
         # Only diffuse + ground: 50*0.5 + 150*0.2*0.5 = 25 + 15 = 40
@@ -305,8 +329,11 @@ class TestGTIVertical:
     def test_never_negative(self) -> None:
         """Result is always >= 0."""
         result = gti_vertical(
-            beam=0.0, diffuse=0.0, ghi=0.0,
-            sun_elevation_deg=45.0, sun_azimuth_deg=180.0,
+            beam=0.0,
+            diffuse=0.0,
+            ghi=0.0,
+            sun_elevation_deg=45.0,
+            sun_azimuth_deg=180.0,
             window_azimuth_deg=180.0,
         )
         assert result >= 0.0
@@ -325,7 +352,9 @@ class TestGTIModel:
         """Q_sol is zero when sun is below horizon."""
         south = WindowConfig(Orientation.SOUTH, area_m2=3.0, g_value=0.6)
         result = gti_model.compute(
-            ghi=0.0, elevation_deg=-5.0, azimuth_deg=180.0,
+            ghi=0.0,
+            elevation_deg=-5.0,
+            azimuth_deg=180.0,
             windows=[south],
         )
         assert result == 0.0
@@ -335,7 +364,9 @@ class TestGTIModel:
         """Q_sol is zero when elevation is exactly 0."""
         south = WindowConfig(Orientation.SOUTH, area_m2=3.0, g_value=0.6)
         result = gti_model.compute(
-            ghi=500.0, elevation_deg=0.0, azimuth_deg=180.0,
+            ghi=500.0,
+            elevation_deg=0.0,
+            azimuth_deg=180.0,
             windows=[south],
         )
         assert result == 0.0
@@ -350,12 +381,18 @@ class TestGTIModel:
         north = WindowConfig(Orientation.NORTH, area_m2=3.0, g_value=0.6)
 
         q_south = gti_model.compute(
-            ghi=300.0, elevation_deg=20.0, azimuth_deg=180.0,
-            windows=[south], day_of_year=355,  # December
+            ghi=300.0,
+            elevation_deg=20.0,
+            azimuth_deg=180.0,
+            windows=[south],
+            day_of_year=355,  # December
         )
         q_north = gti_model.compute(
-            ghi=300.0, elevation_deg=20.0, azimuth_deg=180.0,
-            windows=[north], day_of_year=355,
+            ghi=300.0,
+            elevation_deg=20.0,
+            azimuth_deg=180.0,
+            windows=[north],
+            day_of_year=355,
         )
         assert q_south > q_north
         assert q_south > 0
@@ -369,7 +406,9 @@ class TestGTIModel:
             WindowConfig(Orientation.NORTH, area_m2=1.5, g_value=0.6),
         ]
         gtis = gti_model.gti_per_window(
-            ghi=500.0, elevation_deg=45.0, azimuth_deg=180.0,
+            ghi=500.0,
+            elevation_deg=45.0,
+            azimuth_deg=180.0,
             windows=windows,
         )
         assert len(gtis) == 3
@@ -383,12 +422,18 @@ class TestGTIModel:
             WindowConfig(Orientation.WEST, area_m2=2.5, g_value=0.55),
         ]
         total = gti_model.compute(
-            ghi=500.0, elevation_deg=45.0, azimuth_deg=180.0,
-            windows=windows, day_of_year=172,
+            ghi=500.0,
+            elevation_deg=45.0,
+            azimuth_deg=180.0,
+            windows=windows,
+            day_of_year=172,
         )
         per_window = gti_model.compute_per_window(
-            ghi=500.0, elevation_deg=45.0, azimuth_deg=180.0,
-            windows=windows, day_of_year=172,
+            ghi=500.0,
+            elevation_deg=45.0,
+            azimuth_deg=180.0,
+            windows=windows,
+            day_of_year=172,
         )
         assert sum(per_window) == pytest.approx(total, rel=1e-10)
 
@@ -399,11 +444,15 @@ class TestGTIModel:
         w_half = WindowConfig(Orientation.SOUTH, area_m2=3.0, g_value=0.5)
 
         q_full = gti_model.compute(
-            ghi=500.0, elevation_deg=45.0, azimuth_deg=180.0,
+            ghi=500.0,
+            elevation_deg=45.0,
+            azimuth_deg=180.0,
             windows=[w_full],
         )
         q_half = gti_model.compute(
-            ghi=500.0, elevation_deg=45.0, azimuth_deg=180.0,
+            ghi=500.0,
+            elevation_deg=45.0,
+            azimuth_deg=180.0,
             windows=[w_half],
         )
         assert q_half == pytest.approx(q_full * 0.5, rel=1e-10)
@@ -415,11 +464,15 @@ class TestGTIModel:
         w_large = WindowConfig(Orientation.SOUTH, area_m2=4.0, g_value=0.6)
 
         q_small = gti_model.compute(
-            ghi=500.0, elevation_deg=45.0, azimuth_deg=180.0,
+            ghi=500.0,
+            elevation_deg=45.0,
+            azimuth_deg=180.0,
             windows=[w_small],
         )
         q_large = gti_model.compute(
-            ghi=500.0, elevation_deg=45.0, azimuth_deg=180.0,
+            ghi=500.0,
+            elevation_deg=45.0,
+            azimuth_deg=180.0,
             windows=[w_large],
         )
         assert q_large == pytest.approx(q_small * 2.0, rel=1e-10)
@@ -437,8 +490,11 @@ class TestGTIModel:
             WindowConfig(Orientation.WEST, area_m2=2.0, g_value=0.6),
         ]
         total = gti_model.compute(
-            ghi=500.0, elevation_deg=45.0, azimuth_deg=180.0,
-            windows=windows, day_of_year=172,
+            ghi=500.0,
+            elevation_deg=45.0,
+            azimuth_deg=180.0,
+            windows=windows,
+            day_of_year=172,
         )
         assert total > 0
 
@@ -449,13 +505,19 @@ class TestGTIModel:
 
         # Morning: sun in east (azimuth ~90)
         q_morning = gti_model.compute(
-            ghi=400.0, elevation_deg=30.0, azimuth_deg=90.0,
-            windows=[east], day_of_year=172,
+            ghi=400.0,
+            elevation_deg=30.0,
+            azimuth_deg=90.0,
+            windows=[east],
+            day_of_year=172,
         )
         # Afternoon: sun in west (azimuth ~270)
         q_afternoon = gti_model.compute(
-            ghi=400.0, elevation_deg=30.0, azimuth_deg=270.0,
-            windows=[east], day_of_year=172,
+            ghi=400.0,
+            elevation_deg=30.0,
+            azimuth_deg=270.0,
+            windows=[east],
+            day_of_year=172,
         )
         assert q_morning > q_afternoon
 
@@ -487,7 +549,9 @@ class TestGTIModel:
     def test_empty_windows(self, gti_model: GTIModel) -> None:
         """Empty windows list returns Q_sol=0."""
         total = gti_model.compute(
-            ghi=500.0, elevation_deg=45.0, azimuth_deg=180.0,
+            ghi=500.0,
+            elevation_deg=45.0,
+            azimuth_deg=180.0,
             windows=[],
         )
         assert total == 0.0
@@ -496,7 +560,9 @@ class TestGTIModel:
     def test_empty_windows_per_window(self, gti_model: GTIModel) -> None:
         """Empty windows list returns empty per-window list."""
         per_window = gti_model.compute_per_window(
-            ghi=500.0, elevation_deg=45.0, azimuth_deg=180.0,
+            ghi=500.0,
+            elevation_deg=45.0,
+            azimuth_deg=180.0,
             windows=[],
         )
         assert per_window == []
@@ -506,12 +572,18 @@ class TestGTIModel:
         """compute_per_window returns values in Watts (GTI * area * g_value)."""
         south = WindowConfig(Orientation.SOUTH, area_m2=3.0, g_value=0.6)
         gtis = gti_model.gti_per_window(
-            ghi=500.0, elevation_deg=45.0, azimuth_deg=180.0,
-            windows=[south], day_of_year=172,
+            ghi=500.0,
+            elevation_deg=45.0,
+            azimuth_deg=180.0,
+            windows=[south],
+            day_of_year=172,
         )
         per_window = gti_model.compute_per_window(
-            ghi=500.0, elevation_deg=45.0, azimuth_deg=180.0,
-            windows=[south], day_of_year=172,
+            ghi=500.0,
+            elevation_deg=45.0,
+            azimuth_deg=180.0,
+            windows=[south],
+            day_of_year=172,
         )
         # Q_sol = GTI * area * g_value
         expected = gtis[0] * 3.0 * 0.6
@@ -525,8 +597,11 @@ class TestGTIModel:
         for orientation in Orientation:
             w = WindowConfig(orientation, area_m2=3.0, g_value=0.6)
             q = gti_model.compute(
-                ghi=500.0, elevation_deg=45.0, azimuth_deg=180.0,
-                windows=[w], day_of_year=172,
+                ghi=500.0,
+                elevation_deg=45.0,
+                azimuth_deg=180.0,
+                windows=[w],
+                day_of_year=172,
             )
             assert q > 0, f"{orientation.name} window should have positive Q_sol"
 
@@ -538,7 +613,9 @@ class TestGTIModel:
             WindowConfig(Orientation.NORTH, area_m2=2.0, g_value=0.5),
         ]
         gtis = gti_model.gti_per_window(
-            ghi=0.0, elevation_deg=-5.0, azimuth_deg=180.0,
+            ghi=0.0,
+            elevation_deg=-5.0,
+            azimuth_deg=180.0,
             windows=windows,
         )
         assert all(g == 0.0 for g in gtis)
@@ -552,12 +629,18 @@ class TestGTIModel:
         model_high = GTIModel(albedo=0.5)
 
         q_low = model_low.compute(
-            ghi=500.0, elevation_deg=45.0, azimuth_deg=180.0,
-            windows=[north], day_of_year=172,
+            ghi=500.0,
+            elevation_deg=45.0,
+            azimuth_deg=180.0,
+            windows=[north],
+            day_of_year=172,
         )
         q_high = model_high.compute(
-            ghi=500.0, elevation_deg=45.0, azimuth_deg=180.0,
-            windows=[north], day_of_year=172,
+            ghi=500.0,
+            elevation_deg=45.0,
+            azimuth_deg=180.0,
+            windows=[north],
+            day_of_year=172,
         )
         assert q_high > q_low
 
@@ -566,7 +649,9 @@ class TestGTIModel:
         """Negative GHI (sensor error) returns Q_sol=0."""
         south = WindowConfig(Orientation.SOUTH, area_m2=3.0, g_value=0.6)
         result = gti_model.compute(
-            ghi=-100.0, elevation_deg=45.0, azimuth_deg=180.0,
+            ghi=-100.0,
+            elevation_deg=45.0,
+            azimuth_deg=180.0,
             windows=[south],
         )
         assert result == 0.0
@@ -601,8 +686,11 @@ class TestGTIModelWithEphemeris:
 
         south = WindowConfig(Orientation.SOUTH, area_m2=3.0, g_value=0.6)
         q_sol = gti_model.compute(
-            ghi=800.0, elevation_deg=elevation, azimuth_deg=azimuth,
-            windows=[south], day_of_year=day_of_year,
+            ghi=800.0,
+            elevation_deg=elevation,
+            azimuth_deg=azimuth,
+            windows=[south],
+            day_of_year=day_of_year,
         )
         # At ~63 deg elevation, beam hits vertical surface at shallow angle,
         # but diffuse + ground + some beam still give real heat gain
@@ -627,12 +715,18 @@ class TestGTIModelWithEphemeris:
         north = WindowConfig(Orientation.NORTH, area_m2=3.0, g_value=0.6)
 
         q_south = gti_model.compute(
-            ghi=200.0, elevation_deg=elevation, azimuth_deg=azimuth,
-            windows=[south], day_of_year=day_of_year,
+            ghi=200.0,
+            elevation_deg=elevation,
+            azimuth_deg=azimuth,
+            windows=[south],
+            day_of_year=day_of_year,
         )
         q_north = gti_model.compute(
-            ghi=200.0, elevation_deg=elevation, azimuth_deg=azimuth,
-            windows=[north], day_of_year=day_of_year,
+            ghi=200.0,
+            elevation_deg=elevation,
+            azimuth_deg=azimuth,
+            windows=[north],
+            day_of_year=day_of_year,
         )
 
         assert q_south > q_north
@@ -651,7 +745,9 @@ class TestGTIModelWithEphemeris:
 
         south = WindowConfig(Orientation.SOUTH, area_m2=3.0, g_value=0.6)
         q_sol = gti_model.compute(
-            ghi=0.0, elevation_deg=elevation, azimuth_deg=azimuth,
+            ghi=0.0,
+            elevation_deg=elevation,
+            azimuth_deg=azimuth,
             windows=[south],
         )
         assert q_sol == 0.0
@@ -671,11 +767,17 @@ class TestGTIModelWithEphemeris:
         west = WindowConfig(Orientation.WEST, area_m2=3.0, g_value=0.6)
 
         q_east = gti_model.compute(
-            ghi=400.0, elevation_deg=elevation, azimuth_deg=azimuth,
-            windows=[east], day_of_year=day_of_year,
+            ghi=400.0,
+            elevation_deg=elevation,
+            azimuth_deg=azimuth,
+            windows=[east],
+            day_of_year=day_of_year,
         )
         q_west = gti_model.compute(
-            ghi=400.0, elevation_deg=elevation, azimuth_deg=azimuth,
-            windows=[west], day_of_year=day_of_year,
+            ghi=400.0,
+            elevation_deg=elevation,
+            azimuth_deg=azimuth,
+            windows=[west],
+            day_of_year=day_of_year,
         )
         assert q_east > q_west

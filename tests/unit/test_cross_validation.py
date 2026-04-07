@@ -471,9 +471,7 @@ class TestCrossValidateOverfitting:
         """Overfitting flag is False when ratio is within threshold."""
         _, u, d, T = cv_synth_data_2r2c
         # Very high threshold ensures no overfitting
-        result = cross_validate(
-            identifier_2r2c, u, d, T, overfitting_threshold=100.0
-        )
+        result = cross_validate(identifier_2r2c, u, d, T, overfitting_threshold=100.0)
         assert result.is_overfitting is False
 
     @pytest.mark.unit
@@ -489,9 +487,7 @@ class TestCrossValidateOverfitting:
         train/test segments due to differing initial conditions.
         """
         _, u, d, T = cv_synth_data_2r2c
-        result = cross_validate(
-            identifier_2r2c, u, d, T, overfitting_threshold=0.0
-        )
+        result = cross_validate(identifier_2r2c, u, d, T, overfitting_threshold=0.0)
         # With threshold=0.0, any ratio > 0 triggers overfitting.
         # On noiseless data the ratio might be very close to 1.0 (or even below),
         # but it's > 0.0, so overfitting should be flagged unless train_rmse is 0.
@@ -500,9 +496,7 @@ class TestCrossValidateOverfitting:
         # If train_rmse is exactly 0, ratio is None and is_overfitting is False
 
     @pytest.mark.unit
-    def test_zero_train_rmse_no_overfitting(
-        self, params_2r2c: RCParams
-    ) -> None:
+    def test_zero_train_rmse_no_overfitting(self, params_2r2c: RCParams) -> None:
         """When train_rmse is exactly 0, overfitting_ratio is None."""
         id_result = IdentificationResult(
             params=params_2r2c,

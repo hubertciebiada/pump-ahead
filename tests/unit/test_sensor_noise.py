@@ -187,9 +187,7 @@ class TestSensorNoiseIntegration:
         model_noisy = RCModel(params, order, dt=60.0)
         room_noisy = SimulatedRoom("noisy", model_noisy, ufh_max_power_w=5000.0)
         noise = SensorNoise(std=1.0, seed=42)
-        sim_noisy = BuildingSimulator(
-            room_noisy, constant_weather, sensor_noise=noise
-        )
+        sim_noisy = BuildingSimulator(room_noisy, constant_weather, sensor_noise=noise)
 
         # Simulator WITHOUT noise
         model_clean = RCModel(params, order, dt=60.0)

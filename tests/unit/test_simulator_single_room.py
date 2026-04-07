@@ -77,9 +77,7 @@ class TestSimulatedRoom:
         assert simulated_room.T_slab == 22.0
 
     @pytest.mark.unit
-    def test_step_propagates_temperature(
-        self, simulated_room: SimulatedRoom
-    ) -> None:
+    def test_step_propagates_temperature(self, simulated_room: SimulatedRoom) -> None:
         """Stepping with cold weather and no heating cools the room."""
         wp = WeatherPoint(T_out=-5.0, GHI=0.0, wind_speed=0.0, humidity=50.0)
         initial_t_air = simulated_room.T_air
@@ -100,9 +98,7 @@ class TestSimulatedRoom:
         assert simulated_room.valve_position == 0.0
 
     @pytest.mark.unit
-    def test_valve_drives_slab_heating(
-        self, simulated_room: SimulatedRoom
-    ) -> None:
+    def test_valve_drives_slab_heating(self, simulated_room: SimulatedRoom) -> None:
         """100 % valve heats the slab over 100 steps."""
         simulated_room.apply_actions(valve_position=100.0)
         wp = WeatherPoint(T_out=-5.0, GHI=0.0, wind_speed=0.0, humidity=50.0)
@@ -133,9 +129,7 @@ class TestSimulatedRoom:
         np.testing.assert_array_equal(simulated_room.state, x_expected)
 
     @pytest.mark.unit
-    def test_mimo_split_heating(
-        self, simulated_room_mimo: SimulatedRoom
-    ) -> None:
+    def test_mimo_split_heating(self, simulated_room_mimo: SimulatedRoom) -> None:
         """MIMO room with split heating warms T_air faster than without."""
         # Room without split
         params_siso = RCParams(
@@ -153,17 +147,13 @@ class TestSimulatedRoom:
             has_split=False,
         )
         model_siso = RCModel(params_siso, ModelOrder.THREE, dt=60.0)
-        room_siso = SimulatedRoom(
-            "siso", model_siso, ufh_max_power_w=5000.0
-        )
+        room_siso = SimulatedRoom("siso", model_siso, ufh_max_power_w=5000.0)
 
         wp = WeatherPoint(T_out=-5.0, GHI=0.0, wind_speed=0.0, humidity=50.0)
 
         # Both rooms: same valve, but MIMO also has split
         room_siso.apply_actions(valve_position=50.0)
-        simulated_room_mimo.apply_actions(
-            valve_position=50.0, split_power_w=2500.0
-        )
+        simulated_room_mimo.apply_actions(valve_position=50.0, split_power_w=2500.0)
 
         for _ in range(50):
             room_siso.step(wp, q_sol_w=0.0)
@@ -195,9 +185,7 @@ class TestSimulatedRoom:
         np.testing.assert_array_equal(simulated_room.state, x_expected)
 
     @pytest.mark.unit
-    def test_state_copy_independence(
-        self, simulated_room: SimulatedRoom
-    ) -> None:
+    def test_state_copy_independence(self, simulated_room: SimulatedRoom) -> None:
         """room.state returns a copy, not a reference to internal state."""
         state1 = simulated_room.state
         state1[0] = 999.0
@@ -280,9 +268,7 @@ class TestBuildingSimulatorSingleRoom:
     """Tests for single-room BuildingSimulator."""
 
     @pytest.mark.unit
-    def test_step_returns_measurements(
-        self, simulator: BuildingSimulator
-    ) -> None:
+    def test_step_returns_measurements(self, simulator: BuildingSimulator) -> None:
         """step() returns a Measurements with all fields finite."""
         meas = simulator.step(Actions(valve_position=0.0))
         assert isinstance(meas, Measurements)
@@ -452,9 +438,7 @@ class TestBuildingSimulatorSingleRoom:
         assert abs(t_air_b - t_air_a) < 0.01
 
     @pytest.mark.unit
-    def test_get_measurements_without_step(
-        self, simulator: BuildingSimulator
-    ) -> None:
+    def test_get_measurements_without_step(self, simulator: BuildingSimulator) -> None:
         """get_measurements() before any step returns valid initial state."""
         meas = simulator.get_measurements()
         assert isinstance(meas, Measurements)

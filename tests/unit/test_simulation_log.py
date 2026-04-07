@@ -202,9 +202,7 @@ class TestSimulationLog:
         assert record.t == 0
 
     @pytest.mark.unit
-    def test_getitem_negative_index(
-        self, populated_log: SimulationLog
-    ) -> None:
+    def test_getitem_negative_index(self, populated_log: SimulationLog) -> None:
         """Negative index returns from the end."""
         record = populated_log[-1]
         assert isinstance(record, SimRecord)
@@ -225,9 +223,7 @@ class TestSimulationLog:
         assert isinstance(sliced, SimulationLog)
 
     @pytest.mark.unit
-    def test_getitem_slice_content(
-        self, populated_log: SimulationLog
-    ) -> None:
+    def test_getitem_slice_content(self, populated_log: SimulationLog) -> None:
         """Sliced log contains the expected records."""
         sliced = populated_log[10:20]
         assert len(sliced) == 10
@@ -235,9 +231,7 @@ class TestSimulationLog:
         assert sliced[-1].t == 19
 
     @pytest.mark.unit
-    def test_getitem_slice_with_step(
-        self, populated_log: SimulationLog
-    ) -> None:
+    def test_getitem_slice_with_step(self, populated_log: SimulationLog) -> None:
         """Slicing with step works correctly."""
         sliced = populated_log[::2]
         assert len(sliced) == 50
@@ -254,9 +248,7 @@ class TestSimulationLog:
         assert records[99].t == 99
 
     @pytest.mark.unit
-    def test_get_room_filters_correctly(
-        self, populated_log: SimulationLog
-    ) -> None:
+    def test_get_room_filters_correctly(self, populated_log: SimulationLog) -> None:
         """get_room returns only records for the specified room."""
         salon = populated_log.get_room("salon")
         assert isinstance(salon, SimulationLog)
@@ -265,18 +257,14 @@ class TestSimulationLog:
             assert r.room_name == "salon"
 
     @pytest.mark.unit
-    def test_get_room_empty_result(
-        self, populated_log: SimulationLog
-    ) -> None:
+    def test_get_room_empty_result(self, populated_log: SimulationLog) -> None:
         """get_room for a non-existent room returns an empty log."""
         result = populated_log.get_room("bathroom")
         assert isinstance(result, SimulationLog)
         assert len(result) == 0
 
     @pytest.mark.unit
-    def test_time_range_filters_correctly(
-        self, populated_log: SimulationLog
-    ) -> None:
+    def test_time_range_filters_correctly(self, populated_log: SimulationLog) -> None:
         """time_range returns records within the inclusive bounds."""
         subset = populated_log.time_range(10, 19)
         assert isinstance(subset, SimulationLog)
@@ -285,9 +273,7 @@ class TestSimulationLog:
             assert 10 <= r.t <= 19
 
     @pytest.mark.unit
-    def test_time_range_empty_result(
-        self, populated_log: SimulationLog
-    ) -> None:
+    def test_time_range_empty_result(self, populated_log: SimulationLog) -> None:
         """time_range outside data range returns an empty log."""
         result = populated_log.time_range(200, 300)
         assert isinstance(result, SimulationLog)
@@ -331,9 +317,7 @@ class TestSimulationLogDataFrame:
     """Tests for SimulationLog.to_dataframe() with pandas."""
 
     @pytest.mark.unit
-    def test_to_dataframe_columns(
-        self, populated_log: SimulationLog
-    ) -> None:
+    def test_to_dataframe_columns(self, populated_log: SimulationLog) -> None:
         """DataFrame has all expected columns."""
         pytest.importorskip("pandas")
         df = populated_log.to_dataframe()
@@ -356,9 +340,7 @@ class TestSimulationLogDataFrame:
         assert set(df.columns) == expected_columns
 
     @pytest.mark.unit
-    def test_to_dataframe_row_count(
-        self, populated_log: SimulationLog
-    ) -> None:
+    def test_to_dataframe_row_count(self, populated_log: SimulationLog) -> None:
         """DataFrame has the same number of rows as the log."""
         pytest.importorskip("pandas")
         df = populated_log.to_dataframe()
@@ -396,9 +378,7 @@ class TestSimulationLogDataFrame:
         assert len(df) == 0
 
     @pytest.mark.unit
-    def test_to_dataframe_enum_as_string(
-        self, sample_record: SimRecord
-    ) -> None:
+    def test_to_dataframe_enum_as_string(self, sample_record: SimRecord) -> None:
         """Enum fields are stored as string values, not enum objects."""
         pytest.importorskip("pandas")
         log = SimulationLog([sample_record])

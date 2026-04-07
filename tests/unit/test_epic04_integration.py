@@ -104,9 +104,7 @@ class TestScenarioToSimulatorWiring:
 
     @pytest.mark.unit
     @pytest.mark.parametrize("scenario_name", list(SCENARIO_LIBRARY.keys()))
-    def test_every_library_scenario_runs_10_steps(
-        self, scenario_name: str
-    ) -> None:
+    def test_every_library_scenario_runs_10_steps(self, scenario_name: str) -> None:
         """Every scenario runs 10 steps producing finite T_room and T_slab."""
         factory = SCENARIO_LIBRARY[scenario_name]
         scenario = factory()
@@ -114,8 +112,7 @@ class TestScenarioToSimulatorWiring:
 
         for _ in range(10):
             actions = {
-                r.name: Actions(valve_position=50.0)
-                for r in scenario.building.rooms
+                r.name: Actions(valve_position=50.0) for r in scenario.building.rooms
             }
             results = sim.step_all(actions)
 
@@ -129,9 +126,7 @@ class TestScenarioToSimulatorWiring:
 
     @pytest.mark.unit
     @pytest.mark.parametrize("sweep_name", list(PARAMETRIC_SWEEPS.keys()))
-    def test_every_sweep_scenario_constructs_and_runs(
-        self, sweep_name: str
-    ) -> None:
+    def test_every_sweep_scenario_constructs_and_runs(self, sweep_name: str) -> None:
         """Every sweep scenario constructs a simulator and runs 10 steps."""
         generator = PARAMETRIC_SWEEPS[sweep_name]
         scenarios = generator()
@@ -174,8 +169,7 @@ class TestScenarioToSimulatorWiring:
         # Run 50 steps — all temps must be finite
         for _ in range(50):
             actions = {
-                r.name: Actions(valve_position=50.0)
-                for r in scenario.building.rooms
+                r.name: Actions(valve_position=50.0) for r in scenario.building.rooms
             }
             results = sim.step_all(actions)
             for name, meas in results.items():
@@ -203,8 +197,7 @@ class TestScenarioToSimulatorWiring:
         # Run 44 steps (t goes from 0 to 44)
         for _ in range(44):
             actions = {
-                r.name: Actions(valve_position=50.0)
-                for r in scenario.building.rooms
+                r.name: Actions(valve_position=50.0) for r in scenario.building.rooms
             }
             sim.step_all(actions)
 
@@ -213,28 +206,22 @@ class TestScenarioToSimulatorWiring:
 
         # One more step: t=45, CWU ends
         actions = {
-            r.name: Actions(valve_position=50.0)
-            for r in scenario.building.rooms
+            r.name: Actions(valve_position=50.0) for r in scenario.building.rooms
         }
         sim.step_all(actions)
         # Now time_minutes=45, which is >= duration, so CWU should be off
-        assert not sim.is_cwu_active, (
-            f"CWU should be inactive at t={sim.time_minutes}"
-        )
+        assert not sim.is_cwu_active, f"CWU should be inactive at t={sim.time_minutes}"
 
         # Run until t=180 to verify repeat cycle
         steps_remaining = 180 - sim.time_minutes
         for _ in range(steps_remaining):
             actions = {
-                r.name: Actions(valve_position=50.0)
-                for r in scenario.building.rooms
+                r.name: Actions(valve_position=50.0) for r in scenario.building.rooms
             }
             sim.step_all(actions)
 
         # At t=180, CWU repeats (180 % 180 == 0 < 45)
-        assert sim.is_cwu_active, (
-            f"CWU should repeat at t={sim.time_minutes}"
-        )
+        assert sim.is_cwu_active, f"CWU should repeat at t={sim.time_minutes}"
 
 
 # ---------------------------------------------------------------------------
@@ -313,9 +300,7 @@ class TestBuildingParamsSimulatorCompatibility:
 
     @pytest.mark.unit
     @pytest.mark.parametrize("profile_name", list(BUILDING_PROFILES.keys()))
-    def test_all_profiles_produce_valid_rc_models(
-        self, profile_name: str
-    ) -> None:
+    def test_all_profiles_produce_valid_rc_models(self, profile_name: str) -> None:
         """Every building profile produces valid 3R3C RCModels (n_states=3)."""
         factory = BUILDING_PROFILES[profile_name]
         building = factory()
@@ -335,8 +320,7 @@ class TestBuildingParamsSimulatorCompatibility:
         # Run 10 steps with all 8 rooms at valve=100%
         for _ in range(10):
             actions = {
-                r.name: Actions(valve_position=100.0)
-                for r in scenario.building.rooms
+                r.name: Actions(valve_position=100.0) for r in scenario.building.rooms
             }
             results = sim.step_all(actions)
             for _name, meas in results.items():
@@ -385,8 +369,7 @@ class TestScenarioDeterminism:
 
         for step in range(50):
             actions = {
-                r.name: Actions(valve_position=50.0)
-                for r in scenario.building.rooms
+                r.name: Actions(valve_position=50.0) for r in scenario.building.rooms
             }
             results_a = sim_a.step_all(actions)
             results_b = sim_b.step_all(actions)
@@ -410,8 +393,7 @@ class TestScenarioDeterminism:
 
         for step in range(20):
             actions = {
-                r.name: Actions(valve_position=50.0)
-                for r in scenario.building.rooms
+                r.name: Actions(valve_position=50.0) for r in scenario.building.rooms
             }
             results_a = sim_a.step_all(actions)
             results_b = sim_b.step_all(actions)
@@ -452,9 +434,7 @@ class TestAcceptanceCriteriaVerification:
     def test_at_least_10_total_scenarios(self) -> None:
         """SCENARIO_LIBRARY + PARAMETRIC_SWEEPS produce >= 10 total scenarios."""
         library_count = len(SCENARIO_LIBRARY)
-        sweep_count = sum(
-            len(gen()) for gen in PARAMETRIC_SWEEPS.values()
-        )
+        sweep_count = sum(len(gen()) for gen in PARAMETRIC_SWEEPS.values())
         total = library_count + sweep_count
         assert total >= 10, (
             f"Expected >= 10 scenarios, got {total} "
@@ -485,9 +465,7 @@ class TestAcceptanceCriteriaVerification:
 
     @pytest.mark.unit
     @pytest.mark.parametrize("scenario_name", list(SCENARIO_LIBRARY.keys()))
-    def test_all_scenarios_deterministic_full_check(
-        self, scenario_name: str
-    ) -> None:
+    def test_all_scenarios_deterministic_full_check(self, scenario_name: str) -> None:
         """Every scenario in SCENARIO_LIBRARY is deterministic over 10 steps."""
         factory = SCENARIO_LIBRARY[scenario_name]
         scenario_a = factory()
@@ -497,12 +475,10 @@ class TestAcceptanceCriteriaVerification:
 
         for step in range(10):
             actions_a = {
-                r.name: Actions(valve_position=50.0)
-                for r in scenario_a.building.rooms
+                r.name: Actions(valve_position=50.0) for r in scenario_a.building.rooms
             }
             actions_b = {
-                r.name: Actions(valve_position=50.0)
-                for r in scenario_b.building.rooms
+                r.name: Actions(valve_position=50.0) for r in scenario_b.building.rooms
             }
             results_a = sim_a.step_all(actions_a)
             results_b = sim_b.step_all(actions_b)

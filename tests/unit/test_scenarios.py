@@ -157,8 +157,7 @@ class TestModesCovered:
     def test_at_least_three_heating_scenarios(self) -> None:
         """At least 3 scenarios use heating mode."""
         heating = [
-            n for n in SCENARIO_LIBRARY
-            if SCENARIO_LIBRARY[n]().mode == "heating"
+            n for n in SCENARIO_LIBRARY if SCENARIO_LIBRARY[n]().mode == "heating"
         ]
         assert len(heating) >= 3
 

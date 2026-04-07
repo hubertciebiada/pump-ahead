@@ -340,9 +340,7 @@ class TestIdentificationReport:
     @pytest.mark.unit
     def test_empty_rooms_rejected(self) -> None:
         """Empty rooms tuple raises ValueError."""
-        with pytest.raises(
-            ValueError, match="must contain at least one room"
-        ):
+        with pytest.raises(ValueError, match="must contain at least one room"):
             IdentificationReport(
                 rooms=(),
                 created_at="2026-04-07T12:00:00+00:00",
@@ -505,12 +503,8 @@ class TestIdentificationReportFromCvResults:
         """Non-positive rmse_threshold raises ValueError."""
         cv_results = {"room": simple_cv_result}
         data = {"room": (np.zeros((150, 1)), np.zeros((150, 2)), np.zeros(150))}
-        with pytest.raises(
-            ValueError, match="rmse_threshold must be positive"
-        ):
-            IdentificationReport.from_cv_results(
-                cv_results, data, rmse_threshold=0.0
-            )
+        with pytest.raises(ValueError, match="rmse_threshold must be positive"):
+            IdentificationReport.from_cv_results(cv_results, data, rmse_threshold=0.0)
 
     @pytest.mark.unit
     def test_from_cv_results_iso_timestamp(

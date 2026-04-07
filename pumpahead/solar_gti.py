@@ -120,13 +120,7 @@ def erbs_decomposition(
     if kt <= 0.22:
         kd = 1.0 - 0.09 * kt
     elif kt <= 0.80:
-        kd = (
-            0.9511
-            - 0.1604 * kt
-            + 4.388 * kt**2
-            - 16.638 * kt**3
-            + 12.336 * kt**4
-        )
+        kd = 0.9511 - 0.1604 * kt + 4.388 * kt**2 - 16.638 * kt**3 + 12.336 * kt**4
     else:
         kd = 0.165
 
@@ -280,8 +274,12 @@ class GTIModel:
         for window in windows:
             window_az = window.orientation.azimuth_deg
             gti = gti_vertical(
-                beam, diffuse, ghi,
-                elevation_deg, azimuth_deg, window_az,
+                beam,
+                diffuse,
+                ghi,
+                elevation_deg,
+                azimuth_deg,
+                window_az,
                 albedo=self.albedo,
             )
             result.append(gti)
