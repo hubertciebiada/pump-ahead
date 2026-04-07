@@ -16,9 +16,16 @@ from pumpahead.config import (
     RoomConfig,
     SimScenario,
 )
-from pumpahead.metrics import SimMetrics
 from pumpahead.estimator import KalmanEstimator
 from pumpahead.identifier import IdentificationResult, RCIdentifier
+from pumpahead.metrics import (
+    SimMetrics,
+    assert_comfort,
+    assert_energy_vs_baseline,
+    assert_floor_temp_safe,
+    assert_no_opposing_action,
+    assert_no_priority_inversion,
+)
 from pumpahead.model import ModelOrder, RCModel, RCParams
 from pumpahead.scenarios import (
     PARAMETRIC_SWEEPS,
@@ -70,6 +77,11 @@ __version__ = "0.1.0"
 __all__ = [
     "Actions",
     "BUILDING_PROFILES",
+    "assert_comfort",
+    "assert_energy_vs_baseline",
+    "assert_floor_temp_safe",
+    "assert_no_opposing_action",
+    "assert_no_priority_inversion",
     "BuildingParams",
     "BuildingSimulator",
     "ControllerConfig",
