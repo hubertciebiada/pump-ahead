@@ -221,6 +221,21 @@ class RCIdentifier:
         self._rng = np.random.default_rng(seed)
 
     @property
+    def order(self) -> ModelOrder:
+        """Model order used for identification."""
+        return self._order
+
+    @property
+    def dt(self) -> float:
+        """Discretization time step in seconds."""
+        return self._dt
+
+    @property
+    def burnin_steps(self) -> int:
+        """Number of initial steps excluded from MSE computation."""
+        return self._burnin_steps
+
+    @property
     def n_params(self) -> int:
         """Number of identifiable parameters."""
         return len(self._param_names)
