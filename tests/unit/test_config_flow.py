@@ -802,9 +802,7 @@ class TestEntityValidation:
         assert result is None
 
     @pytest.mark.unit
-    def test_validate_entity_no_unit_attribute_accepted(
-        self, cf_mocks: Any
-    ) -> None:
+    def test_validate_entity_no_unit_attribute_accepted(self, cf_mocks: Any) -> None:
         """Entity without unit_of_measurement attribute must be accepted."""
         flow = _make_flow(cf_mocks)
         state = MagicMock()

@@ -219,36 +219,26 @@ class PumpAheadConfigFlow(ConfigFlow, domain=DOMAIN):
             if self._entity_room_idx == 0:
                 outdoor_entity = user_input.get(CONF_ENTITY_TEMP_OUTDOOR, "")
                 if outdoor_entity:
-                    err = self._validate_entity_unit(
-                        outdoor_entity, VALID_TEMP_UNITS
-                    )
+                    err = self._validate_entity_unit(outdoor_entity, VALID_TEMP_UNITS)
                     if err:
                         errors["base"] = err
 
             if not errors:
-                room[CONF_ENTITY_TEMP_ROOM] = user_input.get(
-                    CONF_ENTITY_TEMP_ROOM, ""
-                )
+                room[CONF_ENTITY_TEMP_ROOM] = user_input.get(CONF_ENTITY_TEMP_ROOM, "")
                 room[CONF_ENTITY_TEMP_FLOOR] = user_input.get(
                     CONF_ENTITY_TEMP_FLOOR, ""
                 )
                 room[CONF_ENTITY_VALVE] = user_input.get(CONF_ENTITY_VALVE, "")
-                room[CONF_ENTITY_HUMIDITY] = user_input.get(
-                    CONF_ENTITY_HUMIDITY, ""
-                )
+                room[CONF_ENTITY_HUMIDITY] = user_input.get(CONF_ENTITY_HUMIDITY, "")
                 if room[CONF_HAS_SPLIT]:
-                    room[CONF_ENTITY_SPLIT] = user_input.get(
-                        CONF_ENTITY_SPLIT, ""
-                    )
+                    room[CONF_ENTITY_SPLIT] = user_input.get(CONF_ENTITY_SPLIT, "")
 
                 if self._entity_room_idx == 0:
                     self._global_entities = {
                         CONF_ENTITY_TEMP_OUTDOOR: user_input.get(
                             CONF_ENTITY_TEMP_OUTDOOR, ""
                         ),
-                        CONF_ENTITY_WEATHER: user_input.get(
-                            CONF_ENTITY_WEATHER, ""
-                        ),
+                        CONF_ENTITY_WEATHER: user_input.get(CONF_ENTITY_WEATHER, ""),
                     }
 
                 self._entity_room_idx += 1
@@ -325,9 +315,7 @@ class PumpAheadConfigFlow(ConfigFlow, domain=DOMAIN):
 
             if not errors:
                 self._algorithm = {
-                    CONF_ALGORITHM_MODE: user_input.get(
-                        CONF_ALGORITHM_MODE, "heating"
-                    ),
+                    CONF_ALGORITHM_MODE: user_input.get(CONF_ALGORITHM_MODE, "heating"),
                     CONF_W_COMFORT: w_comfort,
                     CONF_W_ENERGY: w_energy,
                     CONF_W_SMOOTH: w_smooth,
@@ -336,28 +324,20 @@ class PumpAheadConfigFlow(ConfigFlow, domain=DOMAIN):
 
         schema = vol.Schema(
             {
-                vol.Required(
-                    CONF_ALGORITHM_MODE, default="heating"
-                ): SelectSelector(
+                vol.Required(CONF_ALGORITHM_MODE, default="heating"): SelectSelector(
                     SelectSelectorConfig(options=ALGORITHM_MODES)
                 ),
-                vol.Required(
-                    CONF_W_COMFORT, default=DEFAULT_W_COMFORT
-                ): NumberSelector(
+                vol.Required(CONF_W_COMFORT, default=DEFAULT_W_COMFORT): NumberSelector(
                     NumberSelectorConfig(
                         min=0, max=100, step=0.01, mode=NumberSelectorMode.BOX
                     )
                 ),
-                vol.Required(
-                    CONF_W_ENERGY, default=DEFAULT_W_ENERGY
-                ): NumberSelector(
+                vol.Required(CONF_W_ENERGY, default=DEFAULT_W_ENERGY): NumberSelector(
                     NumberSelectorConfig(
                         min=0, max=100, step=0.01, mode=NumberSelectorMode.BOX
                     )
                 ),
-                vol.Required(
-                    CONF_W_SMOOTH, default=DEFAULT_W_SMOOTH
-                ): NumberSelector(
+                vol.Required(CONF_W_SMOOTH, default=DEFAULT_W_SMOOTH): NumberSelector(
                     NumberSelectorConfig(
                         min=0, max=100, step=0.001, mode=NumberSelectorMode.BOX
                     )
@@ -388,8 +368,7 @@ class PumpAheadConfigFlow(ConfigFlow, domain=DOMAIN):
 
             # Set unique_id to prevent duplicate entries for same location.
             unique_id = (
-                f"{self._location[CONF_LATITUDE]}_"
-                f"{self._location[CONF_LONGITUDE]}"
+                f"{self._location[CONF_LATITUDE]}_{self._location[CONF_LONGITUDE]}"
             )
             await self.async_set_unique_id(unique_id)
             self._abort_if_unique_id_configured()
@@ -401,9 +380,7 @@ class PumpAheadConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({}),
             description_placeholders={
                 "num_rooms": str(len(self._rooms)),
-                "algorithm_mode": self._algorithm.get(
-                    CONF_ALGORITHM_MODE, "heating"
-                ),
+                "algorithm_mode": self._algorithm.get(CONF_ALGORITHM_MODE, "heating"),
                 "latitude": str(self._location.get(CONF_LATITUDE, "")),
                 "longitude": str(self._location.get(CONF_LONGITUDE, "")),
             },

@@ -284,9 +284,7 @@ class TestCoordinatorInit:
         assert coordinator._weather_source is not None
 
     @pytest.mark.unit
-    def test_no_weather_source_when_entity_missing(
-        self, coord_mocks: Any
-    ) -> None:
+    def test_no_weather_source_when_entity_missing(self, coord_mocks: Any) -> None:
         """Weather source must be None when no weather entity configured."""
         data = dict(_ENTRY_DATA)
         data["entity_weather"] = ""
@@ -406,9 +404,7 @@ class TestCoordinatorUpdate:
         mock_ws.async_update.assert_awaited_once_with(hass)
 
     @pytest.mark.unit
-    def test_weather_update_failure_does_not_crash(
-        self, coord_mocks: Any
-    ) -> None:
+    def test_weather_update_failure_does_not_crash(self, coord_mocks: Any) -> None:
         """Weather update failure must not crash the coordinator."""
         hass, entry = _make_hass_and_entry(coord_mocks)
         coordinator = coord_mocks.PumpAheadCoordinator(hass, entry)

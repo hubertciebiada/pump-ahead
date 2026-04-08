@@ -88,9 +88,7 @@ class PumpAheadCoordinator(DataUpdateCoordinator[PumpAheadCoordinatorData]):
         lat: float = entry.data.get(CONF_LATITUDE, hass.config.latitude)  # type: ignore[assignment]
         lon: float = entry.data.get(CONF_LONGITUDE, hass.config.longitude)  # type: ignore[assignment]
         if self._weather_entity:
-            self._weather_source = HAWeatherSource(
-                self._weather_entity, lat, lon
-            )
+            self._weather_source = HAWeatherSource(self._weather_entity, lat, lon)
 
     # -- Update -------------------------------------------------------------
 
