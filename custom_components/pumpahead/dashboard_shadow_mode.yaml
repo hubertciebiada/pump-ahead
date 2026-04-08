@@ -1,0 +1,62 @@
+# PumpAhead Shadow Mode Dashboard Template
+#
+# Copy this into your Lovelace dashboard YAML to view shadow mode
+# diagnostics.  Replace entity IDs with your actual PumpAhead sensor
+# entities.
+#
+# This dashboard is read-only — shadow mode does not control any
+# devices.  It shows current sensor readings alongside the PID
+# controller's recommendations for comparison.
+
+title: PumpAhead Shadow Mode
+views:
+  - title: Shadow Mode Overview
+    path: pumpahead-shadow
+    cards:
+      # -- Global status card ------------------------------------------------
+      - type: entities
+        title: PumpAhead Algorithm Status
+        entities:
+          - entity: sensor.pumpahead_algorithm_status
+            name: Algorithm Status
+          - entity: sensor.pumpahead_last_update
+            name: Last Update
+
+      # -- Per-room comparison cards -----------------------------------------
+      # Duplicate this card for each room.  Replace "living_room" with
+      # your room's slug (room name lowercased, spaces replaced with _).
+
+      - type: glance
+        title: "Living Room — Current vs Recommended"
+        columns: 2
+        entities:
+          # Current values (from your existing HA sensors)
+          - entity: sensor.temp_living
+            name: Current Temp
+          - entity: number.valve_living
+            name: Current Valve %
+
+          # Recommended values (from PumpAhead shadow mode)
+          - entity: sensor.pumpahead_living_room_predicted_temp
+            name: Predicted Temp
+          - entity: sensor.pumpahead_living_room_recommended_valve
+            name: Recommended Valve %
+
+      # -- History comparison graph ------------------------------------------
+      - type: history-graph
+        title: "Living Room — Valve: Actual vs Recommended"
+        hours_to_show: 24
+        entities:
+          - entity: number.valve_living
+            name: Actual Valve
+          - entity: sensor.pumpahead_living_room_recommended_valve
+            name: Recommended Valve
+
+      - type: history-graph
+        title: "Living Room — Temperature"
+        hours_to_show: 24
+        entities:
+          - entity: sensor.temp_living
+            name: Room Temp
+          - entity: sensor.pumpahead_living_room_predicted_temp
+            name: Predicted Temp
