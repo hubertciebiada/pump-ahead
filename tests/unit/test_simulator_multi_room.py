@@ -462,7 +462,7 @@ class TestMultiRoomPerformance:
         params: RCParams,
         constant_weather: SyntheticWeather,
     ) -> None:
-        """8-room weekly simulation (10080 steps) completes in < 2 seconds."""
+        """8-room weekly simulation (10080 steps) completes in < 5 seconds."""
         rooms = _make_rooms(8, params)
         sim = BuildingSimulator(rooms, constant_weather, hp_max_power_w=6000.0)
         actions = {r.name: Actions(valve_position=50.0) for r in rooms}
