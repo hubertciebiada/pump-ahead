@@ -24,6 +24,12 @@ from pumpahead.cross_validation import (
     cross_validate,
     cross_validate_rooms,
 )
+from pumpahead.disturbance_vector import (
+    MPC_DT_SECONDS,
+    MPC_HORIZON_STEPS,
+    DisturbanceBuilder,
+    InternalGainProfile,
+)
 from pumpahead.estimator import KalmanEstimator
 from pumpahead.identification_report import (
     DEFAULT_RMSE_PASS_THRESHOLD,
@@ -120,15 +126,19 @@ __all__ = [
     "cross_validate_rooms",
     "DEFAULT_HORIZONS",
     "DEFAULT_OVERFITTING_THRESHOLD",
+    "DisturbanceBuilder",
     "GTIModel",
     "EphemerisCalculator",
     "HUBERT_ROOMS",
     "HeatPumpMode",
     "HorizonRMSE",
     "IdentificationReport",
+    "InternalGainProfile",
     "IdentificationResult",
     "KalmanEstimator",
     "Measurements",
+    "MPC_DT_SECONDS",
+    "MPC_HORIZON_STEPS",
     "ModelOrder",
     "OpenMeteoHistorical",
     "Orientation",
