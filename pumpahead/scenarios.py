@@ -51,10 +51,13 @@ __all__ = [
     "SCENARIO_LIBRARY",
     "cold_snap",
     "cwu_heavy",
+    "dual_source_cold_snap",
+    "dual_source_steady_state",
     "extreme_cold",
     "full_year_2025",
     "hot_july",
     "insulation_sweep",
+    "priority_inversion_stress",
     "rapid_warming",
     "screed_sweep",
     "solar_overshoot",
@@ -416,6 +419,132 @@ def cwu_heavy() -> SimScenario:
 
 
 # ---------------------------------------------------------------------------
+# Dual-source (UFH + split) scenario factory functions
+# ---------------------------------------------------------------------------
+
+
+def dual_source_steady_state() -> SimScenario:
+    """Steady-state dual-source heating at constant T_out=0C.
+
+    Uses ``hubert_real`` building (5 rooms with splits, 3 without).
+    Constant outdoor temperature, no solar.  Tests that split runtime
+    stays below 15% in the second half (after warmup) and UFH-only
+    rooms are unaffected.
+
+    Returns:
+        ``SimScenario`` with ``hubert_real`` building, 72h duration.
+    """
+    weather = SyntheticWeather.constant(
+        T_out=0.0,
+        GHI=0.0,
+        wind_speed=0.0,
+        humidity=50.0,
+    )
+    return SimScenario(
+        name="dual_source_steady_state",
+        building=hubert_real(),
+        weather=weather,
+        controller=ControllerConfig(
+            kp=5.0,
+            ki=0.01,
+            setpoint=21.0,
+            split_deadband=1.5,
+            valve_floor_pct=15.0,
+        ),
+        duration_minutes=4320,
+        mode="heating",
+        dt_seconds=60.0,
+        description=(
+            "Steady-state dual-source heating at T_out=0C. "
+            "Tests split runtime < 15% and no regression in UFH-only rooms."
+        ),
+    )
+
+
+def dual_source_cold_snap() -> SimScenario:
+    """Step drop from 0C to -15C at t=1440 for dual-source rooms.
+
+    Uses ``hubert_real`` building.  Tests split entry during cold snap
+    and UFH takeover afterward.
+
+    Returns:
+        ``SimScenario`` with ``hubert_real`` building, 5-day duration.
+    """
+    weather = SyntheticWeather(
+        t_out=ChannelProfile(
+            kind=ProfileKind.STEP,
+            baseline=0.0,
+            amplitude=-15.0,
+            step_time_minutes=1440.0,
+        ),
+        ghi=ChannelProfile(kind=ProfileKind.CONSTANT, baseline=0.0),
+        wind_speed=ChannelProfile(kind=ProfileKind.CONSTANT, baseline=2.0),
+        humidity=ChannelProfile(kind=ProfileKind.CONSTANT, baseline=60.0),
+    )
+    return SimScenario(
+        name="dual_source_cold_snap",
+        building=hubert_real(),
+        weather=weather,
+        controller=ControllerConfig(
+            kp=5.0,
+            ki=0.01,
+            setpoint=21.0,
+            split_deadband=1.0,
+        ),
+        duration_minutes=7200,
+        mode="heating",
+        dt_seconds=60.0,
+        description=(
+            "Step drop from 0C to -15C at t=1440 min. "
+            "Tests split entry during cold snap and UFH takeover."
+        ),
+    )
+
+
+def priority_inversion_stress() -> SimScenario:
+    """Extreme cold stress test for anti-takeover logic.
+
+    Uses ``hubert_real`` building with aggressive controller gains
+    and intentionally low valve floor.  Step T_out from 0C to -20C
+    at t=720 min.  Tests that even under stress, priority inversion
+    does not occur.
+
+    Returns:
+        ``SimScenario`` with ``hubert_real`` building, 3-day duration.
+    """
+    weather = SyntheticWeather(
+        t_out=ChannelProfile(
+            kind=ProfileKind.STEP,
+            baseline=0.0,
+            amplitude=-20.0,
+            step_time_minutes=720.0,
+        ),
+        ghi=ChannelProfile(kind=ProfileKind.CONSTANT, baseline=0.0),
+        wind_speed=ChannelProfile(kind=ProfileKind.CONSTANT, baseline=3.0),
+        humidity=ChannelProfile(kind=ProfileKind.CONSTANT, baseline=60.0),
+    )
+    return SimScenario(
+        name="priority_inversion_stress",
+        building=hubert_real(),
+        weather=weather,
+        controller=ControllerConfig(
+            kp=10.0,
+            ki=0.005,
+            setpoint=21.0,
+            valve_floor_pct=5.0,
+            split_deadband=1.0,
+        ),
+        duration_minutes=4320,
+        mode="heating",
+        dt_seconds=60.0,
+        description=(
+            "Extreme cold stress (-20C step at t=720) with low valve "
+            "floor. Tests anti-takeover prevents priority inversion."
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
 # Parametric sweep functions
 # ---------------------------------------------------------------------------
 
@@ -528,6 +657,9 @@ SCENARIO_LIBRARY: dict[str, Callable[[], SimScenario]] = {
     "extreme_cold": extreme_cold,
     "rapid_warming": rapid_warming,
     "cwu_heavy": cwu_heavy,
+    "dual_source_steady_state": dual_source_steady_state,
+    "dual_source_cold_snap": dual_source_cold_snap,
+    "priority_inversion_stress": priority_inversion_stress,
 }
 """Mapping of scenario name to factory function (single scenarios)."""
 

@@ -172,7 +172,10 @@ def run_scenario() -> Callable[
 
         # Build PumpAheadController from scenario configuration
         room_names = [r.name for r in scenario.building.rooms]
-        controller = PumpAheadController(scenario.controller, room_names)
+        room_has_split = {r.name: r.has_split for r in scenario.building.rooms}
+        controller = PumpAheadController(
+            scenario.controller, room_names, room_has_split=room_has_split
+        )
 
         for t in range(n_steps):
             all_meas = sim.get_all_measurements()

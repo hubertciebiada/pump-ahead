@@ -202,6 +202,16 @@ class ControllerConfig:
         w_comfort: MPC comfort weight (must be >= 0).
         w_energy: MPC energy weight (must be >= 0).
         w_smooth: MPC control smoothness weight (must be >= 0).
+        split_deadband: Half-width of deadband where split does not
+            activate [degC] (must be >= 0).
+        split_setpoint_offset: Split aims at ``setpoint + offset`` in
+            heating or ``setpoint - offset`` in cooling [degC]
+            (must be >= 0).
+        anti_takeover_threshold_minutes: Maximum split runtime per
+            60-minute window before anti-takeover activates [min]
+            (must be in [1, 60]).
+        anti_takeover_valve_boost_pct: Valve floor boost applied during
+            anti-takeover [%] (must be in (0, 100]).
     """
 
     kp: float = 5.0
@@ -213,6 +223,10 @@ class ControllerConfig:
     w_comfort: float = 1.0
     w_energy: float = 0.1
     w_smooth: float = 0.01
+    split_deadband: float = 0.5
+    split_setpoint_offset: float = 2.0
+    anti_takeover_threshold_minutes: int = 30
+    anti_takeover_valve_boost_pct: float = 50.0
 
     def __post_init__(self) -> None:
         """Validate controller parameters.
@@ -246,6 +260,32 @@ class ControllerConfig:
             raise ValueError(msg)
         if self.w_smooth < 0:
             msg = f"w_smooth must be >= 0, got {self.w_smooth}"
+            raise ValueError(msg)
+        if self.split_deadband < 0:
+            msg = f"split_deadband must be >= 0, got {self.split_deadband}"
+            raise ValueError(msg)
+        if self.split_setpoint_offset < 0:
+            msg = (
+                f"split_setpoint_offset must be >= 0, got {self.split_setpoint_offset}"
+            )
+            raise ValueError(msg)
+        if (
+            self.anti_takeover_threshold_minutes < 1
+            or self.anti_takeover_threshold_minutes > 60
+        ):
+            msg = (
+                f"anti_takeover_threshold_minutes must be in [1, 60], "
+                f"got {self.anti_takeover_threshold_minutes}"
+            )
+            raise ValueError(msg)
+        if (
+            self.anti_takeover_valve_boost_pct <= 0
+            or self.anti_takeover_valve_boost_pct > 100
+        ):
+            msg = (
+                f"anti_takeover_valve_boost_pct must be in (0, 100], "
+                f"got {self.anti_takeover_valve_boost_pct}"
+            )
             raise ValueError(msg)
 
 

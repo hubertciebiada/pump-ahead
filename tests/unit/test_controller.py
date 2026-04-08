@@ -592,3 +592,127 @@ class TestPumpAheadDiagnostics:
         assert "valve_floor_pct" in diag
         assert diag["setpoint"] == pytest.approx(21.0)
         assert diag["valve_floor_pct"] == pytest.approx(10.0)
+
+
+# ---------------------------------------------------------------------------
+# PumpAheadController split coordination tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestPumpAheadControllerSplitCoordination:
+    """Tests for split coordination integration in PumpAheadController."""
+
+    def test_split_off_for_rooms_without_split(self) -> None:
+        """Rooms with room_has_split=False always get SplitMode.OFF."""
+        config = ControllerConfig(kp=5.0, ki=0.0, setpoint=21.0)
+        ctrl = PumpAheadController(config, ["room_a"], room_has_split={"room_a": False})
+        meas = {"room_a": _make_measurements(t_room=19.0)}
+        actions = ctrl.step(meas)
+        assert actions["room_a"].split_mode == SplitMode.OFF
+
+    def test_split_activates_when_error_exceeds_deadband(self) -> None:
+        """Split activates HEATING when error > deadband in heating mode."""
+        config = ControllerConfig(kp=5.0, ki=0.0, setpoint=21.0, split_deadband=0.5)
+        ctrl = PumpAheadController(config, ["room_a"], room_has_split={"room_a": True})
+        # error = 21.0 - 19.0 = 2.0 > 0.5 (deadband)
+        meas = {"room_a": _make_measurements(t_room=19.0)}
+        actions = ctrl.step(meas)
+        assert actions["room_a"].split_mode == SplitMode.HEATING
+
+    def test_split_off_within_deadband(self) -> None:
+        """Split stays OFF when error is within deadband."""
+        config = ControllerConfig(kp=5.0, ki=0.0, setpoint=21.0, split_deadband=0.5)
+        ctrl = PumpAheadController(config, ["room_a"], room_has_split={"room_a": True})
+        # error = 21.0 - 20.7 = 0.3 < 0.5 (deadband)
+        meas = {"room_a": _make_measurements(t_room=20.7)}
+        actions = ctrl.step(meas)
+        assert actions["room_a"].split_mode == SplitMode.OFF
+
+    def test_backward_compat_no_room_has_split_param(self) -> None:
+        """Without room_has_split, all rooms get SplitMode.OFF."""
+        config = ControllerConfig(kp=5.0, ki=0.0, setpoint=21.0)
+        ctrl = PumpAheadController(config, ["room_a", "room_b"])
+        meas = {
+            "room_a": _make_measurements(t_room=19.0),
+            "room_b": _make_measurements(t_room=18.0),
+        }
+        actions = ctrl.step(meas)
+        assert actions["room_a"].split_mode == SplitMode.OFF
+        assert actions["room_b"].split_mode == SplitMode.OFF
+
+    def test_mixed_rooms_split_and_no_split(self) -> None:
+        """Mixed rooms: one with split, one without."""
+        config = ControllerConfig(kp=5.0, ki=0.0, setpoint=21.0, split_deadband=0.5)
+        ctrl = PumpAheadController(
+            config,
+            ["with_split", "without_split"],
+            room_has_split={"with_split": True, "without_split": False},
+        )
+        meas = {
+            "with_split": _make_measurements(t_room=19.0),
+            "without_split": _make_measurements(t_room=19.0),
+        }
+        actions = ctrl.step(meas)
+        assert actions["with_split"].split_mode == SplitMode.HEATING
+        assert actions["without_split"].split_mode == SplitMode.OFF
+
+    def test_anti_takeover_boosts_valve(self) -> None:
+        """Anti-takeover boosts valve above normal valve_floor."""
+        config = ControllerConfig(
+            kp=0.0,
+            ki=0.0,
+            setpoint=21.0,
+            valve_floor_pct=10.0,
+            split_deadband=0.5,
+            anti_takeover_threshold_minutes=30,
+            anti_takeover_valve_boost_pct=50.0,
+        )
+        ctrl = PumpAheadController(config, ["room_a"], room_has_split={"room_a": True})
+
+        # Run 31 steps with large error to trigger anti-takeover
+        for _ in range(31):
+            meas = {"room_a": _make_measurements(t_room=19.0)}
+            actions = ctrl.step(meas)
+
+        # After anti-takeover, valve should be boosted to
+        # valve_floor_pct + anti_takeover_valve_boost_pct = 60.0
+        assert actions["room_a"].valve_position == pytest.approx(60.0)
+        # Anti-takeover forces split OFF to make UFH primary
+        assert actions["room_a"].split_mode == SplitMode.OFF
+
+    def test_diagnostics_include_split_info(self) -> None:
+        """Diagnostics include split fields for rooms with coordinators."""
+        config = ControllerConfig(kp=5.0, ki=0.0, setpoint=21.0)
+        ctrl = PumpAheadController(
+            config,
+            ["with_split", "without_split"],
+            room_has_split={"with_split": True, "without_split": False},
+        )
+        diag = ctrl.get_diagnostics()
+
+        # Room with split has extra diagnostic fields
+        assert "split_runtime_minutes" in diag["with_split"]
+        assert "anti_takeover_active" in diag["with_split"]
+
+        # Room without split does not
+        assert "split_runtime_minutes" not in diag["without_split"]
+        assert "anti_takeover_active" not in diag["without_split"]
+
+    def test_reset_clears_split_coordinators(self) -> None:
+        """Reset clears split coordinator state."""
+        config = ControllerConfig(kp=5.0, ki=0.0, setpoint=21.0, split_deadband=0.5)
+        ctrl = PumpAheadController(config, ["room_a"], room_has_split={"room_a": True})
+
+        # Run a few steps
+        for _ in range(5):
+            meas = {"room_a": _make_measurements(t_room=19.0)}
+            ctrl.step(meas)
+
+        diag_before = ctrl.get_diagnostics()
+        assert diag_before["room_a"]["split_runtime_minutes"] > 0
+
+        ctrl.reset()
+
+        diag_after = ctrl.get_diagnostics()
+        assert diag_after["room_a"]["split_runtime_minutes"] == 0.0

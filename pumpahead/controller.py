@@ -35,6 +35,7 @@ from collections.abc import Sequence
 
 from pumpahead.config import ControllerConfig
 from pumpahead.simulator import Actions, HeatPumpMode, Measurements, SplitMode
+from pumpahead.split_coordinator import SplitCoordinator
 
 
 class PIDController:
@@ -184,6 +185,7 @@ class PumpAheadController:
         room_names: Sequence[str],
         *,
         room_overrides: dict[str, ControllerConfig] | None = None,
+        room_has_split: dict[str, bool] | None = None,
     ) -> None:
         """Initialize the multi-room controller.
 
@@ -193,6 +195,10 @@ class PumpAheadController:
             room_names: Sequence of room identifiers.  Must be non-empty.
             room_overrides: Optional per-room configuration overrides.
                 Rooms not listed use the default *config*.
+            room_has_split: Optional per-room split availability map.
+                When ``None`` (default), all rooms are treated as
+                UFH-only (backward compatible).  When provided, rooms
+                with ``True`` get a ``SplitCoordinator`` instance.
 
         Raises:
             ValueError: If *room_names* is empty or contains duplicates,
@@ -216,6 +222,9 @@ class PumpAheadController:
         self._room_names = names
         self._room_configs: dict[str, ControllerConfig] = {}
         self._pids: dict[str, PIDController] = {}
+        self._split_coordinators: dict[str, SplitCoordinator] = {}
+
+        split_map = room_has_split or {}
 
         for name in names:
             cfg = overrides.get(name, config)
@@ -226,6 +235,8 @@ class PumpAheadController:
                 kd=cfg.kd,
                 dt=60.0,
             )
+            if split_map.get(name, False):
+                self._split_coordinators[name] = SplitCoordinator(cfg)
 
     # -- Properties -----------------------------------------------------------
 
@@ -287,18 +298,38 @@ class PumpAheadController:
             ):
                 valve = max(valve, cfg.valve_floor_pct)
 
+            # Split coordination (only for rooms with a coordinator)
+            split_mode = SplitMode.OFF
+            split_setpoint = 0.0
+
+            if name in self._split_coordinators:
+                decision = self._split_coordinators[name].decide(
+                    error=error,
+                    setpoint=cfg.setpoint,
+                    hp_mode=meas.hp_mode,
+                )
+                split_mode = decision.split_mode
+                split_setpoint = decision.split_setpoint
+
+                # Apply anti-takeover valve boost
+                if decision.valve_floor_boost > 0:
+                    boosted_floor = cfg.valve_floor_pct + decision.valve_floor_boost
+                    valve = max(valve, min(boosted_floor, 100.0))
+
             actions[name] = Actions(
                 valve_position=valve,
-                split_mode=SplitMode.OFF,
-                split_setpoint=0.0,
+                split_mode=split_mode,
+                split_setpoint=split_setpoint,
             )
 
         return actions
 
     def reset(self) -> None:
-        """Reset all per-room PID controllers."""
+        """Reset all per-room PID controllers and split coordinators."""
         for pid in self._pids.values():
             pid.reset()
+        for coordinator in self._split_coordinators.values():
+            coordinator.reset()
 
     def get_diagnostics(self) -> dict[str, dict[str, float]]:
         """Return per-room diagnostic information.
@@ -309,15 +340,27 @@ class PumpAheadController:
             - ``"last_output"``: Most recent PID output.
             - ``"setpoint"``: Room setpoint [degC].
             - ``"valve_floor_pct"``: Valve floor minimum [%].
+            - ``"split_runtime_minutes"``: Split runtime in the sliding
+              window [min] (only for rooms with a split coordinator).
+            - ``"anti_takeover_active"``: 1.0 if anti-takeover is
+              triggered, 0.0 otherwise (only for rooms with a split
+              coordinator).
         """
         result: dict[str, dict[str, float]] = {}
         for name in self._room_names:
             pid = self._pids[name]
             cfg = self._room_configs[name]
-            result[name] = {
+            diag: dict[str, float] = {
                 "integral": pid.integral,
                 "last_output": pid.last_output,
                 "setpoint": cfg.setpoint,
                 "valve_floor_pct": cfg.valve_floor_pct,
             }
+            if name in self._split_coordinators:
+                coordinator = self._split_coordinators[name]
+                diag["split_runtime_minutes"] = float(coordinator.split_runtime_minutes)
+                diag["anti_takeover_active"] = (
+                    1.0 if coordinator.anti_takeover_active else 0.0
+                )
+            result[name] = diag
         return result
