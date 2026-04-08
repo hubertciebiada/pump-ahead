@@ -442,7 +442,7 @@ class TestDisturbanceBuilder:
             ephemeris=lubcza_ephemeris,
             windows=south_windows,
             gain_profile=constant_profile,
-            dt_seconds=600,   # 10 min
+            dt_seconds=600,  # 10 min
             horizon_steps=48,  # 8h
         )
         start = datetime(2024, 1, 1, 0, 0, tzinfo=UTC)
@@ -484,9 +484,7 @@ class TestDisturbanceBuilder:
         assert d60[0, 0] > d0[0, 0]
 
     @pytest.mark.unit
-    def test_full_horizon_covers_24h(
-        self, builder_night: DisturbanceBuilder
-    ) -> None:
+    def test_full_horizon_covers_24h(self, builder_night: DisturbanceBuilder) -> None:
         """Default horizon (96 steps * 15 min) covers exactly 24 hours.
 
         The last step starts at 24h - 15min = 23h45.
