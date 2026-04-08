@@ -16,6 +16,7 @@ from pumpahead.config import (
     RoomConfig,
     SimScenario,
 )
+from pumpahead.controller import PIDController, PumpAheadController
 from pumpahead.cross_validation import (
     DEFAULT_HORIZONS,
     DEFAULT_OVERFITTING_THRESHOLD,
@@ -135,6 +136,8 @@ __all__ = [
     "ChannelProfile",
     "ControllerConfig",
     "CrossValidationResult",
+    "PIDController",
+    "PumpAheadController",
     "CSVConfig",
     "CSVParseError",
     "CSVWeather",
