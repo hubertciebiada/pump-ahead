@@ -74,6 +74,7 @@ from pumpahead.optimizer import (
     MPCResult,
     RecedingHorizonResult,
 )
+from pumpahead.replay import create_app as create_replay_app
 from pumpahead.scenarios import (
     PARAMETRIC_SWEEPS,
     SCENARIO_LIBRARY,
@@ -113,7 +114,6 @@ from pumpahead.solar_gti import (
     extraterrestrial_horizontal,
 )
 from pumpahead.split_coordinator import SplitCoordinator, SplitDecision
-from pumpahead.replay import create_app as create_replay_app
 from pumpahead.visualization import (
     generate_plots,
     plot_dashboard,
