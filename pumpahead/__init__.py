@@ -94,6 +94,15 @@ from pumpahead.solar_gti import (
     erbs_decomposition,
     extraterrestrial_horizontal,
 )
+from pumpahead.visualization import (
+    generate_plots,
+    plot_dashboard,
+    plot_energy,
+    plot_room_temperatures,
+    plot_splits,
+    plot_valves,
+    plot_weather,
+)
 from pumpahead.weather import (
     ChannelProfile,
     CSVConfig,
@@ -192,9 +201,16 @@ __all__ = [
     "hubert_real",
     "insulation_sweep",
     "leaky_old_house",
+    "generate_plots",
+    "plot_dashboard",
+    "plot_energy",
     "plot_predicted_vs_measured",
     "plot_residuals",
     "plot_rmse_over_time",
+    "plot_room_temperatures",
+    "plot_splits",
+    "plot_valves",
+    "plot_weather",
     "rapid_warming",
     "screed_sweep",
     "solar_overshoot",
