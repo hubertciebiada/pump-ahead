@@ -88,6 +88,3 @@ ignore_missing_imports = true
 module = ["plotly.*"]
 ignore_missing_imports = true
 
-[[tool.mypy.overrides]]
-module = ["pumpahead.replay.app"]
-disable_error_code = ["misc"]

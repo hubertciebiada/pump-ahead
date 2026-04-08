@@ -766,7 +766,7 @@ def create_app(
 
     # -- Callbacks ------------------------------------------------------------
 
-    @app.callback(
+    @app.callback(  # type: ignore
         Output("log-id", "data"),
         Output("n-steps", "data"),
         Output("room-names", "data"),
@@ -829,7 +829,7 @@ def create_app(
         except Exception as exc:
             return ("", 0, [], 0, f"Error loading file: {exc}", 0, 0)
 
-    @app.callback(
+    @app.callback(  # type: ignore
         Output("playing", "data"),
         Output("btn-play-pause", "children"),
         Output("playback-interval", "disabled"),
@@ -848,7 +848,7 @@ def create_app(
         label = "Pause" if new_playing else "Play"
         return (new_playing, label, not new_playing)
 
-    @app.callback(
+    @app.callback(  # type: ignore
         Output("playback-interval", "interval"),
         Input("speed-selector", "value"),
     )
@@ -856,7 +856,7 @@ def create_app(
         """Update the playback interval based on speed selection."""
         return _SPEED_MAP.get(speed, 1000)
 
-    @app.callback(
+    @app.callback(  # type: ignore
         Output("current-step", "data", allow_duplicate=True),
         Output("playing", "data", allow_duplicate=True),
         Output("btn-play-pause", "children", allow_duplicate=True),
@@ -879,7 +879,7 @@ def create_app(
             return (n_steps_val - 1, False, "Play", True)
         return (new_step, True, "Pause", False)
 
-    @app.callback(
+    @app.callback(  # type: ignore
         Output("current-step", "data", allow_duplicate=True),
         Input("btn-step-fwd", "n_clicks"),
         State("current-step", "data"),
@@ -892,7 +892,7 @@ def create_app(
             raise PreventUpdate
         return min(step + 1, n_steps_val - 1)
 
-    @app.callback(
+    @app.callback(  # type: ignore
         Output("current-step", "data", allow_duplicate=True),
         Input("btn-step-back", "n_clicks"),
         State("current-step", "data"),
@@ -905,7 +905,7 @@ def create_app(
             raise PreventUpdate
         return max(step - 1, 0)
 
-    @app.callback(
+    @app.callback(  # type: ignore
         Output("current-step", "data", allow_duplicate=True),
         Input("timeline-slider", "value"),
         prevent_initial_call=True,
@@ -914,7 +914,7 @@ def create_app(
         """Sync current step from slider position."""
         return value
 
-    @app.callback(
+    @app.callback(  # type: ignore
         Output("timeline-slider", "value", allow_duplicate=True),
         Output("step-display", "children"),
         Input("current-step", "data"),
@@ -926,7 +926,7 @@ def create_app(
         display = f"Step: {step} / {max(0, n_steps_val - 1)}"
         return (step, display)
 
-    @app.callback(
+    @app.callback(  # type: ignore
         Output("gauges-container", "children"),
         Output("charts-container", "children"),
         Output("weather-chart", "figure"),
