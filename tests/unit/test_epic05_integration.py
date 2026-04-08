@@ -152,13 +152,9 @@ class TestEpic05Integration:
         records: list[SimRecord] = []
         for i in range(20):
             # salon: T_room=21.0 (at setpoint)
-            records.append(
-                _make_record(t=i, T_room=21.0, room_name="salon")
-            )
+            records.append(_make_record(t=i, T_room=21.0, room_name="salon"))
             # kitchen: T_room=25.0 (far from setpoint)
-            records.append(
-                _make_record(t=i, T_room=25.0, room_name="kitchen")
-            )
+            records.append(_make_record(t=i, T_room=25.0, room_name="kitchen"))
 
         log = _make_log(records)
         salon_log = log.get_room("salon")
@@ -214,13 +210,9 @@ class TestEpic05Integration:
 
         8/10 records with split HEATING = 80% > 50% threshold.
         """
-        records = [
-            _make_record(t=i, split_mode=SplitMode.HEATING)
-            for i in range(8)
-        ]
+        records = [_make_record(t=i, split_mode=SplitMode.HEATING) for i in range(8)]
         records.extend(
-            _make_record(t=8 + i, split_mode=SplitMode.OFF)
-            for i in range(2)
+            _make_record(t=8 + i, split_mode=SplitMode.OFF) for i in range(2)
         )
         log = _make_log(records)
         with pytest.raises(AssertionError, match="split runtime 80.0%"):
