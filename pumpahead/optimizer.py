@@ -33,6 +33,8 @@ Units: temperatures in degC, valve positions in [0, 1], time step from model.
 
 from __future__ import annotations
 
+import logging
+import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
@@ -71,6 +73,7 @@ class MPCConfig:
         T_dew_margin: Dew-point safety margin [K] (Axiom 5).
         w_slack: Penalty weight for soft comfort slack variables (> 0).
         T_comfort_band: Soft comfort band half-width around setpoint [K] (> 0).
+        solver_timeout_s: OSQP solver time limit in seconds (> 0).
     """
 
     horizon: int = 96
@@ -81,6 +84,7 @@ class MPCConfig:
     T_dew_margin: float = 2.0
     w_slack: float = 1000.0
     T_comfort_band: float = 2.0
+    solver_timeout_s: float = 0.1
 
     def __post_init__(self) -> None:
         """Validate configuration parameters."""
@@ -107,6 +111,9 @@ class MPCConfig:
             raise ValueError(msg)
         if self.T_comfort_band <= 0:
             msg = f"T_comfort_band must be > 0, got {self.T_comfort_band}"
+            raise ValueError(msg)
+        if self.solver_timeout_s <= 0:
+            msg = f"solver_timeout_s must be > 0, got {self.solver_timeout_s}"
             raise ValueError(msg)
 
 
@@ -136,6 +143,34 @@ class MPCResult:
     cost: float
     status: str
     slack: NDArray[np.float64]
+
+
+# ---------------------------------------------------------------------------
+# RecedingHorizonResult
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class RecedingHorizonResult:
+    """Result of a single receding-horizon MPC step.
+
+    Attributes:
+        u_floor_0: First-step UFH valve command [0, 1].
+        u_conv_0: First-step split command (0.0 for SISO rooms).
+        solve_time_ms: Wall-clock solver time in milliseconds.
+        used_fallback: True if PID fallback was used instead of MPC.
+        solver_status: Solver status string, or ``"fallback"`` when PID used.
+        mpc_result: Full MPC solver result (None when fallback active).
+        x_predicted: Predicted state trajectory (None when fallback active).
+    """
+
+    u_floor_0: float
+    u_conv_0: float
+    solve_time_ms: float
+    used_fallback: bool
+    solver_status: str
+    mpc_result: MPCResult | None
+    x_predicted: NDArray[np.float64] | None
 
 
 # ---------------------------------------------------------------------------
@@ -474,3 +509,254 @@ class MPCOptimizer:
         self._E_d_np = matrices["E_d"]
         self._b_d_np = matrices["b_d"]
         self._model = model
+
+
+# ---------------------------------------------------------------------------
+# _PIDFallback — minimal proportional-integral fallback controller
+# ---------------------------------------------------------------------------
+
+_logger = logging.getLogger(__name__)
+
+
+class _PIDFallback:
+    """Minimal PI controller used as MPC fallback.
+
+    Produces a UFH valve command in [0, 1] from the temperature error
+    ``T_set - T_air``.  The integral term is clamped to avoid windup.
+
+    This is intentionally simple — a full PIDController will be implemented
+    separately.  The fallback exists solely to maintain thermal control when
+    the MPC solver fails or times out.
+    """
+
+    _INTEGRAL_CLAMP = 100.0
+
+    def __init__(
+        self,
+        kp: float = 5.0,
+        ki: float = 0.01,
+        dt_seconds: float = 900.0,
+    ) -> None:
+        self._kp = kp
+        self._ki = ki
+        self._dt = dt_seconds
+        self._integral: float = 0.0
+
+    def compute(self, T_air: float, T_set: float) -> float:
+        """Return valve command in [0, 1] for the given error."""
+        error = T_set - T_air
+        self._integral += error * self._dt
+        self._integral = max(
+            -self._INTEGRAL_CLAMP,
+            min(self._INTEGRAL_CLAMP, self._integral),
+        )
+        output = self._kp * error + self._ki * self._integral
+        return max(0.0, min(1.0, output))
+
+    def reset(self) -> None:
+        """Reset accumulated integral."""
+        self._integral = 0.0
+
+
+# ---------------------------------------------------------------------------
+# MPCController — receding-horizon wrapper with warm start & PID fallback
+# ---------------------------------------------------------------------------
+
+
+class MPCController:
+    """Receding-horizon MPC controller with warm start and PID fallback.
+
+    Wraps :class:`MPCOptimizer` to provide a ``step()`` method suitable for
+    real-time control loops.  Each call:
+
+    1. Optionally warm-starts the solver from the previous solution.
+    2. Solves the QP with the configured OSQP timeout.
+    3. On success, extracts the first-step control action.
+    4. On failure (infeasibility, timeout, exception), falls back to a
+       minimal PI controller.
+
+    Typical usage::
+
+        ctrl = MPCController(model)
+        result = ctrl.step(x0, d, T_set=21.0)
+        valve = result.u_floor_0
+    """
+
+    def __init__(
+        self,
+        model: RCModel,
+        config: MPCConfig | None = None,
+        fallback_kp: float = 5.0,
+        fallback_ki: float = 0.01,
+    ) -> None:
+        """Initialise the receding-horizon controller.
+
+        Args:
+            model: Discretised RC thermal model.
+            config: MPC configuration; defaults to ``MPCConfig()``.
+            fallback_kp: Proportional gain for the PID fallback.
+            fallback_ki: Integral gain for the PID fallback.
+        """
+        self._config = config if config is not None else MPCConfig()
+        self._optimizer = MPCOptimizer(model, self._config)
+        self._fallback = _PIDFallback(
+            kp=fallback_kp,
+            ki=fallback_ki,
+            dt_seconds=model.dt,
+        )
+        self._prev_u: NDArray[np.float64] | None = None
+        self._prev_x: NDArray[np.float64] | None = None
+
+    # -- Public properties ---------------------------------------------------
+
+    @property
+    def config(self) -> MPCConfig:
+        """The MPC configuration."""
+        return self._config
+
+    @property
+    def has_split(self) -> bool:
+        """Whether the underlying model includes a split/AC input."""
+        return self._optimizer.has_split
+
+    @property
+    def optimizer(self) -> MPCOptimizer:
+        """The underlying MPCOptimizer (read-only)."""
+        return self._optimizer
+
+    # -- Warm start ----------------------------------------------------------
+
+    def _warm_start_from_previous(self) -> None:
+        """Seed solver variables from the previous solution.
+
+        Shifts previous u and x trajectories left by one step (discards the
+        first element, duplicates the last) and assigns them as initial
+        values for the cvxpy variables.
+        """
+        if self._prev_u is None or self._prev_x is None:
+            return
+
+        # Shift u: drop u[0], repeat u[-1]
+        u_shifted = np.roll(self._prev_u, -1, axis=0)
+        u_shifted[-1] = self._prev_u[-1]
+
+        # Shift x: drop x[0], repeat x[-1]
+        x_shifted = np.roll(self._prev_x, -1, axis=0)
+        x_shifted[-1] = self._prev_x[-1]
+
+        # Assign to cvxpy variables
+        self._optimizer._x.value = x_shifted  # noqa: SLF001
+        self._optimizer._u.value = u_shifted  # noqa: SLF001
+
+    # -- Step ----------------------------------------------------------------
+
+    def step(
+        self,
+        x0: NDArray[np.float64],
+        d: NDArray[np.float64],
+        T_set: float,
+        T_dew: NDArray[np.float64] | None = None,
+        mode: Literal["heating", "cooling"] = "heating",
+    ) -> RecedingHorizonResult:
+        """Execute one receding-horizon step.
+
+        Solves the full MPC horizon, extracts the first control action,
+        and stores the solution for warm-starting the next call.
+
+        On solver failure the method returns a PID-fallback result instead
+        of raising an exception.
+
+        Args:
+            x0: Current state, shape ``(n_states,)``.
+            d: Disturbance forecast, shape ``(N, n_disturbances)``.
+            T_set: Setpoint temperature [degC].
+            T_dew: Dew-point temperatures per step, shape ``(N,)``.
+            mode: ``"heating"`` or ``"cooling"``.
+
+        Returns:
+            :class:`RecedingHorizonResult` with the first-step action and
+            solver metadata.
+        """
+        # Warm start from previous solution
+        self._warm_start_from_previous()
+
+        try:
+            t0 = time.perf_counter()
+            result = self._optimizer.solve(
+                x0=x0,
+                d=d,
+                T_set=T_set,
+                T_dew=T_dew,
+                mode=mode,
+                solver=cp.OSQP,
+                time_limit=self._config.solver_timeout_s,
+            )
+            solve_ms = (time.perf_counter() - t0) * 1000.0
+        except (MPCInfeasibleError, Exception) as exc:
+            _logger.warning("MPC solver failed (%s), using PID fallback", exc)
+            return self._fallback_result(x0, T_set)
+
+        # Treat "optimal_inaccurate" as success (feasible but not converged)
+        status = result.status
+        if "infeasible" in status:
+            _logger.warning(
+                "MPC solver returned infeasible status '%s', using PID fallback",
+                status,
+            )
+            return self._fallback_result(x0, T_set)
+
+        # Store solution for warm start
+        self._prev_u = result.u.copy()
+        self._prev_x = result.x.copy()
+
+        # Extract first-step action
+        u_floor_0 = float(result.u_floor[0])
+        u_conv_0 = float(result.u_conv[0])
+
+        return RecedingHorizonResult(
+            u_floor_0=u_floor_0,
+            u_conv_0=u_conv_0,
+            solve_time_ms=solve_ms,
+            used_fallback=False,
+            solver_status=status,
+            mpc_result=result,
+            x_predicted=result.x.copy(),
+        )
+
+    # -- Fallback ------------------------------------------------------------
+
+    def _fallback_result(
+        self,
+        x0: NDArray[np.float64],
+        T_set: float,
+    ) -> RecedingHorizonResult:
+        """Build a RecedingHorizonResult from PID fallback."""
+        T_air = float(x0[0])
+        u_floor_0 = self._fallback.compute(T_air, T_set)
+        return RecedingHorizonResult(
+            u_floor_0=u_floor_0,
+            u_conv_0=0.0,
+            solve_time_ms=0.0,
+            used_fallback=True,
+            solver_status="fallback",
+            mpc_result=None,
+            x_predicted=None,
+        )
+
+    # -- Reset / model update ------------------------------------------------
+
+    def reset(self) -> None:
+        """Clear warm-start state and reset the PID fallback integral."""
+        self._prev_u = None
+        self._prev_x = None
+        self._fallback.reset()
+
+    def update_model(self, model: RCModel) -> None:
+        """Update the underlying model and clear warm-start state.
+
+        Args:
+            model: New RC model with the same dimensions.
+        """
+        self._optimizer.update_model(model)
+        self._prev_u = None
+        self._prev_x = None

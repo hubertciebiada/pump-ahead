@@ -51,7 +51,14 @@ from pumpahead.metrics import (
     assert_no_priority_inversion,
 )
 from pumpahead.model import ModelOrder, RCModel, RCParams
-from pumpahead.optimizer import MPCConfig, MPCInfeasibleError, MPCOptimizer, MPCResult
+from pumpahead.optimizer import (
+    MPCConfig,
+    MPCController,
+    MPCInfeasibleError,
+    MPCOptimizer,
+    MPCResult,
+    RecedingHorizonResult,
+)
 from pumpahead.scenarios import (
     PARAMETRIC_SWEEPS,
     SCENARIO_LIBRARY,
@@ -139,9 +146,11 @@ __all__ = [
     "KalmanEstimator",
     "Measurements",
     "MPCConfig",
+    "MPCController",
     "MPCInfeasibleError",
     "MPCOptimizer",
     "MPCResult",
+    "RecedingHorizonResult",
     "MPC_DT_SECONDS",
     "MPC_HORIZON_STEPS",
     "ModelOrder",
