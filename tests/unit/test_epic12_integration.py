@@ -162,11 +162,104 @@ def ha_weather_mocks() -> Any:  # noqa: C901
 
     ha = types.ModuleType("homeassistant")
 
+    # helpers mock chain (needed by coordinator.py / config_flow.py imports).
+    ha_helpers = types.ModuleType("homeassistant.helpers")
+    ha_helpers_update_coordinator = types.ModuleType(
+        "homeassistant.helpers.update_coordinator"
+    )
+
+    class _FakeDataUpdateCoordinator:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            self.hass = args[0] if args else kwargs.get("hass")
+
+        def __class_getitem__(cls, _item: object) -> type:  # noqa: N804
+            return cls
+
+        async def async_config_entry_first_refresh(self) -> None:
+            pass
+
+    ha_helpers_update_coordinator.DataUpdateCoordinator = _FakeDataUpdateCoordinator  # type: ignore[attr-defined]
+
+    ha_helpers_selector = types.ModuleType("homeassistant.helpers.selector")
+
+    class _SelectorConfig:
+        def __init__(self, **kwargs: Any) -> None:
+            self.__dict__.update(kwargs)
+
+    class _Selector:
+        def __init__(self, config: Any = None) -> None:
+            self.config = config
+
+    ha_helpers_selector.EntitySelector = _Selector  # type: ignore[attr-defined]
+    ha_helpers_selector.EntitySelectorConfig = _SelectorConfig  # type: ignore[attr-defined]
+    ha_helpers_selector.NumberSelector = _Selector  # type: ignore[attr-defined]
+    ha_helpers_selector.NumberSelectorConfig = _SelectorConfig  # type: ignore[attr-defined]
+    ha_helpers_selector.NumberSelectorMode = types.SimpleNamespace(BOX="box")  # type: ignore[attr-defined]
+    ha_helpers_selector.SelectSelector = _Selector  # type: ignore[attr-defined]
+    ha_helpers_selector.SelectSelectorConfig = _SelectorConfig  # type: ignore[attr-defined]
+    ha_helpers_selector.BooleanSelector = _Selector  # type: ignore[attr-defined]
+    ha_helpers_selector.TextSelector = _Selector  # type: ignore[attr-defined]
+
+    ha_data_entry_flow = types.ModuleType("homeassistant.data_entry_flow")
+    ha_data_entry_flow.FlowResult = dict  # type: ignore[attr-defined]
+
+    # voluptuous mock (needed by config_flow.py).
+    vol = types.ModuleType("voluptuous")
+
+    class _VolSchema:
+        def __init__(self, schema: Any) -> None:
+            self._schema = schema
+
+    class _VolRequired:
+        def __init__(self, key: str, **kwargs: Any) -> None:
+            self.key = key
+
+        def __hash__(self) -> int:
+            return hash(self.key)
+
+        def __eq__(self, other: object) -> bool:
+            if isinstance(other, _VolRequired):
+                return self.key == other.key
+            return self.key == other
+
+    class _VolOptional:
+        def __init__(self, key: str, **kwargs: Any) -> None:
+            self.key = key
+
+        def __hash__(self) -> int:
+            return hash(self.key)
+
+        def __eq__(self, other: object) -> bool:
+            if isinstance(other, _VolOptional):
+                return self.key == other.key
+            return self.key == other
+
+    vol.Schema = _VolSchema  # type: ignore[attr-defined]
+    vol.Required = _VolRequired  # type: ignore[attr-defined]
+    vol.Optional = _VolOptional  # type: ignore[attr-defined]
+
+    class _FakeConfigFlow:
+        VERSION: int = 1
+        hass: Any = None
+
+        def __init_subclass__(cls, domain: str = "", **kwargs: Any) -> None:
+            super().__init_subclass__(**kwargs)
+            cls.DOMAIN = domain
+
+    ha_config_entries.ConfigFlow = _FakeConfigFlow  # type: ignore[attr-defined]
+
     # Inject into sys.modules
+    sys.modules["voluptuous"] = vol
     sys.modules["homeassistant"] = ha
     sys.modules["homeassistant.const"] = ha_const
     sys.modules["homeassistant.core"] = ha_core
     sys.modules["homeassistant.config_entries"] = ha_config_entries
+    sys.modules["homeassistant.helpers"] = ha_helpers
+    sys.modules["homeassistant.helpers.update_coordinator"] = (
+        ha_helpers_update_coordinator
+    )
+    sys.modules["homeassistant.helpers.selector"] = ha_helpers_selector
+    sys.modules["homeassistant.data_entry_flow"] = ha_data_entry_flow
 
     repo_root_str = str(_REPO_ROOT)
     path_added = repo_root_str not in sys.path
@@ -191,7 +284,7 @@ def ha_weather_mocks() -> Any:  # noqa: C901
     keys_to_remove = [
         k
         for k in sys.modules
-        if k.startswith(("homeassistant", "custom_components"))
+        if k.startswith(("homeassistant", "custom_components", "voluptuous"))
         and k not in existing_ha_keys
     ]
     for k in keys_to_remove:
