@@ -95,6 +95,12 @@ from pumpahead.solar_gti import (
     erbs_decomposition,
     extraterrestrial_horizontal,
 )
+from pumpahead.log_serializer import (
+    load_json,
+    load_pickle,
+    save_json,
+    save_pickle,
+)
 from pumpahead.visualization import (
     generate_plots,
     plot_dashboard,
@@ -204,6 +210,8 @@ __all__ = [
     "hubert_real",
     "insulation_sweep",
     "leaky_old_house",
+    "load_json",
+    "load_pickle",
     "generate_plots",
     "plot_dashboard",
     "plot_energy",
@@ -215,6 +223,8 @@ __all__ = [
     "plot_valves",
     "plot_weather",
     "rapid_warming",
+    "save_json",
+    "save_pickle",
     "screed_sweep",
     "solar_overshoot",
     "steady_state",
