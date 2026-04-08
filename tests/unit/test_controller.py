@@ -606,21 +606,15 @@ class TestPumpAheadControllerSplitCoordination:
     def test_split_off_for_rooms_without_split(self) -> None:
         """Rooms with room_has_split=False always get SplitMode.OFF."""
         config = ControllerConfig(kp=5.0, ki=0.0, setpoint=21.0)
-        ctrl = PumpAheadController(
-            config, ["room_a"], room_has_split={"room_a": False}
-        )
+        ctrl = PumpAheadController(config, ["room_a"], room_has_split={"room_a": False})
         meas = {"room_a": _make_measurements(t_room=19.0)}
         actions = ctrl.step(meas)
         assert actions["room_a"].split_mode == SplitMode.OFF
 
     def test_split_activates_when_error_exceeds_deadband(self) -> None:
         """Split activates HEATING when error > deadband in heating mode."""
-        config = ControllerConfig(
-            kp=5.0, ki=0.0, setpoint=21.0, split_deadband=0.5
-        )
-        ctrl = PumpAheadController(
-            config, ["room_a"], room_has_split={"room_a": True}
-        )
+        config = ControllerConfig(kp=5.0, ki=0.0, setpoint=21.0, split_deadband=0.5)
+        ctrl = PumpAheadController(config, ["room_a"], room_has_split={"room_a": True})
         # error = 21.0 - 19.0 = 2.0 > 0.5 (deadband)
         meas = {"room_a": _make_measurements(t_room=19.0)}
         actions = ctrl.step(meas)
@@ -628,12 +622,8 @@ class TestPumpAheadControllerSplitCoordination:
 
     def test_split_off_within_deadband(self) -> None:
         """Split stays OFF when error is within deadband."""
-        config = ControllerConfig(
-            kp=5.0, ki=0.0, setpoint=21.0, split_deadband=0.5
-        )
-        ctrl = PumpAheadController(
-            config, ["room_a"], room_has_split={"room_a": True}
-        )
+        config = ControllerConfig(kp=5.0, ki=0.0, setpoint=21.0, split_deadband=0.5)
+        ctrl = PumpAheadController(config, ["room_a"], room_has_split={"room_a": True})
         # error = 21.0 - 20.7 = 0.3 < 0.5 (deadband)
         meas = {"room_a": _make_measurements(t_room=20.7)}
         actions = ctrl.step(meas)
@@ -653,9 +643,7 @@ class TestPumpAheadControllerSplitCoordination:
 
     def test_mixed_rooms_split_and_no_split(self) -> None:
         """Mixed rooms: one with split, one without."""
-        config = ControllerConfig(
-            kp=5.0, ki=0.0, setpoint=21.0, split_deadband=0.5
-        )
+        config = ControllerConfig(kp=5.0, ki=0.0, setpoint=21.0, split_deadband=0.5)
         ctrl = PumpAheadController(
             config,
             ["with_split", "without_split"],
@@ -680,9 +668,7 @@ class TestPumpAheadControllerSplitCoordination:
             anti_takeover_threshold_minutes=30,
             anti_takeover_valve_boost_pct=50.0,
         )
-        ctrl = PumpAheadController(
-            config, ["room_a"], room_has_split={"room_a": True}
-        )
+        ctrl = PumpAheadController(config, ["room_a"], room_has_split={"room_a": True})
 
         # Run 31 steps with large error to trigger anti-takeover
         for _ in range(31):
@@ -715,12 +701,8 @@ class TestPumpAheadControllerSplitCoordination:
 
     def test_reset_clears_split_coordinators(self) -> None:
         """Reset clears split coordinator state."""
-        config = ControllerConfig(
-            kp=5.0, ki=0.0, setpoint=21.0, split_deadband=0.5
-        )
-        ctrl = PumpAheadController(
-            config, ["room_a"], room_has_split={"room_a": True}
-        )
+        config = ControllerConfig(kp=5.0, ki=0.0, setpoint=21.0, split_deadband=0.5)
+        ctrl = PumpAheadController(config, ["room_a"], room_has_split={"room_a": True})
 
         # Run a few steps
         for _ in range(5):

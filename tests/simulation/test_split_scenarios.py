@@ -66,9 +66,7 @@ class TestDualSourceSteadyState:
             room_log = log.get_room(room_name).time_range(
                 half, scenario.duration_minutes
             )
-            room_cfg = next(
-                r for r in scenario.building.rooms if r.name == room_name
-            )
+            room_cfg = next(r for r in scenario.building.rooms if r.name == room_name)
             metrics = SimMetrics.from_log(
                 room_log,
                 setpoint=scenario.controller.setpoint,
@@ -101,9 +99,7 @@ class TestDualSourceSteadyState:
             room_log = log.get_room(room_name).time_range(
                 half, scenario.duration_minutes
             )
-            room_cfg = next(
-                r for r in scenario.building.rooms if r.name == room_name
-            )
+            room_cfg = next(r for r in scenario.building.rooms if r.name == room_name)
             metrics = SimMetrics.from_log(
                 room_log,
                 setpoint=scenario.controller.setpoint,
@@ -143,9 +139,7 @@ class TestDualSourceSteadyState:
 
         for room_name in _UFH_ONLY_ROOMS:
             room_log = log.get_room(room_name)
-            room_cfg = next(
-                r for r in scenario.building.rooms if r.name == room_name
-            )
+            room_cfg = next(r for r in scenario.building.rooms if r.name == room_name)
             metrics = SimMetrics.from_log(
                 room_log,
                 setpoint=scenario.controller.setpoint,
@@ -238,9 +232,7 @@ class TestPriorityInversionStress:
 
         for room_name in _SPLIT_ROOMS:
             room_log = log.get_room(room_name)
-            room_cfg = next(
-                r for r in scenario.building.rooms if r.name == room_name
-            )
+            room_cfg = next(r for r in scenario.building.rooms if r.name == room_name)
             metrics = SimMetrics.from_log(
                 room_log,
                 setpoint=scenario.controller.setpoint,

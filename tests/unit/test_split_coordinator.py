@@ -155,9 +155,7 @@ class TestSplitCoordinatorDecide:
 
     def test_split_setpoint_heating(self) -> None:
         """Split setpoint in heating = setpoint + offset."""
-        config = ControllerConfig(
-            split_deadband=0.5, split_setpoint_offset=2.0
-        )
+        config = ControllerConfig(split_deadband=0.5, split_setpoint_offset=2.0)
         coordinator = SplitCoordinator(config)
         decision = coordinator.decide(
             error=1.0, setpoint=21.0, hp_mode=HeatPumpMode.HEATING
@@ -166,9 +164,7 @@ class TestSplitCoordinatorDecide:
 
     def test_split_setpoint_cooling(self) -> None:
         """Split setpoint in cooling = setpoint - offset."""
-        config = ControllerConfig(
-            split_deadband=0.5, split_setpoint_offset=2.0
-        )
+        config = ControllerConfig(split_deadband=0.5, split_setpoint_offset=2.0)
         coordinator = SplitCoordinator(config)
         decision = coordinator.decide(
             error=-1.0, setpoint=25.0, hp_mode=HeatPumpMode.COOLING
@@ -236,9 +232,7 @@ class TestAntiTakeover:
 
         # Activate split for 29 minutes
         for _ in range(29):
-            coordinator.decide(
-                error=2.0, setpoint=21.0, hp_mode=HeatPumpMode.HEATING
-            )
+            coordinator.decide(error=2.0, setpoint=21.0, hp_mode=HeatPumpMode.HEATING)
 
         assert coordinator.anti_takeover_active is False
 
@@ -257,9 +251,7 @@ class TestAntiTakeover:
 
         # Activate split for 30 minutes to hit threshold
         for _ in range(30):
-            coordinator.decide(
-                error=2.0, setpoint=21.0, hp_mode=HeatPumpMode.HEATING
-            )
+            coordinator.decide(error=2.0, setpoint=21.0, hp_mode=HeatPumpMode.HEATING)
         assert coordinator.anti_takeover_active is True
 
         # Anti-takeover is active, so all subsequent calls record False.
@@ -267,9 +259,7 @@ class TestAntiTakeover:
         # Window has 30 ON + 31 OFF = 61 entries -> maxlen=60 means
         # 1 ON entry fell off, leaving 29 ON + 31 OFF. Runtime = 29 < 30.
         for _ in range(31):
-            coordinator.decide(
-                error=2.0, setpoint=21.0, hp_mode=HeatPumpMode.HEATING
-            )
+            coordinator.decide(error=2.0, setpoint=21.0, hp_mode=HeatPumpMode.HEATING)
 
         assert coordinator.anti_takeover_active is False
 
@@ -280,23 +270,17 @@ class TestAntiTakeover:
 
         # 10 ON entries
         for _ in range(10):
-            coordinator.decide(
-                error=2.0, setpoint=21.0, hp_mode=HeatPumpMode.HEATING
-            )
+            coordinator.decide(error=2.0, setpoint=21.0, hp_mode=HeatPumpMode.HEATING)
         assert coordinator.split_runtime_minutes == 10
 
         # 5 OFF entries
         for _ in range(5):
-            coordinator.decide(
-                error=0.1, setpoint=21.0, hp_mode=HeatPumpMode.HEATING
-            )
+            coordinator.decide(error=0.1, setpoint=21.0, hp_mode=HeatPumpMode.HEATING)
         assert coordinator.split_runtime_minutes == 10  # still 10 ON in window
 
         # 10 more ON entries
         for _ in range(10):
-            coordinator.decide(
-                error=2.0, setpoint=21.0, hp_mode=HeatPumpMode.HEATING
-            )
+            coordinator.decide(error=2.0, setpoint=21.0, hp_mode=HeatPumpMode.HEATING)
         assert coordinator.split_runtime_minutes == 20  # 20 ON total
 
     def test_anti_takeover_boost_on_off_decision(self) -> None:
@@ -310,9 +294,7 @@ class TestAntiTakeover:
 
         # Fill 30 ON entries to trigger anti-takeover
         for _ in range(30):
-            coordinator.decide(
-                error=2.0, setpoint=21.0, hp_mode=HeatPumpMode.HEATING
-            )
+            coordinator.decide(error=2.0, setpoint=21.0, hp_mode=HeatPumpMode.HEATING)
 
         # Now make a decision where error is within deadband (OFF)
         decision = coordinator.decide(
@@ -338,9 +320,7 @@ class TestSplitCoordinatorReset:
         coordinator = SplitCoordinator(config, window_size=60)
 
         for _ in range(20):
-            coordinator.decide(
-                error=2.0, setpoint=21.0, hp_mode=HeatPumpMode.HEATING
-            )
+            coordinator.decide(error=2.0, setpoint=21.0, hp_mode=HeatPumpMode.HEATING)
         assert coordinator.split_runtime_minutes == 20
 
         coordinator.reset()

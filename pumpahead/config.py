@@ -266,8 +266,7 @@ class ControllerConfig:
             raise ValueError(msg)
         if self.split_setpoint_offset < 0:
             msg = (
-                f"split_setpoint_offset must be >= 0, "
-                f"got {self.split_setpoint_offset}"
+                f"split_setpoint_offset must be >= 0, got {self.split_setpoint_offset}"
             )
             raise ValueError(msg)
         if (

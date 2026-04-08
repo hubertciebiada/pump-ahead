@@ -104,8 +104,7 @@ class SplitCoordinator:
     def anti_takeover_active(self) -> bool:
         """Whether anti-takeover is currently triggered."""
         return (
-            self.split_runtime_minutes
-            >= self._config.anti_takeover_threshold_minutes
+            self.split_runtime_minutes >= self._config.anti_takeover_threshold_minutes
         )
 
     @property

@@ -358,9 +358,7 @@ class PumpAheadController:
             }
             if name in self._split_coordinators:
                 coordinator = self._split_coordinators[name]
-                diag["split_runtime_minutes"] = float(
-                    coordinator.split_runtime_minutes
-                )
+                diag["split_runtime_minutes"] = float(coordinator.split_runtime_minutes)
                 diag["anti_takeover_active"] = (
                     1.0 if coordinator.anti_takeover_active else 0.0
                 )
