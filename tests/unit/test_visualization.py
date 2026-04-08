@@ -109,10 +109,7 @@ def multi_room_log() -> SimulationLog:
 @pytest.fixture()
 def large_log() -> SimulationLog:
     """10 000-record single-room log for downsampling tests."""
-    records = [
-        _make_record(t, room_name="salon")
-        for t in range(10_000)
-    ]
+    records = [_make_record(t, room_name="salon") for t in range(10_000)]
     return SimulationLog(records)
 
 
@@ -188,9 +185,7 @@ class TestPlotRoomTemperatures:
     @pytest.mark.unit
     def test_setpoint_line_drawn(self, sample_log: SimulationLog) -> None:
         """Setpoint and comfort band are drawn when provided."""
-        fig = plot_room_temperatures(
-            sample_log, room_name="salon", setpoint=21.0
-        )
+        fig = plot_room_temperatures(sample_log, room_name="salon", setpoint=21.0)
         ax = fig.axes[0]
         # Should have lines for T_room, T_slab, setpoint
         assert len(ax.lines) >= 3
@@ -220,14 +215,10 @@ class TestPlotRoomTemperatures:
         plt.close(fig)
 
     @pytest.mark.unit
-    def test_save_to_file(
-        self, sample_log: SimulationLog, tmp_path: Path
-    ) -> None:
+    def test_save_to_file(self, sample_log: SimulationLog, tmp_path: Path) -> None:
         """Figure can be saved as PNG."""
         save_path = tmp_path / "room_temp.png"
-        fig = plot_room_temperatures(
-            sample_log, room_name="salon", save_path=save_path
-        )
+        fig = plot_room_temperatures(sample_log, room_name="salon", save_path=save_path)
         assert save_path.exists()
         assert save_path.stat().st_size > 0
         import matplotlib.pyplot as plt
@@ -272,9 +263,7 @@ class TestPlotValves:
         plt.close(fig)
 
     @pytest.mark.unit
-    def test_save_to_file(
-        self, sample_log: SimulationLog, tmp_path: Path
-    ) -> None:
+    def test_save_to_file(self, sample_log: SimulationLog, tmp_path: Path) -> None:
         """Figure can be saved as PNG."""
         save_path = tmp_path / "valves.png"
         fig = plot_valves(sample_log, save_path=save_path)
@@ -310,9 +299,7 @@ class TestPlotSplits:
         plt.close(fig)
 
     @pytest.mark.unit
-    def test_save_to_file(
-        self, sample_log: SimulationLog, tmp_path: Path
-    ) -> None:
+    def test_save_to_file(self, sample_log: SimulationLog, tmp_path: Path) -> None:
         """Figure can be saved as PNG."""
         save_path = tmp_path / "splits.png"
         fig = plot_splits(sample_log, save_path=save_path)
@@ -357,9 +344,7 @@ class TestPlotWeather:
         plt.close(fig)
 
     @pytest.mark.unit
-    def test_save_to_file(
-        self, sample_log: SimulationLog, tmp_path: Path
-    ) -> None:
+    def test_save_to_file(self, sample_log: SimulationLog, tmp_path: Path) -> None:
         """Figure can be saved as PNG."""
         save_path = tmp_path / "weather.png"
         fig = plot_weather(sample_log, save_path=save_path)
@@ -395,9 +380,7 @@ class TestPlotEnergy:
         plt.close(fig)
 
     @pytest.mark.unit
-    def test_save_to_file(
-        self, sample_log: SimulationLog, tmp_path: Path
-    ) -> None:
+    def test_save_to_file(self, sample_log: SimulationLog, tmp_path: Path) -> None:
         """Figure can be saved as PNG."""
         save_path = tmp_path / "energy.png"
         fig = plot_energy(
@@ -448,14 +431,10 @@ class TestPlotDashboard:
         plt.close(fig)
 
     @pytest.mark.unit
-    def test_save_to_file(
-        self, sample_log: SimulationLog, tmp_path: Path
-    ) -> None:
+    def test_save_to_file(self, sample_log: SimulationLog, tmp_path: Path) -> None:
         """Figure can be saved as PNG."""
         save_path = tmp_path / "dashboard.png"
-        fig = plot_dashboard(
-            sample_log, setpoint=21.0, save_path=save_path
-        )
+        fig = plot_dashboard(sample_log, setpoint=21.0, save_path=save_path)
         assert save_path.exists()
         import matplotlib.pyplot as plt
 
@@ -512,9 +491,7 @@ class TestGeneratePlots:
         assert not any("energy" in n for n in names)
 
     @pytest.mark.unit
-    def test_multi_room(
-        self, multi_room_log: SimulationLog, tmp_path: Path
-    ) -> None:
+    def test_multi_room(self, multi_room_log: SimulationLog, tmp_path: Path) -> None:
         """Multi-room log generates per-room temperature plots."""
         paths = generate_plots(
             multi_room_log,
@@ -541,26 +518,20 @@ class TestGeneratePlots:
         assert output_dir.exists()
 
     @pytest.mark.unit
-    def test_empty_log_rejected(
-        self, empty_log: SimulationLog, tmp_path: Path
-    ) -> None:
+    def test_empty_log_rejected(self, empty_log: SimulationLog, tmp_path: Path) -> None:
         """Empty log raises ValueError."""
         with pytest.raises(ValueError, match="must not be empty"):
             generate_plots(empty_log, tmp_path)
 
     @pytest.mark.unit
-    def test_returns_paths(
-        self, sample_log: SimulationLog, tmp_path: Path
-    ) -> None:
+    def test_returns_paths(self, sample_log: SimulationLog, tmp_path: Path) -> None:
         """generate_plots returns a list of Path objects."""
         paths = generate_plots(sample_log, tmp_path, scenario_name="ret")
         assert isinstance(paths, list)
         assert all(isinstance(p, Path) for p in paths)
 
     @pytest.mark.unit
-    def test_naming_convention(
-        self, sample_log: SimulationLog, tmp_path: Path
-    ) -> None:
+    def test_naming_convention(self, sample_log: SimulationLog, tmp_path: Path) -> None:
         """PNG files follow {scenario}_{plot_type}.png naming."""
         paths = generate_plots(
             sample_log,
