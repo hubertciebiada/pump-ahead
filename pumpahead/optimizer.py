@@ -304,31 +304,28 @@ class MPCOptimizer:
         # Soft comfort constraints
         for k in range(N + 1):
             constraints.append(
-                self._x[k, 0]
-                >= self._T_set_param - cfg.T_comfort_band - self._slack[k]
+                self._x[k, 0] >= self._T_set_param - cfg.T_comfort_band - self._slack[k]
             )
             constraints.append(
-                self._x[k, 0]
-                <= self._T_set_param + cfg.T_comfort_band + self._slack[k]
+                self._x[k, 0] <= self._T_set_param + cfg.T_comfort_band + self._slack[k]
             )
 
         # --- Objective ---
         # Comfort: penalise (T_air - T_set)^2 for k=1..N (skip fixed x0)
-        comfort_cost = cfg.w_comfort * cp.sum_squares(
-            self._x[1:, 0] - self._T_set_param
+        comfort_cost = (
+            cfg.w_comfort
+            * cp.sum_squares(  # type: ignore[attr-defined]
+                self._x[1:, 0] - self._T_set_param
+            )
         )
         # Energy: penalise ||u||^2
-        energy_cost = cfg.w_energy * cp.sum_squares(self._u)
+        energy_cost = cfg.w_energy * cp.sum_squares(self._u)  # type: ignore[attr-defined]
         # Move suppression: penalise ||du||^2
-        smooth_cost = cfg.w_smooth * cp.sum_squares(
-            self._u[1:] - self._u[:-1]
-        )
+        smooth_cost = cfg.w_smooth * cp.sum_squares(self._u[1:] - self._u[:-1])  # type: ignore[attr-defined]
         # Slack penalty
-        slack_cost = cfg.w_slack * cp.sum(self._slack)
+        slack_cost = cfg.w_slack * cp.sum(self._slack)  # type: ignore[attr-defined]
 
-        objective = cp.Minimize(
-            comfort_cost + energy_cost + smooth_cost + slack_cost
-        )
+        objective = cp.Minimize(comfort_cost + energy_cost + smooth_cost + slack_cost)
 
         self._problem = cp.Problem(objective, constraints)
 
@@ -413,7 +410,7 @@ class MPCOptimizer:
                 self._u_conv_ub.value = 0.0
 
         # --- Solve ---
-        self._problem.solve(solver=solver, warm_start=True, **solver_kwargs)
+        self._problem.solve(solver=solver, warm_start=True, **solver_kwargs)  # type: ignore[no-untyped-call]
 
         # Check status
         status = str(self._problem.status)
@@ -460,21 +457,14 @@ class MPCOptimizer:
             ValueError: If model dimensions differ from the original.
         """
         if model.n_states != self._n:
-            msg = (
-                f"New model has {model.n_states} states, "
-                f"expected {self._n}"
-            )
+            msg = f"New model has {model.n_states} states, expected {self._n}"
             raise ValueError(msg)
         if model.n_inputs != self._m:
-            msg = (
-                f"New model has {model.n_inputs} inputs, "
-                f"expected {self._m}"
-            )
+            msg = f"New model has {model.n_inputs} inputs, expected {self._m}"
             raise ValueError(msg)
         if model.n_disturbances != self._p:
             msg = (
-                f"New model has {model.n_disturbances} disturbances, "
-                f"expected {self._p}"
+                f"New model has {model.n_disturbances} disturbances, expected {self._p}"
             )
             raise ValueError(msg)
 

@@ -70,9 +70,7 @@ def zero_disturbance_2r2c() -> np.ndarray:
 @pytest.fixture()
 def constant_disturbance_3r3c() -> np.ndarray:
     """10-step disturbance for 3R3C: T_out=5C, no solar, no internal."""
-    return np.column_stack(
-        [np.full(10, 5.0), np.zeros(10), np.zeros(10)]
-    )
+    return np.column_stack([np.full(10, 5.0), np.zeros(10), np.zeros(10)])
 
 
 @pytest.fixture()
@@ -322,9 +320,7 @@ class TestMPCSplitConstraints:
         """In cooling mode, split only cools (u_conv <= 0)."""
         # Hot room, warm outdoor — cooling scenario
         x0 = np.array([28.0, 28.0, 28.0])
-        d = np.column_stack(
-            [np.full(10, 30.0), np.full(10, 300.0), np.zeros(10)]
-        )
+        d = np.column_stack([np.full(10, 30.0), np.full(10, 300.0), np.zeros(10)])
         result = optimizer_3r3c_mimo.solve(
             x0=x0,
             d=d,
