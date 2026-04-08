@@ -151,9 +151,7 @@ def _downsample_indices(n: int, max_points: int = _MAX_CHART_POINTS) -> list[int
     return [int(i * stride) for i in range(max_points)]
 
 
-def _get_room_records(
-    log: SimulationLog, display_name: str
-) -> list[Any]:
+def _get_room_records(log: SimulationLog, display_name: str) -> list[Any]:
     """Get records for a room, mapping ``"default"`` back to ``""``."""
     raw_name = "" if display_name == "default" else display_name
     return list(log.get_room(raw_name))
@@ -197,17 +195,19 @@ def _build_temperature_figure(
     fig = go_mod.Figure()
 
     # Comfort band
-    fig.add_trace(go_mod.Scatter(
-        x=time_h + time_h[::-1],
-        y=[setpoint + comfort_band] * len(time_h)
-        + [setpoint - comfort_band] * len(time_h),
-        fill="toself",
-        fillcolor="rgba(76, 175, 80, 0.1)",
-        line={"color": "rgba(0,0,0,0)"},
-        showlegend=False,
-        hoverinfo="skip",
-        name="Comfort band",
-    ))
+    fig.add_trace(
+        go_mod.Scatter(
+            x=time_h + time_h[::-1],
+            y=[setpoint + comfort_band] * len(time_h)
+            + [setpoint - comfort_band] * len(time_h),
+            fill="toself",
+            fillcolor="rgba(76, 175, 80, 0.1)",
+            line={"color": "rgba(0,0,0,0)"},
+            showlegend=False,
+            hoverinfo="skip",
+            name="Comfort band",
+        )
+    )
 
     # Setpoint line
     fig.add_hline(
@@ -219,22 +219,26 @@ def _build_temperature_figure(
     )
 
     # T_room trace
-    fig.add_trace(go_mod.Scatter(
-        x=time_h,
-        y=t_room,
-        name="T_room",
-        line={"color": "#2196F3", "width": 1.5},
-        mode="lines",
-    ))
+    fig.add_trace(
+        go_mod.Scatter(
+            x=time_h,
+            y=t_room,
+            name="T_room",
+            line={"color": "#2196F3", "width": 1.5},
+            mode="lines",
+        )
+    )
 
     # T_slab trace
-    fig.add_trace(go_mod.Scatter(
-        x=time_h,
-        y=t_slab,
-        name="T_slab",
-        line={"color": "#FF9800", "width": 1.5},
-        mode="lines",
-    ))
+    fig.add_trace(
+        go_mod.Scatter(
+            x=time_h,
+            y=t_slab,
+            name="T_slab",
+            line={"color": "#FF9800", "width": 1.5},
+            mode="lines",
+        )
+    )
 
     # Current step marker
     if 0 <= current_step < n:
@@ -283,15 +287,17 @@ def _build_valve_figure(
 
     fig = go_mod.Figure()
 
-    fig.add_trace(go_mod.Scatter(
-        x=time_h,
-        y=valve,
-        name="Valve",
-        line={"color": "#9C27B0", "width": 1.5},
-        fill="tozeroy",
-        fillcolor="rgba(156, 39, 176, 0.1)",
-        mode="lines",
-    ))
+    fig.add_trace(
+        go_mod.Scatter(
+            x=time_h,
+            y=valve,
+            name="Valve",
+            line={"color": "#9C27B0", "width": 1.5},
+            fill="tozeroy",
+            fillcolor="rgba(156, 39, 176, 0.1)",
+            mode="lines",
+        )
+    )
 
     # Current step marker
     if 0 <= current_step < n:
@@ -342,13 +348,15 @@ def _build_split_figure(
 
     fig = go_mod.Figure()
 
-    fig.add_trace(go_mod.Scatter(
-        x=time_h,
-        y=modes,
-        name="Split",
-        line={"color": "#FF5722", "width": 1.5, "shape": "hv"},
-        mode="lines",
-    ))
+    fig.add_trace(
+        go_mod.Scatter(
+            x=time_h,
+            y=modes,
+            name="Split",
+            line={"color": "#FF5722", "width": 1.5, "shape": "hv"},
+            mode="lines",
+        )
+    )
 
     # Current step marker
     if 0 <= current_step < n:
@@ -479,35 +487,37 @@ def _build_gauge(
     gauge_min = setpoint - 5.0
     gauge_max = setpoint + 5.0
 
-    fig = go_mod.Figure(go_mod.Indicator(
-        mode="gauge+number",
-        value=t_room,
-        title={"text": room_name},
-        gauge={
-            "axis": {"range": [gauge_min, gauge_max]},
-            "bar": {"color": "#2196F3"},
-            "steps": [
-                {
-                    "range": [gauge_min, setpoint - comfort_band],
-                    "color": "rgba(33, 150, 243, 0.2)",
+    fig = go_mod.Figure(
+        go_mod.Indicator(
+            mode="gauge+number",
+            value=t_room,
+            title={"text": room_name},
+            gauge={
+                "axis": {"range": [gauge_min, gauge_max]},
+                "bar": {"color": "#2196F3"},
+                "steps": [
+                    {
+                        "range": [gauge_min, setpoint - comfort_band],
+                        "color": "rgba(33, 150, 243, 0.2)",
+                    },
+                    {
+                        "range": [setpoint - comfort_band, setpoint + comfort_band],
+                        "color": "rgba(76, 175, 80, 0.2)",
+                    },
+                    {
+                        "range": [setpoint + comfort_band, gauge_max],
+                        "color": "rgba(244, 67, 54, 0.2)",
+                    },
+                ],
+                "threshold": {
+                    "line": {"color": "gray", "width": 2},
+                    "thickness": 0.75,
+                    "value": setpoint,
                 },
-                {
-                    "range": [setpoint - comfort_band, setpoint + comfort_band],
-                    "color": "rgba(76, 175, 80, 0.2)",
-                },
-                {
-                    "range": [setpoint + comfort_band, gauge_max],
-                    "color": "rgba(244, 67, 54, 0.2)",
-                },
-            ],
-            "threshold": {
-                "line": {"color": "gray", "width": 2},
-                "thickness": 0.75,
-                "value": setpoint,
             },
-        },
-        number={"suffix": " degC", "valueformat": ".1f"},
-    ))
+            number={"suffix": " degC", "valueformat": ".1f"},
+        )
+    )
 
     fig.update_layout(
         height=200,
@@ -734,12 +744,15 @@ def create_app(
                 style={"padding": "0 20px", "marginBottom": "20px"},
             ),
             # Gauges row
-            html.Div(id="gauges-container", style={
-                "display": "flex",
-                "flexWrap": "wrap",
-                "justifyContent": "center",
-                "padding": "0 20px",
-            }),
+            html.Div(
+                id="gauges-container",
+                style={
+                    "display": "flex",
+                    "flexWrap": "wrap",
+                    "justifyContent": "center",
+                    "padding": "0 20px",
+                },
+            ),
             # Per-room charts container
             html.Div(id="charts-container", style={"padding": "0 20px"}),
             # Weather chart
@@ -939,10 +952,12 @@ def create_app(
         if not log_id or log_id not in _LOG_STORE or n_steps_val <= 0:
             empty = _build_empty_figure("No simulation data loaded")
             return (
-                [html_mod.Div(
-                    "No data loaded",
-                    style={"color": "gray", "textAlign": "center"},
-                )],
+                [
+                    html_mod.Div(
+                        "No data loaded",
+                        style={"color": "gray", "textAlign": "center"},
+                    )
+                ],
                 [dcc_mod.Graph(figure=empty)],
                 empty,
             )
@@ -980,7 +995,11 @@ def create_app(
 
             # Temperature chart
             temp_fig = _build_temperature_figure(
-                records, room_step, room_name, setpoint_val, comfort_band_val,
+                records,
+                room_step,
+                room_name,
+                setpoint_val,
+                comfort_band_val,
             )
             charts.append(dcc_mod.Graph(figure=temp_fig))
 

@@ -208,8 +208,11 @@ class TestChartBuilders:
 
         records = _get_room_records(sample_log, "salon")
         fig = _build_temperature_figure(
-            records, current_step=50, room_name="salon",
-            setpoint=21.0, comfort_band=0.5,
+            records,
+            current_step=50,
+            room_name="salon",
+            setpoint=21.0,
+            comfort_band=0.5,
         )
         # Should have comfort band, T_room, T_slab traces
         assert len(fig.data) >= 2
@@ -253,7 +256,10 @@ class TestChartBuilders:
         from pumpahead.replay.app import _build_gauge
 
         fig = _build_gauge(
-            t_room=21.3, setpoint=21.0, comfort_band=0.5, room_name="salon",
+            t_room=21.3,
+            setpoint=21.0,
+            comfort_band=0.5,
+            room_name="salon",
         )
         assert len(fig.data) == 1
         assert fig.data[0].mode == "gauge+number"
@@ -270,7 +276,8 @@ class TestChartBuilders:
 
     @pytest.mark.unit
     def test_temperature_figure_current_step_boundary(
-        self, sample_log: SimulationLog,
+        self,
+        sample_log: SimulationLog,
     ) -> None:
         """Temperature figure handles step=0 and step=last."""
         from pumpahead.replay.app import _build_temperature_figure, _get_room_records
@@ -278,28 +285,38 @@ class TestChartBuilders:
         records = _get_room_records(sample_log, "salon")
         # Step 0
         fig0 = _build_temperature_figure(
-            records, current_step=0, room_name="salon",
-            setpoint=21.0, comfort_band=0.5,
+            records,
+            current_step=0,
+            room_name="salon",
+            setpoint=21.0,
+            comfort_band=0.5,
         )
         assert fig0 is not None
         # Step last
         fig_last = _build_temperature_figure(
-            records, current_step=len(records) - 1, room_name="salon",
-            setpoint=21.0, comfort_band=0.5,
+            records,
+            current_step=len(records) - 1,
+            room_name="salon",
+            setpoint=21.0,
+            comfort_band=0.5,
         )
         assert fig_last is not None
 
     @pytest.mark.unit
     def test_build_temperature_figure_out_of_range_step(
-        self, sample_log: SimulationLog,
+        self,
+        sample_log: SimulationLog,
     ) -> None:
         """Temperature figure handles step beyond range without error."""
         from pumpahead.replay.app import _build_temperature_figure, _get_room_records
 
         records = _get_room_records(sample_log, "salon")
         fig = _build_temperature_figure(
-            records, current_step=999, room_name="salon",
-            setpoint=21.0, comfort_band=0.5,
+            records,
+            current_step=999,
+            room_name="salon",
+            setpoint=21.0,
+            comfort_band=0.5,
         )
         assert fig is not None
 
@@ -444,8 +461,11 @@ class TestLargeLogPerformance:
         records = _get_room_records(large_log, "salon")
         assert len(records) == 10_000
         fig = _build_temperature_figure(
-            records, current_step=5000, room_name="salon",
-            setpoint=21.0, comfort_band=0.5,
+            records,
+            current_step=5000,
+            room_name="salon",
+            setpoint=21.0,
+            comfort_band=0.5,
         )
         assert fig is not None
         # Traces should have at most _MAX_CHART_POINTS data points
@@ -487,7 +507,8 @@ class TestCallbackLogic:
 
     @pytest.mark.unit
     def test_multi_room_charts_per_room(
-        self, multi_room_log: SimulationLog,
+        self,
+        multi_room_log: SimulationLog,
     ) -> None:
         """Multi-room log produces charts for each room."""
         from pumpahead.replay.app import (
@@ -503,8 +524,11 @@ class TestCallbackLogic:
             records = _get_room_records(multi_room_log, room)
             assert len(records) > 0
             fig = _build_temperature_figure(
-                records, current_step=0, room_name=room,
-                setpoint=21.0, comfort_band=0.5,
+                records,
+                current_step=0,
+                room_name=room,
+                setpoint=21.0,
+                comfort_band=0.5,
             )
             assert fig is not None
 
@@ -526,7 +550,10 @@ class TestCallbackLogic:
         from pumpahead.replay.app import _build_gauge
 
         fig = _build_gauge(
-            t_room=22.5, setpoint=21.0, comfort_band=0.5, room_name="test",
+            t_room=22.5,
+            setpoint=21.0,
+            comfort_band=0.5,
+            room_name="test",
         )
         assert fig.data[0].value == 22.5
 
