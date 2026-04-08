@@ -378,11 +378,13 @@ class MPCAdapter:
         if self._steps_since_solve[key] >= self._solve_interval:
             # Build state estimate from measurements
             # Measurements lacks T_wall; estimate as T_room
-            x0 = np.array([
-                measurements.T_room,
-                measurements.T_slab,
-                measurements.T_room,  # T_wall estimate
-            ])
+            x0 = np.array(
+                [
+                    measurements.T_room,
+                    measurements.T_slab,
+                    measurements.T_room,  # T_wall estimate
+                ]
+            )
 
             d = self._build_disturbance(t, scenario, room_name)
             mode: Literal["heating", "cooling"] = (
@@ -687,10 +689,14 @@ class ABTestRunner:
             An ``ABReport`` with metrics, logs, and deltas.
         """
         log_a, metrics_a = self._run_single(
-            self._controller_a, scenario, max_steps,
+            self._controller_a,
+            scenario,
+            max_steps,
         )
         log_b, metrics_b = self._run_single(
-            self._controller_b, scenario, max_steps,
+            self._controller_b,
+            scenario,
+            max_steps,
         )
 
         deltas = metrics_a.compare(metrics_b)
