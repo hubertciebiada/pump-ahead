@@ -169,9 +169,7 @@ class TestPIDOutputClamping:
 
     def test_custom_output_range(self) -> None:
         """Custom output_min/output_max are respected."""
-        pid = PIDController(
-            kp=1.0, ki=0.0, kd=0.0, output_min=10.0, output_max=90.0
-        )
+        pid = PIDController(kp=1.0, ki=0.0, kd=0.0, output_min=10.0, output_max=90.0)
         assert pid.compute(50.0) == pytest.approx(50.0)  # within range
         assert pid.compute(100.0) == pytest.approx(90.0)  # clamped high
         assert pid.compute(-100.0) == pytest.approx(10.0)  # clamped low
@@ -352,10 +350,7 @@ class TestPumpAheadControllerMultiRoom:
 
         # Each room at a different temperature
         temps = [18.0, 19.0, 20.0, 21.0, 22.0, 23.0, 24.0, 25.0]
-        meas = {
-            f"room_{i}": _make_measurements(t_room=temps[i])
-            for i in range(8)
-        }
+        meas = {f"room_{i}": _make_measurements(t_room=temps[i]) for i in range(8)}
         actions = ctrl.step(meas)
 
         assert len(actions) == 8
@@ -366,9 +361,7 @@ class TestPumpAheadControllerMultiRoom:
         # Verify rooms with higher temperature have lower valve output
         # (after accounting for valve floor)
         # room_0 (18C) should have higher valve than room_7 (25C)
-        assert (
-            actions["room_0"].valve_position >= actions["room_7"].valve_position
-        )
+        assert actions["room_0"].valve_position >= actions["room_7"].valve_position
 
     def test_multi_room_no_interference(self) -> None:
         """Running multi-room does not interfere between rooms.
@@ -436,9 +429,7 @@ class TestPumpAheadValveFloor:
             valve_floor_pct=15.0,
         )
         ctrl = PumpAheadController(config, ["room"])
-        meas = {
-            "room": _make_measurements(t_room=20.0, hp_mode=HeatPumpMode.OFF)
-        }
+        meas = {"room": _make_measurements(t_room=20.0, hp_mode=HeatPumpMode.OFF)}
         actions = ctrl.step(meas)
         assert actions["room"].valve_position == pytest.approx(0.0)
 
@@ -451,11 +442,7 @@ class TestPumpAheadValveFloor:
             valve_floor_pct=15.0,
         )
         ctrl = PumpAheadController(config, ["room"])
-        meas = {
-            "room": _make_measurements(
-                t_room=20.0, hp_mode=HeatPumpMode.COOLING
-            )
-        }
+        meas = {"room": _make_measurements(t_room=20.0, hp_mode=HeatPumpMode.COOLING)}
         actions = ctrl.step(meas)
         assert actions["room"].valve_position == pytest.approx(0.0)
 

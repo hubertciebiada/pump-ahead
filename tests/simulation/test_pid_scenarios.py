@@ -173,12 +173,8 @@ class TestPIDColdSnap:
                 step_time_minutes=1440.0,
             ),
             ghi=ChannelProfile(kind=ProfileKind.CONSTANT, baseline=0.0),
-            wind_speed=ChannelProfile(
-                kind=ProfileKind.CONSTANT, baseline=2.0
-            ),
-            humidity=ChannelProfile(
-                kind=ProfileKind.CONSTANT, baseline=60.0
-            ),
+            wind_speed=ChannelProfile(kind=ProfileKind.CONSTANT, baseline=2.0),
+            humidity=ChannelProfile(kind=ProfileKind.CONSTANT, baseline=60.0),
         )
         return SimScenario(
             name="cold_snap_pid",
@@ -218,8 +214,7 @@ class TestPIDColdSnap:
         setpoint = scenario.controller.setpoint
 
         assert min_t_room >= setpoint - 1.5, (
-            f"cold_snap min T_room={min_t_room:.2f} < "
-            f"setpoint-1.5={setpoint - 1.5:.1f}"
+            f"cold_snap min T_room={min_t_room:.2f} < setpoint-1.5={setpoint - 1.5:.1f}"
         )
 
     def test_recovery_within_24h(
@@ -244,9 +239,7 @@ class TestPIDColdSnap:
 
         if len(recovery_records) > 0:
             comfort_count = sum(
-                1
-                for r in recovery_records
-                if abs(r.T_room - setpoint) <= 0.5
+                1 for r in recovery_records if abs(r.T_room - setpoint) <= 0.5
             )
             comfort_pct = (comfort_count / len(recovery_records)) * 100.0
             assert comfort_pct >= 80.0, (
@@ -277,9 +270,7 @@ class TestPIDAntiWindup:
 
         model = RCModel(_SISO_PARAMS, ModelOrder.THREE, dt=60.0)
         room = SimulatedRoom("test_room", model, ufh_max_power_w=5000.0)
-        sim = BuildingSimulator(
-            [room], weather, hp_mode=HeatPumpMode.HEATING
-        )
+        sim = BuildingSimulator([room], weather, hp_mode=HeatPumpMode.HEATING)
 
         config = ControllerConfig(
             kp=20.0,
@@ -329,9 +320,7 @@ class TestPIDValveFloor:
 
         model = RCModel(_SISO_PARAMS, ModelOrder.THREE, dt=60.0)
         room = SimulatedRoom("test_room", model, ufh_max_power_w=5000.0)
-        sim = BuildingSimulator(
-            [room], weather, hp_mode=HeatPumpMode.HEATING
-        )
+        sim = BuildingSimulator([room], weather, hp_mode=HeatPumpMode.HEATING)
 
         valve_floor = 12.0
         config = ControllerConfig(
@@ -358,8 +347,7 @@ class TestPIDValveFloor:
             # Valve floor applies only when below setpoint + deadband
             if t_room < setpoint + deadband:
                 assert valve >= valve_floor - 1e-9, (
-                    f"valve {valve:.2f}% < floor {valve_floor}% "
-                    f"at T_room={t_room:.2f}"
+                    f"valve {valve:.2f}% < floor {valve_floor}% at T_room={t_room:.2f}"
                 )
 
 
@@ -385,9 +373,7 @@ class TestPIDMultiRoom:
         rooms: list[SimulatedRoom] = []
         for i in range(8):
             model = RCModel(_SISO_PARAMS, ModelOrder.THREE, dt=60.0)
-            rooms.append(
-                SimulatedRoom(f"room_{i}", model, ufh_max_power_w=5000.0)
-            )
+            rooms.append(SimulatedRoom(f"room_{i}", model, ufh_max_power_w=5000.0))
 
         sim = BuildingSimulator(
             rooms,
@@ -419,8 +405,7 @@ class TestPIDMultiRoom:
         for name in room_names:
             t_room = final_meas[name].T_room
             assert abs(t_room - setpoint) < 0.5, (
-                f"{name}: T_room={t_room:.2f} not within "
-                f"+/-0.5 of setpoint {setpoint}"
+                f"{name}: T_room={t_room:.2f} not within +/-0.5 of setpoint {setpoint}"
             )
 
         # Check diagnostics show independent state

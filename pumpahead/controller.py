@@ -87,10 +87,7 @@ class PIDController:
             msg = f"dt must be > 0, got {dt}"
             raise ValueError(msg)
         if output_max < output_min:
-            msg = (
-                f"output_max ({output_max}) must be >= "
-                f"output_min ({output_min})"
-            )
+            msg = f"output_max ({output_max}) must be >= output_min ({output_min})"
             raise ValueError(msg)
 
         self._kp = kp
@@ -152,7 +149,7 @@ class PIDController:
 
         # Back-calculation anti-windup: correct integral
         if self._ki > 0:
-            self._integral += (u_clamped - u_raw)
+            self._integral += u_clamped - u_raw
 
         # Store state for next call
         self._prev_error = error
