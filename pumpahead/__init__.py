@@ -113,6 +113,7 @@ from pumpahead.solar_gti import (
     extraterrestrial_horizontal,
 )
 from pumpahead.split_coordinator import SplitCoordinator, SplitDecision
+from pumpahead.replay import create_app as create_replay_app
 from pumpahead.visualization import (
     generate_plots,
     plot_dashboard,
@@ -220,6 +221,7 @@ __all__ = [
     "__version__",
     "erbs_decomposition",
     "extraterrestrial_horizontal",
+    "create_replay_app",
     "cold_snap",
     "cwu_heavy",
     "dual_source_cold_snap",

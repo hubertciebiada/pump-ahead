@@ -79,3 +79,15 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = ["pandas.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["dash.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["plotly.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["pumpahead.replay.app"]
+disable_error_code = ["misc"]
