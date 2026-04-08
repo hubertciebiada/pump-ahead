@@ -696,18 +696,12 @@ class TestNoHTTPCalls:
                 for alias in node.names:
                     root_module = alias.name.split(".")[0]
                     if root_module in forbidden:
-                        violations.append(
-                            f"import {alias.name} at line {node.lineno}"
-                        )
-            elif (
-                isinstance(node, ast.ImportFrom)
-                and node.module is not None
-            ):
+                        violations.append(f"import {alias.name} at line {node.lineno}")
+            elif isinstance(node, ast.ImportFrom) and node.module is not None:
                 root_module = node.module.split(".")[0]
                 if root_module in forbidden:
                     violations.append(
-                        f"from {node.module} import ... "
-                        f"at line {node.lineno}"
+                        f"from {node.module} import ... at line {node.lineno}"
                     )
         return violations
 
@@ -841,9 +835,7 @@ class TestArchitecturalBoundary:
                 for alias in node.names:
                     root = alias.name.split(".")[0]
                     if root not in allowed_prefixes:
-                        violations.append(
-                            f"import {alias.name} at line {node.lineno}"
-                        )
+                        violations.append(f"import {alias.name} at line {node.lineno}")
 
         assert violations == [], (
             f"disturbance_vector.py has non-core imports: {violations}"
