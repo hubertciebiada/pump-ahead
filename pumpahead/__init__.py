@@ -74,6 +74,7 @@ from pumpahead.optimizer import (
     MPCResult,
     RecedingHorizonResult,
 )
+from pumpahead.replay import create_app as create_replay_app
 from pumpahead.scenarios import (
     PARAMETRIC_SWEEPS,
     SCENARIO_LIBRARY,
@@ -220,6 +221,7 @@ __all__ = [
     "__version__",
     "erbs_decomposition",
     "extraterrestrial_horizontal",
+    "create_replay_app",
     "cold_snap",
     "cwu_heavy",
     "dual_source_cold_snap",
