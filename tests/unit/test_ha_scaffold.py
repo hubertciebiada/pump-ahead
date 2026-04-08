@@ -54,11 +54,74 @@ def ha_mocks() -> Any:  # noqa: C901
 
     ha = types.ModuleType("homeassistant")
 
+    # helpers.update_coordinator mock (needed by coordinator.py import chain)
+    ha_helpers = types.ModuleType("homeassistant.helpers")
+    ha_helpers_update_coordinator = types.ModuleType(
+        "homeassistant.helpers.update_coordinator"
+    )
+
+    class _FakeDataUpdateCoordinator:
+        """Minimal stand-in for DataUpdateCoordinator."""
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            self.hass = args[0] if args else kwargs.get("hass")
+
+        def __class_getitem__(cls, _item: object) -> type:  # noqa: N804
+            return cls
+
+        async def async_config_entry_first_refresh(self) -> None:
+            pass
+
+    ha_helpers_update_coordinator.DataUpdateCoordinator = _FakeDataUpdateCoordinator  # type: ignore[attr-defined]
+
+    # helpers.selector mock (needed by config_flow.py import chain)
+    ha_helpers_selector = types.ModuleType("homeassistant.helpers.selector")
+
+    class _SelectorConfig:
+        def __init__(self, **kwargs: Any) -> None:
+            self.__dict__.update(kwargs)
+
+    class _Selector:
+        def __init__(self, config: Any = None) -> None:
+            self.config = config
+
+    ha_helpers_selector.EntitySelector = _Selector  # type: ignore[attr-defined]
+    ha_helpers_selector.EntitySelectorConfig = _SelectorConfig  # type: ignore[attr-defined]
+    ha_helpers_selector.NumberSelector = _Selector  # type: ignore[attr-defined]
+    ha_helpers_selector.NumberSelectorConfig = _SelectorConfig  # type: ignore[attr-defined]
+    ha_helpers_selector.NumberSelectorMode = types.SimpleNamespace(BOX="box")  # type: ignore[attr-defined]
+    ha_helpers_selector.SelectSelector = _Selector  # type: ignore[attr-defined]
+    ha_helpers_selector.SelectSelectorConfig = _SelectorConfig  # type: ignore[attr-defined]
+    ha_helpers_selector.BooleanSelector = _Selector  # type: ignore[attr-defined]
+    ha_helpers_selector.TextSelector = _Selector  # type: ignore[attr-defined]
+
+    # ConfigFlow base class mock (needed by config_flow.py)
+    class _FakeConfigFlow:
+        DOMAIN: str = ""
+        VERSION: int = 1
+        hass: Any = None
+
+        def __init_subclass__(cls, domain: str = "", **kwargs: Any) -> None:
+            super().__init_subclass__(**kwargs)
+            cls.DOMAIN = domain
+
+    ha_config_entries.ConfigFlow = _FakeConfigFlow  # type: ignore[attr-defined]
+
+    # data_entry_flow mock (needed by config_flow.py)
+    ha_data_entry_flow = types.ModuleType("homeassistant.data_entry_flow")
+    ha_data_entry_flow.FlowResult = dict  # type: ignore[attr-defined]
+
     # Inject mock modules into sys.modules
     sys.modules["homeassistant"] = ha
     sys.modules["homeassistant.const"] = ha_const
     sys.modules["homeassistant.core"] = ha_core
     sys.modules["homeassistant.config_entries"] = ha_config_entries
+    sys.modules["homeassistant.helpers"] = ha_helpers
+    sys.modules["homeassistant.helpers.update_coordinator"] = (
+        ha_helpers_update_coordinator
+    )
+    sys.modules["homeassistant.helpers.selector"] = ha_helpers_selector
+    sys.modules["homeassistant.data_entry_flow"] = ha_data_entry_flow
 
     # Ensure the custom_components package is importable
     repo_root_str = str(_REPO_ROOT)
@@ -190,26 +253,43 @@ def test_manifest_json_has_required_keys(ha_mocks: Any) -> None:
 def _make_hass_and_entry() -> tuple[MagicMock, MagicMock]:
     """Create mock HomeAssistant and ConfigEntry objects."""
     hass = MagicMock()
+    hass.config.latitude = 50.06
+    hass.config.longitude = 19.94
     hass.config_entries.async_forward_entry_setups = AsyncMock(return_value=None)
     hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
 
     entry = MagicMock()
     entry.entry_id = "test_entry_id"
     entry.runtime_data = None
+    # Minimal valid config data for coordinator construction.
+    entry.data = {
+        "latitude": 50.06,
+        "longitude": 19.94,
+        "rooms": [
+            {
+                "room_name": "Test Room",
+                "entity_temp_room": "sensor.temp_test",
+                "entity_valve": "number.valve_test",
+            }
+        ],
+        "entity_temp_outdoor": "sensor.outdoor_temp",
+        "entity_weather": "",
+        "algorithm_mode": "heating",
+    }
 
     return hass, entry
 
 
 @pytest.mark.unit
 def test_async_setup_entry(ha_mocks: Any) -> None:
-    """async_setup_entry must return True and store PumpAheadData."""
+    """async_setup_entry must return True and store PumpAheadData with coordinator."""
     hass, entry = _make_hass_and_entry()
 
     result = asyncio.run(ha_mocks.async_setup_entry(hass, entry))
 
     assert result is True
     assert isinstance(entry.runtime_data, ha_mocks.PumpAheadData)
-    assert entry.runtime_data.initialized is True
+    assert entry.runtime_data.coordinator is not None
     hass.config_entries.async_forward_entry_setups.assert_awaited_once()
 
 
@@ -217,7 +297,7 @@ def test_async_setup_entry(ha_mocks: Any) -> None:
 def test_async_unload_entry(ha_mocks: Any) -> None:
     """async_unload_entry must return True when unload succeeds."""
     hass, entry = _make_hass_and_entry()
-    entry.runtime_data = ha_mocks.PumpAheadData()
+    entry.runtime_data = ha_mocks.PumpAheadData(coordinator=MagicMock())
 
     result = asyncio.run(ha_mocks.async_unload_entry(hass, entry))
 
@@ -230,7 +310,7 @@ def test_async_unload_entry_failure(ha_mocks: Any) -> None:
     """async_unload_entry must return False when unload fails."""
     hass, entry = _make_hass_and_entry()
     hass.config_entries.async_unload_platforms = AsyncMock(return_value=False)
-    entry.runtime_data = ha_mocks.PumpAheadData()
+    entry.runtime_data = ha_mocks.PumpAheadData(coordinator=MagicMock())
 
     result = asyncio.run(ha_mocks.async_unload_entry(hass, entry))
 

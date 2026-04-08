@@ -7,18 +7,16 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from .const import PLATFORMS
+from .coordinator import PumpAheadCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
 class PumpAheadData:
-    """Runtime data for the PumpAhead integration.
+    """Runtime data for the PumpAhead integration."""
 
-    Placeholder for future coordinator and other runtime objects (issue #45).
-    """
-
-    initialized: bool = True
+    coordinator: PumpAheadCoordinator
 
 
 type PumpAheadConfigEntry = ConfigEntry[PumpAheadData]
@@ -28,7 +26,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: PumpAheadConfigEntry) ->
     """Set up PumpAhead from a config entry."""
     _LOGGER.debug("Setting up PumpAhead entry: %s", entry.entry_id)
 
-    entry.runtime_data = PumpAheadData()
+    coordinator = PumpAheadCoordinator(hass, entry)
+    await coordinator.async_config_entry_first_refresh()
+
+    entry.runtime_data = PumpAheadData(coordinator=coordinator)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 

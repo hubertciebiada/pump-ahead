@@ -1,0 +1,65 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Location",
+        "description": "Enter the building location for weather and solar calculations.",
+        "data": {
+          "latitude": "Latitude",
+          "longitude": "Longitude"
+        }
+      },
+      "rooms": {
+        "title": "Define Rooms",
+        "description": "Add rooms to be controlled by PumpAhead. Add at least one room.",
+        "data": {
+          "room_name": "Room name",
+          "room_area": "Floor area (m\u00b2)",
+          "has_split": "Room has split/AC unit",
+          "add_another": "Add another room"
+        }
+      },
+      "entities": {
+        "title": "Entity Mapping: {room_name}",
+        "description": "Select Home Assistant entities for this room. PumpAhead validates units (\u00b0C, %, W).",
+        "data": {
+          "entity_temp_room": "Room temperature sensor",
+          "entity_temp_floor": "Floor temperature sensor (optional)",
+          "entity_valve": "UFH valve actuator",
+          "entity_humidity": "Humidity sensor (optional)",
+          "entity_split": "Split/AC climate entity",
+          "entity_temp_outdoor": "Outdoor temperature sensor",
+          "entity_weather": "Weather entity (for forecast)"
+        }
+      },
+      "algorithm": {
+        "title": "Algorithm Parameters",
+        "description": "Configure the control algorithm mode and tuning weights.",
+        "data": {
+          "algorithm_mode": "Operating mode",
+          "w_comfort": "Comfort weight",
+          "w_energy": "Energy weight",
+          "w_smooth": "Smoothness weight"
+        }
+      },
+      "confirm": {
+        "title": "Confirm Setup",
+        "description": "PumpAhead will be set up with {num_rooms} room(s) in {algorithm_mode} mode at location ({latitude}, {longitude}). Confirm to complete setup."
+      }
+    },
+    "error": {
+      "invalid_latitude": "Latitude must be between -90 and 90",
+      "invalid_longitude": "Longitude must be between -180 and 180",
+      "empty_room_name": "Room name cannot be empty",
+      "duplicate_room_name": "A room with this name already exists",
+      "invalid_area": "Floor area must be greater than 0",
+      "no_rooms": "At least one room is required",
+      "entity_not_found": "Entity not found in Home Assistant",
+      "invalid_unit": "Entity has incorrect unit of measurement",
+      "invalid_weight": "Weight must be >= 0"
+    },
+    "abort": {
+      "already_configured": "PumpAhead is already configured for this location"
+    }
+  }
+}
