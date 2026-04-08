@@ -1,5 +1,13 @@
 """PumpAhead — Predictive heating/cooling controller with RC thermal models."""
 
+from pumpahead.ab_testing import (
+    ABReport,
+    ABTestRunner,
+    ControllerAdapter,
+    MPCAdapter,
+    PIDAdapter,
+    plot_overlay,
+)
 from pumpahead.building_profiles import (
     BUILDING_PROFILES,
     HUBERT_ROOMS,
@@ -132,6 +140,8 @@ from pumpahead.weather import (
 __version__ = "0.1.0"
 
 __all__ = [
+    "ABReport",
+    "ABTestRunner",
     "Actions",
     "BUILDING_PROFILES",
     "DEFAULT_RMSE_PASS_THRESHOLD",
@@ -143,6 +153,7 @@ __all__ = [
     "assert_no_priority_inversion",
     "BuildingParams",
     "BuildingSimulator",
+    "ControllerAdapter",
     "ChannelProfile",
     "ControllerConfig",
     "CrossValidationResult",
@@ -167,6 +178,7 @@ __all__ = [
     "IdentificationResult",
     "KalmanEstimator",
     "Measurements",
+    "MPCAdapter",
     "MPCConfig",
     "MPCController",
     "MPCInfeasibleError",
@@ -178,6 +190,7 @@ __all__ = [
     "ModelOrder",
     "OpenMeteoHistorical",
     "Orientation",
+    "PIDAdapter",
     "PARAMETRIC_SWEEPS",
     "ProfileKind",
     "QualityMonitor",
@@ -222,6 +235,7 @@ __all__ = [
     "load_pickle",
     "generate_plots",
     "plot_dashboard",
+    "plot_overlay",
     "plot_energy",
     "plot_predicted_vs_measured",
     "plot_residuals",
