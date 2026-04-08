@@ -10,16 +10,15 @@ import numpy as np
 import pytest
 
 from pumpahead.config import SimScenario
+from pumpahead.controller import PumpAheadController
 from pumpahead.metrics import SimMetrics
 from pumpahead.model import ModelOrder, RCModel, RCParams
 from pumpahead.sensor_noise import SensorNoise
 from pumpahead.simulated_room import SimulatedRoom
 from pumpahead.simulation_log import SimulationLog
 from pumpahead.simulator import (
-    Actions,
     BuildingSimulator,
     HeatPumpMode,
-    SplitMode,
 )
 
 # ---------------------------------------------------------------------------
@@ -169,23 +168,17 @@ def run_scenario() -> Callable[
         )
 
         log = SimulationLog()
-        kp = scenario.controller.kp
         setpoint = scenario.controller.setpoint
+
+        # Build PumpAheadController from scenario configuration
+        room_names = [r.name for r in scenario.building.rooms]
+        controller = PumpAheadController(scenario.controller, room_names)
 
         for t in range(n_steps):
             all_meas = sim.get_all_measurements()
             wp = scenario.weather.get(float(t))
 
-            actions_dict: dict[str, Actions] = {}
-            for room_cfg in scenario.building.rooms:
-                meas = all_meas[room_cfg.name]
-                error = setpoint - meas.T_room
-                valve = max(0.0, min(100.0, kp * error))
-                actions_dict[room_cfg.name] = Actions(
-                    valve_position=valve,
-                    split_mode=SplitMode.OFF,
-                    split_setpoint=0.0,
-                )
+            actions_dict = controller.step(all_meas)
 
             sim.step_all(actions_dict)
 
