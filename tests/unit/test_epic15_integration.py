@@ -592,11 +592,14 @@ class TestArchitecturalIntegrity:
                             violations.append(
                                 f"{py_file.relative_to(_REPO_ROOT)}:{node.lineno}"
                             )
-                elif isinstance(node, ast.ImportFrom):
-                    if node.module and node.module.startswith("homeassistant"):
-                        violations.append(
-                            f"{py_file.relative_to(_REPO_ROOT)}:{node.lineno}"
-                        )
+                elif (
+                    isinstance(node, ast.ImportFrom)
+                    and node.module
+                    and node.module.startswith("homeassistant")
+                ):
+                    violations.append(
+                        f"{py_file.relative_to(_REPO_ROOT)}:{node.lineno}"
+                    )
 
         assert violations == [], (
             f"Core library imports homeassistant in: {violations}"
@@ -670,7 +673,7 @@ class TestConfigFlowToCoordinatorPipeline:
         flow.hass = _make_hass()
 
         # Step 1: Location
-        result = asyncio.run(
+        asyncio.run(
             flow.async_step_user({
                 ns.CONF_LATITUDE: 50.06,
                 ns.CONF_LONGITUDE: 19.94,
@@ -1202,7 +1205,7 @@ class TestLiveControlFullPipeline:
     def test_live_control_split_service_calls_in_heating_mode(
         self, ha_integration_mocks: Any
     ) -> None:
-        """Live control issues split service calls when room has split and needs heat."""
+        """Live control issues split calls when room has split."""
         ns = ha_integration_mocks
 
         # Room temp well below setpoint to trigger split recommendation
