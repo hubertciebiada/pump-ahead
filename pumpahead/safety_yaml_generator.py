@@ -388,11 +388,7 @@ def _build_s2_automations(
                     f"Condensation risk in {room.room_name}: "
                     f"T_floor < T_dew + {margin}C. "
                     f"Valve closed"
-                    + (
-                        ", split set to cool."
-                        if room.entity_split is not None
-                        else "."
-                    )
+                    + (", split set to cool." if room.entity_split is not None else ".")
                 ),
             },
         },
