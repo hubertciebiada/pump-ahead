@@ -52,6 +52,7 @@ __all__ = [
     "cold_snap",
     "cwu_heavy",
     "cwu_with_splits",
+    "dew_point_stress",
     "dual_source_cold_snap",
     "dual_source_cooling_steady",
     "dual_source_steady_state",
@@ -630,6 +631,57 @@ def dual_source_cooling_steady() -> SimScenario:
     )
 
 
+def dew_point_stress() -> SimScenario:
+    """Dew point stress test with hot outdoor and moderate humidity.
+
+    Constant RH=50%, T_out~35C (sinusoidal, amplitude 5C), strong solar.
+    At T_air~24C and RH=50%, Magnus gives T_dew=12.9C, so the
+    condensation safety margin (T_dew + 2 = 14.9C) is tight against
+    floor equilibrium (~16-17C) which is pulled down by T_ground=10C.
+
+    The scenario stresses the cooling throttle by combining extreme
+    outdoor heat (up to 40C) with enough humidity to keep T_dew + 2
+    within 2-3C of the floor equilibrium.  The controller must
+    throttle cooling to prevent floor overcooling.
+
+    Uses ``hubert_real`` building (5 rooms with splits, 3 without).
+
+    Returns:
+        ``SimScenario`` with ``hubert_real`` building, 48h duration,
+        cooling mode.
+    """
+    weather = SyntheticWeather(
+        t_out=ChannelProfile(
+            kind=ProfileKind.SINUSOIDAL,
+            baseline=35.0,
+            amplitude=5.0,
+            period_minutes=1440.0,
+        ),
+        ghi=ChannelProfile(
+            kind=ProfileKind.SINUSOIDAL,
+            baseline=400.0,
+            amplitude=400.0,
+            period_minutes=1440.0,
+        ),
+        wind_speed=ChannelProfile(kind=ProfileKind.CONSTANT, baseline=1.0),
+        humidity=ChannelProfile(kind=ProfileKind.CONSTANT, baseline=50.0),
+    )
+    return SimScenario(
+        name="dew_point_stress",
+        building=hubert_real(),
+        weather=weather,
+        controller=ControllerConfig(setpoint=25.0, split_deadband=0.5),
+        duration_minutes=2880,
+        mode="cooling",
+        dt_seconds=60.0,
+        description=(
+            "Dew point stress: RH=50%, T_out~35C (amp=5C), setpoint=25C. "
+            "Tests condensation protection with tight dew-point margins "
+            "under extreme outdoor heat."
+        ),
+    )
+
+
 def spring_transition() -> SimScenario:
     """Spring transition scenario with auto mode switching.
 
@@ -795,6 +847,7 @@ SCENARIO_LIBRARY: dict[str, Callable[[], SimScenario]] = {
     "priority_inversion_stress": priority_inversion_stress,
     "dual_source_cooling_steady": dual_source_cooling_steady,
     "spring_transition": spring_transition,
+    "dew_point_stress": dew_point_stress,
 }
 """Mapping of scenario name to factory function (single scenarios)."""
 

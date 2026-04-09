@@ -359,6 +359,45 @@ def _build_s2_automations(
         f"{{{{ t_floor > (t_dew + {margin} + {clear_margin}) }}}}"
     )
 
+    # Build trigger actions: always close valve
+    trigger_actions: list[dict[str, object]] = [
+        {
+            "service": "number.set_value",
+            "target": {"entity_id": room.entity_valve},
+            "data": {"value": 0},
+        },
+    ]
+
+    # If split exists, activate emergency cooling (split takes over
+    # when UFH cooling is stopped due to condensation risk)
+    if room.entity_split is not None:
+        trigger_actions.append(
+            {
+                "service": "climate.set_hvac_mode",
+                "target": {"entity_id": room.entity_split},
+                "data": {"hvac_mode": "cool"},
+            },
+        )
+
+    trigger_actions.append(
+        {
+            "service": "persistent_notification.create",
+            "data": {
+                "title": "PumpAhead Safety S2",
+                "message": (
+                    f"Condensation risk in {room.room_name}: "
+                    f"T_floor < T_dew + {margin}C. "
+                    f"Valve closed"
+                    + (
+                        ", split set to cool."
+                        if room.entity_split is not None
+                        else "."
+                    )
+                ),
+            },
+        },
+    )
+
     trigger_auto: dict[str, object] = {
         "id": f"pumpahead_s2_condensation_trigger_{slug}",
         "alias": f"PumpAhead S2: Condensation Trigger - {room.room_name}",
@@ -375,25 +414,34 @@ def _build_s2_automations(
             },
         ],
         "condition": [],
-        "action": [
-            {
-                "service": "number.set_value",
-                "target": {"entity_id": room.entity_valve},
-                "data": {"value": 0},
-            },
-            {
-                "service": "persistent_notification.create",
-                "data": {
-                    "title": "PumpAhead Safety S2",
-                    "message": (
-                        f"Condensation risk in {room.room_name}: "
-                        f"T_floor < T_dew + {margin}C. "
-                        f"Valve closed."
-                    ),
-                },
-            },
-        ],
+        "action": trigger_actions,
     }
+
+    # Build clear actions
+    clear_actions: list[dict[str, object]] = []
+
+    # If split exists, turn it off (stop emergency cooling)
+    if room.entity_split is not None:
+        clear_actions.append(
+            {
+                "service": "climate.set_hvac_mode",
+                "target": {"entity_id": room.entity_split},
+                "data": {"hvac_mode": "off"},
+            },
+        )
+
+    clear_actions.append(
+        {
+            "service": "persistent_notification.create",
+            "data": {
+                "title": "PumpAhead Safety S2",
+                "message": (
+                    f"Condensation risk cleared in {room.room_name}. "
+                    f"Normal operation can resume."
+                ),
+            },
+        },
+    )
 
     clear_auto: dict[str, object] = {
         "id": f"pumpahead_s2_condensation_clear_{slug}",
@@ -411,18 +459,7 @@ def _build_s2_automations(
             },
         ],
         "condition": [],
-        "action": [
-            {
-                "service": "persistent_notification.create",
-                "data": {
-                    "title": "PumpAhead Safety S2",
-                    "message": (
-                        f"Condensation risk cleared in {room.room_name}. "
-                        f"Normal operation can resume."
-                    ),
-                },
-            },
-        ],
+        "action": clear_actions,
     }
 
     return [trigger_auto, clear_auto]

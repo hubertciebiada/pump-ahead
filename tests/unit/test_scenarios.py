@@ -21,6 +21,7 @@ from pumpahead.scenarios import (
     SCENARIO_LIBRARY,
     cold_snap,
     cwu_heavy,
+    dew_point_stress,
     extreme_cold,
     full_year_2025,
     hot_july,
@@ -45,9 +46,9 @@ class TestScenarioConstruction:
         """SCENARIO_LIBRARY contains at least 8 single scenarios."""
         assert len(SCENARIO_LIBRARY) >= 8
 
-    def test_exactly_14_single_scenarios(self) -> None:
-        """SCENARIO_LIBRARY has exactly 14 entries."""
-        assert len(SCENARIO_LIBRARY) == 14
+    def test_exactly_15_single_scenarios(self) -> None:
+        """SCENARIO_LIBRARY has exactly 15 entries."""
+        assert len(SCENARIO_LIBRARY) == 15
 
     def test_exactly_2_parametric_sweeps(self) -> None:
         """PARAMETRIC_SWEEPS has exactly 2 entries."""
@@ -360,6 +361,47 @@ class TestSpecificScenarios:
         """cwu_heavy lasts 24h (1440 minutes)."""
         assert cwu_heavy().duration_minutes == 1440
 
+    # -- dew_point_stress ------------------------------------------------------
+
+    def test_dew_point_stress_name(self) -> None:
+        """dew_point_stress scenario name is correct."""
+        assert dew_point_stress().name == "dew_point_stress"
+
+    def test_dew_point_stress_cooling_mode(self) -> None:
+        """dew_point_stress uses cooling mode."""
+        assert dew_point_stress().mode == "cooling"
+
+    def test_dew_point_stress_duration_48h(self) -> None:
+        """dew_point_stress lasts 48h (2880 minutes)."""
+        assert dew_point_stress().duration_minutes == 2880
+
+    def test_dew_point_stress_moderate_humidity(self) -> None:
+        """dew_point_stress has constant RH=50%."""
+        s = dew_point_stress()
+        p0 = s.weather.get(0.0)
+        p500 = s.weather.get(500.0)
+        assert p0.humidity == pytest.approx(50.0)
+        assert p500.humidity == pytest.approx(50.0)
+
+    def test_dew_point_stress_t_out_around_35(self) -> None:
+        """dew_point_stress has T_out baseline=35C."""
+        s = dew_point_stress()
+        p0 = s.weather.get(0.0)
+        assert p0.T_out == pytest.approx(35.0)
+
+    def test_dew_point_stress_in_scenario_library(self) -> None:
+        """dew_point_stress is registered in SCENARIO_LIBRARY."""
+        assert "dew_point_stress" in SCENARIO_LIBRARY
+
+    def test_dew_point_stress_hubert_real_building(self) -> None:
+        """dew_point_stress uses hubert_real building (8 rooms)."""
+        s = dew_point_stress()
+        assert len(s.building.rooms) == 8
+
+    def test_dew_point_stress_setpoint_25(self) -> None:
+        """dew_point_stress setpoint is 25C."""
+        assert dew_point_stress().controller.setpoint == pytest.approx(25.0)
+
 
 # ---------------------------------------------------------------------------
 # TestParametricSweeps — sweep construction and consistency
@@ -594,6 +636,9 @@ class TestExports:
             cwu_heavy as ch,
         )
         from pumpahead import (
+            dew_point_stress as dps,
+        )
+        from pumpahead import (
             extreme_cold as ec,
         )
         from pumpahead import (
@@ -619,7 +664,7 @@ class TestExports:
         )
 
         # Verify all are callable
-        for fn in [ss, cs, hj, so, fy, ec, rw, ch, isw, ssw]:
+        for fn in [ss, cs, hj, so, fy, ec, rw, ch, isw, ssw, dps]:
             assert callable(fn)
 
     def test_all_symbols_in_init_all(self) -> None:
@@ -639,6 +684,7 @@ class TestExports:
             "cwu_heavy",
             "insulation_sweep",
             "screed_sweep",
+            "dew_point_stress",
         ]
         for sym in expected:
             assert sym in pumpahead.__all__, f"{sym} missing from __all__"
@@ -650,6 +696,7 @@ class TestExports:
             SCENARIO_LIBRARY,
             cold_snap,
             cwu_heavy,
+            dew_point_stress,
             extreme_cold,
             full_year_2025,
             hot_july,
