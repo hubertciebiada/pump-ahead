@@ -40,9 +40,7 @@ class EntityValidator:
 
     # -- Individual checks ---------------------------------------------------
 
-    def validate_unit(
-        self, entity_id: str, valid_units: set[str]
-    ) -> ValidationResult:
+    def validate_unit(self, entity_id: str, valid_units: set[str]) -> ValidationResult:
         """Check that the entity's ``unit_of_measurement`` is acceptable.
 
         Returns success when the entity has no ``unit_of_measurement``

@@ -427,7 +427,6 @@ class PumpAheadConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
 
-
 # ---------------------------------------------------------------------------
 # Options flow (per-room live control toggle)
 # ---------------------------------------------------------------------------
