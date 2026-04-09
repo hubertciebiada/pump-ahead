@@ -773,6 +773,10 @@ class TestOptionsFlowLiveControlToggle:
                 }
             )
         )
+        # Options flow now chains to hp_mapping step before creating entry.
+        assert result["type"] == "form"
+        assert result["step_id"] == "hp_mapping"
+        result = asyncio.run(options_flow.async_step_hp_mapping(user_input={}))
         assert result["type"] == "create_entry"
         live_control = result["data"][ns.CONF_LIVE_CONTROL]
         assert live_control["Living Room"] is True
@@ -790,6 +794,10 @@ class TestOptionsFlowLiveControlToggle:
 
         # Submit with no toggles set (empty dict)
         result = asyncio.run(options_flow.async_step_init(user_input={}))
+        # Options flow now chains to hp_mapping step before creating entry.
+        assert result["type"] == "form"
+        assert result["step_id"] == "hp_mapping"
+        result = asyncio.run(options_flow.async_step_hp_mapping(user_input={}))
         assert result["type"] == "create_entry"
         live_control = result["data"][ns.CONF_LIVE_CONTROL]
         for room_name in live_control:
