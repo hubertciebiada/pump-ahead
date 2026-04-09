@@ -683,13 +683,14 @@ class TestShadowModeReadOnly:
         """Shadow PID in coordinator must not call any HA services."""
         coord_path = _REPO_ROOT / "custom_components" / "pumpahead" / "coordinator.py"
         source = coord_path.read_text(encoding="utf-8")
-        # The only async_call should be in the weather update, not PID.
-        # Check that _run_shadow_pid method doesn't contain service calls.
+        # The only async_call should be in the weather update or live
+        # control methods, not in _run_shadow_pid itself.
         pid_section_start = source.find("def _run_shadow_pid")
-        pid_section_end = source.find("def _read_float_state")
+        # Find the next method definition after _run_shadow_pid.
+        next_def = source.find("\n    def ", pid_section_start + 1)
         assert pid_section_start > 0
-        assert pid_section_end > pid_section_start
-        pid_section = source[pid_section_start:pid_section_end]
+        assert next_def > pid_section_start
+        pid_section = source[pid_section_start:next_def]
         assert "async_call" not in pid_section
         assert "services" not in pid_section
 

@@ -4,9 +4,7 @@ from homeassistant.const import Platform
 
 DOMAIN: str = "pumpahead"
 
-# Platforms will be added as their modules are implemented:
-# Platform.CLIMATE (ClimateEntity per room)
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.CLIMATE]
 
 # ---------------------------------------------------------------------------
 # Configuration keys for config flow (issue #45)
@@ -65,6 +63,8 @@ VALID_POWER_UNITS: set[str] = {"W"}
 # ---------------------------------------------------------------------------
 # Shadow mode PID defaults (issue #46)
 # ---------------------------------------------------------------------------
+
+CONF_LIVE_CONTROL: str = "live_control"
 
 CONF_SETPOINT: str = "setpoint"
 DEFAULT_SETPOINT: float = 21.0

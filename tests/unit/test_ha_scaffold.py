@@ -107,6 +107,17 @@ def ha_mocks() -> Any:  # noqa: C901
 
     ha_config_entries.ConfigFlow = _FakeConfigFlow  # type: ignore[attr-defined]
 
+    class _FakeOptionsFlow:
+        config_entry: Any = None
+
+        def async_show_form(self, **kwargs: Any) -> dict[str, Any]:
+            return {"type": "form", **kwargs}
+
+        def async_create_entry(self, **kwargs: Any) -> dict[str, Any]:
+            return {"type": "create_entry", **kwargs}
+
+    ha_config_entries.OptionsFlow = _FakeOptionsFlow  # type: ignore[attr-defined]
+
     # data_entry_flow mock (needed by config_flow.py)
     ha_data_entry_flow = types.ModuleType("homeassistant.data_entry_flow")
     ha_data_entry_flow.FlowResult = dict  # type: ignore[attr-defined]
@@ -191,10 +202,11 @@ def test_const_domain_value(ha_mocks: Any) -> None:
 
 @pytest.mark.unit
 def test_const_platforms_is_list(ha_mocks: Any) -> None:
-    """PLATFORMS must be a list containing sensor platform."""
+    """PLATFORMS must be a list containing sensor and climate platforms."""
     assert isinstance(ha_mocks.PLATFORMS, list)
-    assert len(ha_mocks.PLATFORMS) == 1
+    assert len(ha_mocks.PLATFORMS) == 2
     assert "sensor" in ha_mocks.PLATFORMS
+    assert "climate" in ha_mocks.PLATFORMS
 
 
 @pytest.mark.unit

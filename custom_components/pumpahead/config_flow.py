@@ -18,7 +18,7 @@ import logging
 from typing import Any
 
 import voluptuous as vol
-from homeassistant.config_entries import ConfigFlow
+from homeassistant.config_entries import ConfigFlow, OptionsFlow
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.selector import (
     BooleanSelector,
@@ -44,6 +44,7 @@ from .const import (
     CONF_ENTITY_WEATHER,
     CONF_HAS_SPLIT,
     CONF_LATITUDE,
+    CONF_LIVE_CONTROL,
     CONF_LONGITUDE,
     CONF_ROOM_AREA,
     CONF_ROOM_NAME,
@@ -72,6 +73,13 @@ class PumpAheadConfigFlow(ConfigFlow, domain=DOMAIN):
     """Multi-step config flow for PumpAhead."""
 
     VERSION = 1
+
+    @staticmethod
+    def async_get_options_flow(
+        config_entry: ConfigFlow,  # type: ignore[override]
+    ) -> PumpAheadOptionsFlow:
+        """Return the options flow handler."""
+        return PumpAheadOptionsFlow()
 
     def __init__(self) -> None:
         """Initialise mutable flow state."""
@@ -413,3 +421,56 @@ class PumpAheadConfigFlow(ConfigFlow, domain=DOMAIN):
             return "invalid_unit"
 
         return None
+
+
+# ---------------------------------------------------------------------------
+# Options flow (per-room live control toggle)
+# ---------------------------------------------------------------------------
+
+
+class PumpAheadOptionsFlow(OptionsFlow):
+    """Options flow for PumpAhead -- per-room live control toggle.
+
+    Presents a boolean toggle per room (``enable_live_control_{room_slug}``).
+    Defaults to ``False`` (shadow mode).  This is the shadow-to-live
+    transition mechanism -- no reconfiguration needed, just toggle in
+    options.
+    """
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle the options flow init step."""
+        rooms: list[dict[str, Any]] = self.config_entry.data.get(CONF_ROOMS, [])  # type: ignore[assignment]
+
+        if user_input is not None:
+            # Build live_control map: room_name -> bool.
+            live_control: dict[str, bool] = {}
+            for room_cfg in rooms:
+                room_name: str = room_cfg[CONF_ROOM_NAME]
+                safe_key = room_name.lower().replace(" ", "_")
+                live_control[room_name] = user_input.get(
+                    f"enable_live_control_{safe_key}", False
+                )
+            return self.async_create_entry(
+                title="",
+                data={CONF_LIVE_CONTROL: live_control},
+            )
+
+        # Build the schema with one boolean toggle per room.
+        current_live: dict[str, bool] = self.config_entry.options.get(
+            CONF_LIVE_CONTROL, {}
+        )
+
+        schema_dict: dict[Any, Any] = {}
+        for room_cfg in rooms:
+            room_name = room_cfg[CONF_ROOM_NAME]
+            safe_key = room_name.lower().replace(" ", "_")
+            key = f"enable_live_control_{safe_key}"
+            default_val = current_live.get(room_name, False)
+            schema_dict[vol.Optional(key, default=default_val)] = BooleanSelector()
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(schema_dict),
+        )
