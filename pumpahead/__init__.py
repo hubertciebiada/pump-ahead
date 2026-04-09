@@ -46,6 +46,7 @@ from pumpahead.disturbance_vector import (
     InternalGainProfile,
 )
 from pumpahead.estimator import KalmanEstimator
+from pumpahead.hp_mode_mapping import HPModeMapper, HPOperatingState
 from pumpahead.identification_report import (
     DEFAULT_RMSE_PASS_THRESHOLD,
     DEFAULT_RMSE_REIDENTIFICATION_THRESHOLD,
@@ -208,6 +209,8 @@ __all__ = [
     "EphemerisCalculator",
     "HUBERT_ROOMS",
     "HeatPumpMode",
+    "HPModeMapper",
+    "HPOperatingState",
     "HorizonRMSE",
     "IdentificationReport",
     "InternalGainProfile",

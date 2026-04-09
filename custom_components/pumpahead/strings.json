@@ -29,7 +29,17 @@
           "entity_humidity": "Humidity sensor (optional)",
           "entity_split": "Split/AC climate entity",
           "entity_temp_outdoor": "Outdoor temperature sensor",
-          "entity_weather": "Weather entity (for forecast)"
+          "entity_weather": "Weather entity (for forecast)",
+          "entity_hp_state": "Heat pump state sensor (optional)"
+        }
+      },
+      "hp_mapping": {
+        "title": "HP Mode Mapping",
+        "description": "Map your heat pump's operating states to PumpAhead states. Enter the exact state string as shown by your HP integration (e.g., 'Heat', 'DHW', 'Defrost') and select the corresponding PumpAhead mode.",
+        "data": {
+          "hp_state_raw": "HP state string",
+          "hp_state_target": "PumpAhead mode",
+          "add_another_mapping": "Add another mapping"
         }
       },
       "algorithm": {
@@ -58,7 +68,9 @@
       "invalid_unit": "Entity has incorrect unit of measurement",
       "invalid_device_class": "Entity has incorrect device class",
       "entity_unavailable": "Entity is currently unavailable — it may come online later",
-      "invalid_weight": "Weight must be >= 0"
+      "invalid_weight": "Weight must be >= 0",
+      "empty_hp_state": "HP state string cannot be empty",
+      "duplicate_hp_state": "This HP state is already mapped"
     },
     "abort": {
       "already_configured": "PumpAhead is already configured for this location"
@@ -69,6 +81,10 @@
       "init": {
         "title": "PumpAhead Live Control",
         "description": "Enable live control per room. When enabled, PumpAhead will actively control valves and splits for the selected rooms. Disabled rooms remain in shadow (read-only) mode."
+      },
+      "hp_mapping": {
+        "title": "Edit HP Mode Mapping",
+        "description": "Edit the mapping between your heat pump's operating states and PumpAhead states. Modify existing entries or add new ones. Leave the new entry blank to skip adding."
       }
     }
   }
