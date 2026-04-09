@@ -528,9 +528,7 @@ class TestSafetyEvaluator:
     def test_active_rule_names_property(self) -> None:
         """active_rule_names returns names of currently active rules."""
         evaluator = SafetyEvaluator()
-        evaluator.evaluate(
-            _normal_snapshot(T_floor=35.0, last_update_age_minutes=20.0)
-        )
+        evaluator.evaluate(_normal_snapshot(T_floor=35.0, last_update_age_minutes=20.0))
         names = evaluator.active_rule_names
         assert "S1_floor_overheat" in names
         assert "S5_watchdog" in names
@@ -570,8 +568,7 @@ class TestSafetyEvaluator:
             results = evaluator.evaluate(_normal_snapshot(T_floor=temp))
             s1 = next(r for r in results if r.rule.name == "S1_floor_overheat")
             assert s1.triggered is expected, (
-                f"T_floor={temp}: expected triggered={expected}, "
-                f"got {s1.triggered}"
+                f"T_floor={temp}: expected triggered={expected}, got {s1.triggered}"
             )
 
     def test_evaluator_with_empty_rules(self) -> None:
