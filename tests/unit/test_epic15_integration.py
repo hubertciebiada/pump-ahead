@@ -601,9 +601,7 @@ class TestArchitecturalIntegrity:
                         f"{py_file.relative_to(_REPO_ROOT)}:{node.lineno}"
                     )
 
-        assert violations == [], (
-            f"Core library imports homeassistant in: {violations}"
-        )
+        assert violations == [], f"Core library imports homeassistant in: {violations}"
 
     def test_custom_component_file_structure(self) -> None:
         """custom_components/pumpahead/ must have all expected files."""
@@ -636,9 +634,7 @@ class TestArchitecturalIntegrity:
         assert "codeowners" in manifest
         assert isinstance(manifest["codeowners"], list)
 
-    def test_platforms_match_module_files(
-        self, ha_integration_mocks: Any
-    ) -> None:
+    def test_platforms_match_module_files(self, ha_integration_mocks: Any) -> None:
         """PLATFORMS constant must include sensor and climate."""
         ns = ha_integration_mocks
         platform_values = [str(p) for p in ns.PLATFORMS]
@@ -647,9 +643,7 @@ class TestArchitecturalIntegrity:
 
     def test_coordinator_imports_pid_from_core(self) -> None:
         """coordinator.py must import PIDController from pumpahead.controller."""
-        coord_path = (
-            _REPO_ROOT / "custom_components" / "pumpahead" / "coordinator.py"
-        )
+        coord_path = _REPO_ROOT / "custom_components" / "pumpahead" / "coordinator.py"
         source = coord_path.read_text(encoding="utf-8")
         assert "from pumpahead.controller import PIDController" in source
 
@@ -674,10 +668,12 @@ class TestConfigFlowToCoordinatorPipeline:
 
         # Step 1: Location
         asyncio.run(
-            flow.async_step_user({
-                ns.CONF_LATITUDE: 50.06,
-                ns.CONF_LONGITUDE: 19.94,
-            })
+            flow.async_step_user(
+                {
+                    ns.CONF_LATITUDE: 50.06,
+                    ns.CONF_LONGITUDE: 19.94,
+                }
+            )
         )
         # After location, it auto-advances to rooms step (async_step_rooms)
         assert flow._location[ns.CONF_LATITUDE] == 50.06
@@ -771,10 +767,12 @@ class TestOptionsFlowLiveControlToggle:
         options_flow.config_entry = entry
 
         result = asyncio.run(
-            options_flow.async_step_init(user_input={
-                "enable_live_control_living_room": True,
-                "enable_live_control_bedroom": False,
-            })
+            options_flow.async_step_init(
+                user_input={
+                    "enable_live_control_living_room": True,
+                    "enable_live_control_bedroom": False,
+                }
+            )
         )
         assert result["type"] == "create_entry"
         live_control = result["data"][ns.CONF_LIVE_CONTROL]
@@ -1179,8 +1177,7 @@ class TestLiveControlFullPipeline:
         # Verify number.set_value was called for the valve
         calls = hass.services.async_call.call_args_list
         valve_calls = [
-            c for c in calls
-            if c.args[0] == "number" and c.args[1] == "set_value"
+            c for c in calls if c.args[0] == "number" and c.args[1] == "set_value"
         ]
         assert len(valve_calls) == 1
         assert valve_calls[0].args[2]["entity_id"] == "number.valve_living"
@@ -1224,20 +1221,14 @@ class TestLiveControlFullPipeline:
 
         # Verify valve set_value was called for bedroom
         valve_calls = [
-            c for c in calls
-            if c.args[0] == "number" and c.args[1] == "set_value"
+            c for c in calls if c.args[0] == "number" and c.args[1] == "set_value"
         ]
         assert len(valve_calls) >= 1
 
         # Verify climate service calls for split
-        climate_calls = [
-            c for c in calls
-            if c.args[0] == "climate"
-        ]
+        climate_calls = [c for c in calls if c.args[0] == "climate"]
         # Should have set_hvac_mode and set_temperature calls
-        hvac_mode_calls = [
-            c for c in climate_calls if c.args[1] == "set_hvac_mode"
-        ]
+        hvac_mode_calls = [c for c in climate_calls if c.args[1] == "set_hvac_mode"]
         assert len(hvac_mode_calls) >= 1
         # In heating mode, split should be set to "heat" (not "cool")
         assert hvac_mode_calls[0].args[2]["hvac_mode"] == "heat"
@@ -1368,8 +1359,15 @@ class TestAxiomEnforcement:
     def test_axiom8_no_brand_specific_entities_in_config(self) -> None:
         """Axiom 8: No brand-specific entity IDs in config flow or coordinator."""
         brand_keywords = [
-            "heishamon", "aquarea", "vdmot", "mitsubishi", "cn105",
-            "panasonic", "daikin", "toshiba", "lg_",
+            "heishamon",
+            "aquarea",
+            "vdmot",
+            "mitsubishi",
+            "cn105",
+            "panasonic",
+            "daikin",
+            "toshiba",
+            "lg_",
         ]
         files_to_check = [
             _REPO_ROOT / "custom_components" / "pumpahead" / "config_flow.py",
@@ -1402,9 +1400,7 @@ class TestAxiomEnforcement:
 class TestAcceptanceCriteriaVerification:
     """Explicit checks for Epic 15 acceptance criteria."""
 
-    def test_all_modules_importable(
-        self, ha_integration_mocks: Any
-    ) -> None:
+    def test_all_modules_importable(self, ha_integration_mocks: Any) -> None:
         """All HA integration modules must be importable without error.
 
         The fact that the fixture yields successfully proves this, but
@@ -1419,23 +1415,17 @@ class TestAcceptanceCriteriaVerification:
         assert ns.PumpAheadSensorEntity is not None
         assert ns.PumpAheadClimateEntity is not None
 
-    def test_domain_is_pumpahead(
-        self, ha_integration_mocks: Any
-    ) -> None:
+    def test_domain_is_pumpahead(self, ha_integration_mocks: Any) -> None:
         """DOMAIN constant must be 'pumpahead'."""
         ns = ha_integration_mocks
         assert ns.DOMAIN == "pumpahead"
 
-    def test_update_interval_is_5_minutes(
-        self, ha_integration_mocks: Any
-    ) -> None:
+    def test_update_interval_is_5_minutes(self, ha_integration_mocks: Any) -> None:
         """UPDATE_INTERVAL_MINUTES must be 5."""
         ns = ha_integration_mocks
         assert ns.UPDATE_INTERVAL_MINUTES == 5
 
-    def test_config_flow_version_is_1(
-        self, ha_integration_mocks: Any
-    ) -> None:
+    def test_config_flow_version_is_1(self, ha_integration_mocks: Any) -> None:
         """Config flow VERSION must be 1."""
         ns = ha_integration_mocks
         assert ns.PumpAheadConfigFlow.VERSION == 1
