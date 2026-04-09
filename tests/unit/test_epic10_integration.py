@@ -465,9 +465,7 @@ class TestAcceptanceCriteria:
         ctrl = MPCController(model, config)
         rh = ctrl.step(x0, d, T_set=21.0)
 
-        assert rh.u_conv_0 == 0.0, (
-            f"u_conv_0 should be 0.0 for SISO, got {rh.u_conv_0}"
-        )
+        assert rh.u_conv_0 == 0.0, f"u_conv_0 should be 0.0 for SISO, got {rh.u_conv_0}"
 
 
 # ---------------------------------------------------------------------------
@@ -548,9 +546,7 @@ class TestArchitecturalIntegrity:
             assert hasattr(pumpahead, symbol), (
                 f"{symbol} not exported from pumpahead.__init__"
             )
-            assert symbol in pumpahead.__all__, (
-                f"{symbol} not in pumpahead.__all__"
-            )
+            assert symbol in pumpahead.__all__, f"{symbol} not in pumpahead.__all__"
 
     @pytest.mark.unit
     def test_optimizer_module_does_not_import_simulator(self) -> None:
