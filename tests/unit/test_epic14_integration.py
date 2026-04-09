@@ -28,8 +28,6 @@ import yaml
 from pumpahead.config import ControllerConfig
 from pumpahead.controller import PumpAheadController
 from pumpahead.dew_point import (
-    MAGNUS_A,
-    MAGNUS_B,
     condensation_margin,
     cooling_throttle_factor,
     dew_point,
@@ -266,7 +264,9 @@ class TestDewPointToSafetyRulesPipeline:
         assert throttle == 0.0
 
         # At this point, condensation_margin should be <= 0
-        cm = condensation_margin(t_floor_critical, t_room, humidity, safety_margin=margin_param)
+        cm = condensation_margin(
+            t_floor_critical, t_room, humidity, safety_margin=margin_param,
+        )
         assert cm <= 0.0 + 1e-10
 
 
@@ -300,17 +300,24 @@ class TestModeControllerToCoolingPathPipeline:
         # T_dew(27, 50) ~ 15.9
         # With T_slab=25 (far from T_dew+2=17.9), throttle ~ 1.0
         ctrl_safe = _make_cooling_controller(["room1"], mode="cooling")
-        meas_safe = {"room1": _make_measurements(T_room=27.0, T_slab=25.0, humidity=50.0)}
+        meas_safe = {
+            "room1": _make_measurements(T_room=27.0, T_slab=25.0, humidity=50.0),
+        }
         actions_safe = ctrl_safe.step(meas_safe)
 
         # With T_slab=18.5 (close to T_dew+2=17.9), throttle < 1.0
         ctrl_tight = _make_cooling_controller(["room1"], mode="cooling")
-        meas_tight = {"room1": _make_measurements(T_room=27.0, T_slab=18.5, humidity=50.0)}
+        meas_tight = {
+            "room1": _make_measurements(T_room=27.0, T_slab=18.5, humidity=50.0),
+        }
         actions_tight = ctrl_tight.step(meas_tight)
 
         # Both should have valve > 0 but tight should be less than safe
         assert actions_safe["room1"].valve_position > 0.0
-        assert actions_tight["room1"].valve_position < actions_safe["room1"].valve_position
+        assert (
+            actions_tight["room1"].valve_position
+            < actions_safe["room1"].valve_position
+        )
 
     def test_cooling_mode_valve_floor_not_enforced(self) -> None:
         """Valve floor is NOT enforced in cooling mode."""
@@ -606,7 +613,8 @@ class TestAcceptanceCriteriaVerification:
         # At midpoint of ramp: gap = margin + ramp_width/2 = 3.0
         # t_floor = t_dew + 3.0 = 13.0
         midpoint = cooling_throttle_factor(
-            t_dew + margin + ramp_width / 2, t_dew, margin=margin, ramp_width=ramp_width,
+            t_dew + margin + ramp_width / 2,
+            t_dew, margin=margin, ramp_width=ramp_width,
         )
         assert 0.0 < midpoint < 1.0
         assert midpoint == pytest.approx(0.5, abs=0.01)
