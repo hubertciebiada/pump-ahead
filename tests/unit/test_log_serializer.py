@@ -10,6 +10,7 @@ import pytest
 
 from pumpahead.log_serializer import (
     load_json,
+    load_json_string,
     load_pickle,
     save_json,
     save_pickle,
@@ -373,3 +374,59 @@ class TestLargeLog:
         save_pickle(log, fp)
         loaded = load_pickle(fp)
         assert _logs_equal(log, loaded)
+
+
+# ---------------------------------------------------------------------------
+# load_json_string tests
+# ---------------------------------------------------------------------------
+
+
+class TestLoadJsonString:
+    """Tests for ``load_json_string``."""
+
+    @pytest.mark.unit()
+    def test_roundtrip_via_string(
+        self,
+        sample_log: SimulationLog,
+        tmp_path: Path,
+    ) -> None:
+        """Save to JSON file, read text, pass to load_json_string, verify match."""
+        fp = tmp_path / "via_string.json"
+        save_json(sample_log, fp)
+        text = fp.read_text(encoding="utf-8")
+        loaded = load_json_string(text)
+        assert _logs_equal(sample_log, loaded)
+
+    @pytest.mark.unit()
+    def test_invalid_json_raises(self) -> None:
+        """Garbage string raises ValueError."""
+        with pytest.raises(ValueError, match="Invalid JSON"):
+            load_json_string("this is not json {{{")
+
+    @pytest.mark.unit()
+    def test_wrong_version_raises(self) -> None:
+        """Valid JSON with wrong version raises ValueError."""
+        text = json.dumps({"version": 999, "records": []})
+        with pytest.raises(ValueError, match="version"):
+            load_json_string(text)
+
+    @pytest.mark.unit()
+    def test_missing_records_raises(self) -> None:
+        """JSON with version but no records key raises ValueError."""
+        text = json.dumps({"version": 1})
+        with pytest.raises(ValueError, match="missing key"):
+            load_json_string(text)
+
+    @pytest.mark.unit()
+    def test_empty_log(self) -> None:
+        """JSON with version 1 and empty records list returns empty log."""
+        text = json.dumps({"version": 1, "records": []})
+        loaded = load_json_string(text)
+        assert len(loaded) == 0
+
+    @pytest.mark.unit()
+    def test_missing_version_raises(self) -> None:
+        """JSON without version key raises ValueError."""
+        text = json.dumps({"records": []})
+        with pytest.raises(ValueError, match="missing key"):
+            load_json_string(text)

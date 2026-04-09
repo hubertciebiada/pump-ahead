@@ -793,17 +793,9 @@ def create_app(
             suffix = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
 
             if suffix == "json":
-                import json as json_mod
+                from pumpahead.log_serializer import load_json_string
 
-                from pumpahead.log_serializer import _dict_to_record
-
-                data = json_mod.loads(decoded.decode("utf-8"))
-                if data.get("version") != 1:
-                    ver = data.get("version")
-                    msg = f"Unsupported version: {ver}"
-                    return ("", 0, [], 0, msg, 0, 0)
-                records = [_dict_to_record(d) for d in data["records"]]
-                loaded_log = SimulationLog(records)
+                loaded_log = load_json_string(decoded.decode("utf-8"))
             elif suffix in {"pkl", "pickle"}:
                 loaded_log = pickle.loads(decoded)  # noqa: S301
                 if not isinstance(loaded_log, SimulationLog):
