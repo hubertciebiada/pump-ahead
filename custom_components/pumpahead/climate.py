@@ -209,9 +209,7 @@ class PumpAheadClimateEntity(CoordinatorEntity[PumpAheadCoordinator], ClimateEnt
         attrs["predicted_temp"] = room_data.predicted_temp
         if self._has_split:
             attrs["split_recommended_mode"] = room_data.split_recommended_mode
-            attrs["split_recommended_setpoint"] = (
-                room_data.split_recommended_setpoint
-            )
+            attrs["split_recommended_setpoint"] = room_data.split_recommended_setpoint
 
         return attrs
 

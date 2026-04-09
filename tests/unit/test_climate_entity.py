@@ -460,9 +460,7 @@ class TestClimateEntityState:
         assert "off" in modes
 
     @pytest.mark.unit
-    def test_hvac_mode_from_algorithm_mode_heating(
-        self, climate_mocks: Any
-    ) -> None:
+    def test_hvac_mode_from_algorithm_mode_heating(self, climate_mocks: Any) -> None:
         """HVAC mode must be HEAT when algorithm_mode is 'heating'."""
         data = _make_coordinator_data(climate_mocks, algorithm_mode="heating")
         coordinator = _make_coordinator_with_data(climate_mocks, data=data)
@@ -475,9 +473,7 @@ class TestClimateEntityState:
         assert entity.hvac_mode == climate_mocks.HVACMode.HEAT
 
     @pytest.mark.unit
-    def test_hvac_mode_from_algorithm_mode_cooling(
-        self, climate_mocks: Any
-    ) -> None:
+    def test_hvac_mode_from_algorithm_mode_cooling(self, climate_mocks: Any) -> None:
         """HVAC mode must be COOL when algorithm_mode is 'cooling'."""
         data = _make_coordinator_data(climate_mocks, algorithm_mode="cooling")
         coordinator = _make_coordinator_with_data(climate_mocks, data=data)
@@ -533,9 +529,7 @@ class TestClimateEntityState:
         assert entity.hvac_mode == climate_mocks.HVACMode.OFF
 
     @pytest.mark.unit
-    def test_current_temperature_from_coordinator(
-        self, climate_mocks: Any
-    ) -> None:
+    def test_current_temperature_from_coordinator(self, climate_mocks: Any) -> None:
         """current_temperature must return T_room from coordinator data."""
         coordinator = _make_coordinator_with_data(climate_mocks)
         entity = climate_mocks.PumpAheadClimateEntity(
@@ -547,9 +541,7 @@ class TestClimateEntityState:
         assert entity.current_temperature == 21.5
 
     @pytest.mark.unit
-    def test_current_temperature_none_when_no_data(
-        self, climate_mocks: Any
-    ) -> None:
+    def test_current_temperature_none_when_no_data(self, climate_mocks: Any) -> None:
         """current_temperature must return None when coordinator data is None."""
         coordinator = _make_coordinator_with_data(climate_mocks)
         coordinator.data = None
@@ -778,9 +770,7 @@ class TestAsyncSetupEntry:
         assert entities[0]._room_name == "Living Room"
 
     @pytest.mark.unit
-    def test_creates_entities_for_multiple_rooms(
-        self, climate_mocks: Any
-    ) -> None:
+    def test_creates_entities_for_multiple_rooms(self, climate_mocks: Any) -> None:
         """async_setup_entry must create climate entities for all rooms."""
         rooms = {
             "Living Room": climate_mocks.RoomSensorData(
@@ -1095,18 +1085,14 @@ class TestLiveControlGuard:
 
         calls = hass.services.async_call.call_args_list
         hvac_calls = [
-            c
-            for c in calls
-            if c[0][0] == "climate" and c[0][1] == "set_hvac_mode"
+            c for c in calls if c[0][0] == "climate" and c[0][1] == "set_hvac_mode"
         ]
         assert len(hvac_calls) == 1
         assert hvac_calls[0][0][2]["entity_id"] == "climate.split_living"
         assert hvac_calls[0][0][2]["hvac_mode"] == "heat"
 
     @pytest.mark.unit
-    def test_no_valve_service_when_temp_unavailable(
-        self, climate_mocks: Any
-    ) -> None:
+    def test_no_valve_service_when_temp_unavailable(self, climate_mocks: Any) -> None:
         """Coordinator must skip live control when room T_room is None."""
         hass = MagicMock()
         hass.config.latitude = 50.06
@@ -1238,9 +1224,7 @@ class TestSplitRecommendations:
         assert room.split_recommended_setpoint is None
 
     @pytest.mark.unit
-    def test_split_no_recommendation_without_split(
-        self, climate_mocks: Any
-    ) -> None:
+    def test_split_no_recommendation_without_split(self, climate_mocks: Any) -> None:
         """Room without split must have None split recommendations."""
         hass = MagicMock()
         hass.config.latitude = 50.06
@@ -1323,9 +1307,7 @@ class TestSplitRecommendations:
         assert room.split_recommended_setpoint == 21.0
 
     @pytest.mark.unit
-    def test_axiom3_no_cooling_in_heating_mode(
-        self, climate_mocks: Any
-    ) -> None:
+    def test_axiom3_no_cooling_in_heating_mode(self, climate_mocks: Any) -> None:
         """Axiom 3: no 'cooling' recommendation in 'heating' mode."""
         hass = MagicMock()
         hass.config.latitude = 50.06

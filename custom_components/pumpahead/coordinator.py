@@ -210,9 +210,7 @@ class PumpAheadCoordinator(DataUpdateCoordinator[PumpAheadCoordinatorData]):
 
     # -- Split recommendations ------------------------------------------------
 
-    def _compute_split_recommendations(
-        self, rooms: dict[str, RoomSensorData]
-    ) -> None:
+    def _compute_split_recommendations(self, rooms: dict[str, RoomSensorData]) -> None:
         """Populate split recommendation fields for rooms with splits.
 
         Determines whether the split should assist based on the PID error
@@ -304,10 +302,7 @@ class PumpAheadCoordinator(DataUpdateCoordinator[PumpAheadCoordinatorData]):
                 {"entity_id": split_entity, "hvac_mode": ha_mode},
                 blocking=False,
             )
-            if (
-                ha_mode != "off"
-                and room_data.split_recommended_setpoint is not None
-            ):
+            if ha_mode != "off" and room_data.split_recommended_setpoint is not None:
                 await self.hass.services.async_call(
                     "climate",
                     "set_temperature",
