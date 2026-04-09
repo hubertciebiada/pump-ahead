@@ -503,8 +503,7 @@ class TestAcceptanceCriteriaVerification:
             # All actions use HA services
             for action in auto["action"]:
                 assert action["service"] in allowed_services, (
-                    f"Automation {auto['id']} uses non-HA service: "
-                    f"{action['service']}"
+                    f"Automation {auto['id']} uses non-HA service: {action['service']}"
                 )
 
     def test_ac_s1_valve_closed_action_present(self) -> None:
@@ -572,8 +571,12 @@ class TestAcceptanceCriteriaVerification:
         yaml_str = generate_safety_yaml(config)
         automations = _parse_yaml(yaml_str)
 
-        for rule_id in ["s1_floor_overheat", "s2_condensation",
-                        "s3_emergency_heat", "s4_emergency_cool"]:
+        for rule_id in [
+            "s1_floor_overheat",
+            "s2_condensation",
+            "s3_emergency_heat",
+            "s4_emergency_cool",
+        ]:
             triggers = [a for a in automations if f"{rule_id}_trigger" in str(a["id"])]
             clears = [a for a in automations if f"{rule_id}_clear" in str(a["id"])]
             assert len(triggers) >= 1, f"No trigger automation for {rule_id}"
@@ -683,6 +686,4 @@ class TestArchitecturalIntegrity:
             assert hasattr(pumpahead, symbol), (
                 f"{symbol} not exported from pumpahead.__init__"
             )
-            assert symbol in pumpahead.__all__, (
-                f"{symbol} not in pumpahead.__all__"
-            )
+            assert symbol in pumpahead.__all__, f"{symbol} not in pumpahead.__all__"
