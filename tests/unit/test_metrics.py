@@ -95,9 +95,9 @@ def condensation_log() -> SimulationLog:
     """Log with 5 records: 2 have condensation risk.
 
     Condensation occurs when T_floor < T_dew + 2.
-    With humidity=80%, T_room=21.0: T_dew = 21 - (100-80)/5 = 17.0
-    Threshold = 17.0 + 2.0 = 19.0
-    Records with T_slab=18.0 (< 19.0) trigger condensation.
+    With humidity=80%, T_room=21.0: T_dew ~ 17.42 (Magnus formula)
+    Threshold = 17.42 + 2.0 = 19.42
+    Records with T_slab=18.0 (< 19.42) trigger condensation.
     """
     records = [
         _make_record(t=0, T_slab=23.0, humidity=80.0),  # safe
@@ -239,8 +239,8 @@ class TestSimMetricsSafety:
 
     def test_no_condensation_dry_air(self) -> None:
         """With low humidity (20%), dew point is low -> no condensation."""
-        # T_dew = 21.0 - (100-20)/5 = 21.0 - 16.0 = 5.0
-        # Threshold = 5.0 + 2.0 = 7.0, T_slab=23.0 >> 7.0
+        # T_dew ~ -0.28 (Magnus) at T_air=21, RH=20
+        # Threshold = -0.28 + 2.0 = 1.72, T_slab=23.0 >> 1.72
         log = _make_log([_make_record(t=0, T_slab=23.0, humidity=20.0)])
         m = SimMetrics.from_log(log, setpoint=21.0)
         assert m.condensation_events == 0
@@ -626,16 +626,16 @@ class TestSimMetricsFrozen:
 
 @pytest.mark.unit
 class TestDewPoint:
-    """Tests for the _dew_point helper."""
+    """Tests for the _dew_point helper (now uses Magnus formula)."""
 
     def test_typical_value(self) -> None:
-        """T_dew at 21C, 50% RH = 21 - 50/5 = 11.0."""
-        assert _dew_point(21.0, 50.0) == pytest.approx(11.0)
+        """T_dew at 21C, 50% RH ~ 10.17 (Magnus formula)."""
+        assert _dew_point(21.0, 50.0) == pytest.approx(10.17, abs=0.1)
 
     def test_saturated_air(self) -> None:
         """At 100% RH, T_dew = T_air."""
         assert _dew_point(21.0, 100.0) == pytest.approx(21.0)
 
     def test_dry_air(self) -> None:
-        """At 0% RH, T_dew = T_air - 20."""
-        assert _dew_point(21.0, 0.0) == pytest.approx(1.0)
+        """At 0% RH, T_dew = -273.15 (absolute zero guard)."""
+        assert _dew_point(21.0, 0.0) == pytest.approx(-273.15)

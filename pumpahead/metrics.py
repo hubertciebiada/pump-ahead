@@ -30,28 +30,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, fields
 
+from pumpahead.dew_point import dew_point as _dew_point
 from pumpahead.simulation_log import SimulationLog
 from pumpahead.simulator import HeatPumpMode, SplitMode
-
-# ---------------------------------------------------------------------------
-# Private helpers
-# ---------------------------------------------------------------------------
-
-
-def _dew_point(t_air: float, rh: float) -> float:
-    """Compute dew-point temperature using the simplified Magnus formula.
-
-    This is the same approximation referenced in the algorithm spec:
-    ``T_dew = T_air - (100 - RH) / 5``.
-
-    Args:
-        t_air: Air temperature [degC].
-        rh: Relative humidity [%] (0-100).
-
-    Returns:
-        Estimated dew-point temperature [degC].
-    """
-    return t_air - (100.0 - rh) / 5.0
 
 
 # ---------------------------------------------------------------------------

@@ -308,18 +308,18 @@ class TestDefaultRules:
 
     def test_s2_condition_computes_condensation_margin(self) -> None:
         """S2 condition extracts T_floor - (T_dew + 2)."""
-        # T_room=20, humidity=50 => T_dew = 20 - (100-50)/5 = 10
-        # margin = T_floor - (10 + 2) = T_floor - 12
+        # T_room=20, humidity=50 => T_dew ~ 9.26 (Magnus formula)
+        # margin = T_floor - (9.26 + 2) = 11 - 11.26 ~ -0.26
         snap = _normal_snapshot(T_floor=11.0, T_room=20.0, humidity=50.0)
         margin = S2_CONDENSATION.condition(snap)
-        assert margin == pytest.approx(-1.0)
+        assert margin == pytest.approx(-0.26, abs=0.05)
 
     def test_s2_condition_safe_margin(self) -> None:
         """S2 margin is positive when floor is well above dew point."""
-        # T_room=20, humidity=50 => T_dew=10, margin = 25 - 12 = 13
+        # T_room=20, humidity=50 => T_dew ~ 9.26, margin = 25 - 11.26 ~ 13.74
         snap = _normal_snapshot(T_floor=25.0, T_room=20.0, humidity=50.0)
         margin = S2_CONDENSATION.condition(snap)
-        assert margin == pytest.approx(13.0)
+        assert margin == pytest.approx(13.74, abs=0.05)
 
 
 # ---------------------------------------------------------------------------
@@ -380,8 +380,8 @@ class TestSafetyEvaluator:
     def test_s2_triggers_on_condensation_risk(self) -> None:
         """S2 triggers when condensation margin < 0."""
         evaluator = SafetyEvaluator()
-        # T_room=20, humidity=80 => T_dew = 20-(100-80)/5 = 16
-        # margin = T_floor - (16+2) = 17 - 18 = -1
+        # T_room=20, humidity=80 => T_dew ~ 16.44 (Magnus)
+        # margin = T_floor - (16.44 + 2) = 17 - 18.44 ~ -1.44
         snap = _normal_snapshot(T_floor=17.0, T_room=20.0, humidity=80.0)
         results = evaluator.evaluate(snap)
         s2 = next(r for r in results if r.rule.name == "S2_condensation")
@@ -399,13 +399,13 @@ class TestSafetyEvaluator:
     def test_s2_with_very_low_humidity(self) -> None:
         """S2 never triggers with very low humidity (large margin)."""
         evaluator = SafetyEvaluator()
-        # humidity=5 => T_dew = 20-(100-5)/5 = 20-19 = 1
-        # margin = 25 - (1+2) = 22
+        # humidity=5 => T_dew ~ -20.87 (Magnus)
+        # margin = 25 - (-20.87 + 2) ~ 43.87
         snap = _normal_snapshot(T_floor=25.0, T_room=20.0, humidity=5.0)
         results = evaluator.evaluate(snap)
         s2 = next(r for r in results if r.rule.name == "S2_condensation")
         assert s2.triggered is False
-        assert s2.measured_value == pytest.approx(22.0)
+        assert s2.measured_value == pytest.approx(43.87, abs=0.1)
 
     def test_s2_with_100_percent_humidity(self) -> None:
         """S2 with 100% humidity: T_dew=T_room, margin = T_floor - (T_room+2)."""

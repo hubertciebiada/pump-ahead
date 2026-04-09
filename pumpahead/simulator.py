@@ -68,6 +68,8 @@ class Measurements:
         valve_pos: Current valve position [0-100 %].
         hp_mode: Current heat pump operating mode.
         is_cwu_active: Whether a CWU (DHW) cycle is currently active.
+        humidity: Relative humidity [%] (0-100).  Defaults to 50.0
+            when no humidity sensor is available.
     """
 
     T_room: float
@@ -76,6 +78,7 @@ class Measurements:
     valve_pos: float
     hp_mode: HeatPumpMode
     is_cwu_active: bool = False
+    humidity: float = 50.0
 
 
 @dataclass(frozen=True)
@@ -273,6 +276,7 @@ class BuildingSimulator:
             valve_pos=measurements.valve_pos,
             hp_mode=measurements.hp_mode,
             is_cwu_active=measurements.is_cwu_active,
+            humidity=measurements.humidity,
         )
 
     # -- Public interface — single room (backward compatible) ----------------
@@ -296,6 +300,7 @@ class BuildingSimulator:
             valve_pos=first.valve_position,
             hp_mode=self._hp_mode,
             is_cwu_active=cwu_active,
+            humidity=wp.humidity,
         )
         return self._apply_noise(clean)
 
@@ -375,6 +380,7 @@ class BuildingSimulator:
                 valve_pos=r.valve_position,
                 hp_mode=self._hp_mode,
                 is_cwu_active=cwu_active,
+                humidity=wp.humidity,
             )
             result[r.name] = self._apply_noise(clean)
         return result
