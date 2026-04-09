@@ -77,3 +77,10 @@ DEFAULT_SETPOINT: float = 21.0
 DEFAULT_KP: float = 5.0
 DEFAULT_KI: float = 0.01
 DEFAULT_KD: float = 0.0
+
+# ---------------------------------------------------------------------------
+# Watchdog (issue #62)
+# ---------------------------------------------------------------------------
+
+WATCHDOG_TIMEOUT_MINUTES: int = 15
+WATCHDOG_RECOVERY_MINUTES: int = 5

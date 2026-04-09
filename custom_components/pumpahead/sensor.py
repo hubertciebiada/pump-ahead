@@ -85,6 +85,12 @@ GLOBAL_SENSORS: tuple[PumpAheadSensorEntityDescription, ...] = (
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data, _room: data.last_update_timestamp,
     ),
+    PumpAheadSensorEntityDescription(
+        key="watchdog_status",
+        translation_key="watchdog_status",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda data, _room: data.watchdog_state,
+    ),
 )
 
 

@@ -332,8 +332,8 @@ class TestSensorDescriptions:
 
     @pytest.mark.unit
     def test_global_sensors_count(self, sensor_mocks: Any) -> None:
-        """There must be exactly 2 global sensor descriptions."""
-        assert len(sensor_mocks.GLOBAL_SENSORS) == 2
+        """There must be exactly 3 global sensor descriptions."""
+        assert len(sensor_mocks.GLOBAL_SENSORS) == 3
 
     @pytest.mark.unit
     def test_room_sensor_keys(self, sensor_mocks: Any) -> None:
@@ -345,7 +345,7 @@ class TestSensorDescriptions:
     def test_global_sensor_keys(self, sensor_mocks: Any) -> None:
         """Global sensors must have correct keys."""
         keys = {desc.key for desc in sensor_mocks.GLOBAL_SENSORS}
-        assert keys == {"algorithm_status", "last_update"}
+        assert keys == {"algorithm_status", "last_update", "watchdog_status"}
 
     @pytest.mark.unit
     def test_room_sensors_are_diagnostic(self, sensor_mocks: Any) -> None:
@@ -594,8 +594,8 @@ class TestAsyncSetupEntry:
         hass = MagicMock()
         asyncio.run(sensor_mocks.async_setup_entry(hass, entry, capture_entities))
 
-        # 1 room * 2 room sensors + 2 global sensors = 4
-        assert len(entities) == 4
+        # 1 room * 2 room sensors + 3 global sensors = 5
+        assert len(entities) == 5
 
     @pytest.mark.unit
     def test_creates_entities_for_multiple_rooms(self, sensor_mocks: Any) -> None:
@@ -636,8 +636,8 @@ class TestAsyncSetupEntry:
         hass = MagicMock()
         asyncio.run(sensor_mocks.async_setup_entry(hass, entry, capture_entities))
 
-        # 2 rooms * 2 room sensors + 2 global sensors = 6
-        assert len(entities) == 6
+        # 2 rooms * 2 room sensors + 3 global sensors = 7
+        assert len(entities) == 7
 
     @pytest.mark.unit
     def test_creates_only_global_when_no_rooms(self, sensor_mocks: Any) -> None:
@@ -658,8 +658,8 @@ class TestAsyncSetupEntry:
         hass = MagicMock()
         asyncio.run(sensor_mocks.async_setup_entry(hass, entry, capture_entities))
 
-        # Only 2 global sensors
-        assert len(entities) == 2
+        # Only 3 global sensors
+        assert len(entities) == 3
 
 
 # ---------------------------------------------------------------------------
