@@ -35,6 +35,7 @@ from homeassistant.helpers.selector import (
 from .const import (
     CONF_ADD_ANOTHER,
     CONF_ALGORITHM_MODE,
+    CONF_ENTITY_HP_STATE,
     CONF_ENTITY_HUMIDITY,
     CONF_ENTITY_SPLIT,
     CONF_ENTITY_TEMP_FLOOR,
@@ -43,6 +44,7 @@ from .const import (
     CONF_ENTITY_VALVE,
     CONF_ENTITY_WEATHER,
     CONF_HAS_SPLIT,
+    CONF_HP_MODE_MAPPING,
     CONF_LATITUDE,
     CONF_LIVE_CONTROL,
     CONF_LONGITUDE,
@@ -56,6 +58,7 @@ from .const import (
     DEFAULT_W_ENERGY,
     DEFAULT_W_SMOOTH,
     DOMAIN,
+    HP_OPERATING_STATES,
     VALID_PERCENT_UNITS,
     VALID_TEMP_UNITS,
 )
@@ -90,6 +93,7 @@ class PumpAheadConfigFlow(ConfigFlow, domain=DOMAIN):
         self._algorithm: dict[str, Any] = {}
         self._entity_room_idx: int = 0
         self._global_entities: dict[str, Any] = {}
+        self._hp_mode_mapping: dict[str, str] = {}
 
     # -- Step 1: Location ---------------------------------------------------
 
@@ -279,12 +283,13 @@ class PumpAheadConfigFlow(ConfigFlow, domain=DOMAIN):
                             CONF_ENTITY_TEMP_OUTDOOR, ""
                         ),
                         CONF_ENTITY_WEATHER: user_input.get(CONF_ENTITY_WEATHER, ""),
+                        CONF_ENTITY_HP_STATE: user_input.get(CONF_ENTITY_HP_STATE, ""),
                     }
 
                 self._entity_room_idx += 1
                 if self._entity_room_idx < len(self._rooms):
                     return await self.async_step_entities()
-                return await self.async_step_algorithm()
+                return await self.async_step_hp_mapping()
 
         # Build the entity selection schema for this room.
         schema_dict: dict[Any, Any] = {
@@ -327,6 +332,9 @@ class PumpAheadConfigFlow(ConfigFlow, domain=DOMAIN):
             schema_dict[vol.Optional(CONF_ENTITY_WEATHER)] = EntitySelector(
                 EntitySelectorConfig(domain=["weather"])
             )
+            schema_dict[vol.Optional(CONF_ENTITY_HP_STATE)] = EntitySelector(
+                EntitySelectorConfig(domain=["sensor"])
+            )
 
         schema = vol.Schema(schema_dict)
 
@@ -335,6 +343,56 @@ class PumpAheadConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=schema,
             errors=errors,
             description_placeholders={"room_name": room_name},
+        )
+
+    # -- Step 3.5: HP mode mapping ------------------------------------------
+
+    async def async_step_hp_mapping(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Step 3.5: Map HP entity state strings to PumpAhead states.
+
+        Users enter the raw state string reported by their HP integration
+        (e.g. ``"Heat"``, ``"DHW"``, ``"30"``) and select the
+        corresponding PumpAhead operating state.  Supports any HP brand
+        (Axiom 8: hardware-agnostic).
+        """
+        # If no HP state entity was selected, skip this step entirely.
+        if not self._global_entities.get(CONF_ENTITY_HP_STATE):
+            return await self.async_step_algorithm()
+
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            raw = str(user_input.get("hp_state_raw", "")).strip()
+            target = user_input.get("hp_state_target", "")
+            add_another = user_input.get("add_another_mapping", False)
+
+            if not raw:
+                errors["base"] = "empty_hp_state"
+            elif raw.lower() in {k.lower() for k in self._hp_mode_mapping}:
+                errors["base"] = "duplicate_hp_state"
+
+            if not errors:
+                self._hp_mode_mapping[raw] = target
+                if add_another:
+                    return await self.async_step_hp_mapping()
+                return await self.async_step_algorithm()
+
+        schema = vol.Schema(
+            {
+                vol.Required("hp_state_raw"): TextSelector(),
+                vol.Required("hp_state_target"): SelectSelector(
+                    SelectSelectorConfig(options=HP_OPERATING_STATES)
+                ),
+                vol.Required("add_another_mapping", default=True): BooleanSelector(),
+            }
+        )
+
+        return self.async_show_form(
+            step_id="hp_mapping",
+            data_schema=schema,
+            errors=errors,
         )
 
     # -- Step 4: Algorithm parameters ---------------------------------------
@@ -404,6 +462,7 @@ class PumpAheadConfigFlow(ConfigFlow, domain=DOMAIN):
                 CONF_ROOMS: self._rooms,
                 **self._global_entities,
                 **self._algorithm,
+                CONF_HP_MODE_MAPPING: self._hp_mode_mapping,
             }
 
             # Set unique_id to prevent duplicate entries for same location.
@@ -433,13 +492,21 @@ class PumpAheadConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class PumpAheadOptionsFlow(OptionsFlow):
-    """Options flow for PumpAhead -- per-room live control toggle.
+    """Options flow for PumpAhead -- per-room live control toggle + HP mapping.
 
     Presents a boolean toggle per room (``enable_live_control_{room_slug}``).
     Defaults to ``False`` (shadow mode).  This is the shadow-to-live
     transition mechanism -- no reconfiguration needed, just toggle in
     options.
+
+    After the live control step, an optional HP mode mapping step
+    allows editing the HP state-to-mode mapping without full
+    reconfiguration.
     """
+
+    def __init__(self) -> None:
+        """Initialise mutable options flow state."""
+        self._live_control: dict[str, bool] = {}
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -456,10 +523,8 @@ class PumpAheadOptionsFlow(OptionsFlow):
                 live_control[room_name] = user_input.get(
                     f"enable_live_control_{safe_key}", False
                 )
-            return self.async_create_entry(
-                title="",
-                data={CONF_LIVE_CONTROL: live_control},
-            )
+            self._live_control = live_control
+            return await self.async_step_hp_mapping()
 
         # Build the schema with one boolean toggle per room.
         current_live: dict[str, bool] = self.config_entry.options.get(
@@ -476,5 +541,65 @@ class PumpAheadOptionsFlow(OptionsFlow):
 
         return self.async_show_form(
             step_id="init",
+            data_schema=vol.Schema(schema_dict),
+        )
+
+    async def async_step_hp_mapping(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Edit the HP mode mapping in the options flow.
+
+        Presents existing mapping entries for editing plus one blank
+        row for adding a new entry.  Each entry is a raw-state / target
+        pair.
+        """
+        # Merge mapping: data is the base, options override.
+        current_mapping: dict[str, str] = {
+            **self.config_entry.data.get(CONF_HP_MODE_MAPPING, {}),
+            **self.config_entry.options.get(CONF_HP_MODE_MAPPING, {}),
+        }
+
+        if user_input is not None:
+            # Rebuild the mapping from dynamic keys.
+            new_mapping: dict[str, str] = {}
+            idx = 0
+            while f"hp_raw_{idx}" in user_input:
+                raw = str(user_input.get(f"hp_raw_{idx}", "")).strip()
+                target = user_input.get(f"hp_target_{idx}", "")
+                if raw:
+                    new_mapping[raw] = target
+                idx += 1
+
+            # Check the "new entry" row.
+            new_raw = str(user_input.get("hp_raw_new", "")).strip()
+            new_target = user_input.get("hp_target_new", "")
+            if new_raw:
+                new_mapping[new_raw] = new_target
+
+            return self.async_create_entry(
+                title="",
+                data={
+                    CONF_LIVE_CONTROL: self._live_control,
+                    CONF_HP_MODE_MAPPING: new_mapping,
+                },
+            )
+
+        # Build the form with existing mapping entries + one blank row.
+        schema_dict: dict[Any, Any] = {}
+        entries = list(current_mapping.items())
+        for idx, (raw, target) in enumerate(entries):
+            schema_dict[vol.Optional(f"hp_raw_{idx}", default=raw)] = TextSelector()
+            schema_dict[
+                vol.Optional(f"hp_target_{idx}", default=target)
+            ] = SelectSelector(SelectSelectorConfig(options=HP_OPERATING_STATES))
+
+        # Blank row for a new entry.
+        schema_dict[vol.Optional("hp_raw_new", default="")] = TextSelector()
+        schema_dict[vol.Optional("hp_target_new", default="idle")] = SelectSelector(
+            SelectSelectorConfig(options=HP_OPERATING_STATES)
+        )
+
+        return self.async_show_form(
+            step_id="hp_mapping",
             data_schema=vol.Schema(schema_dict),
         )

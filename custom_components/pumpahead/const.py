@@ -32,6 +32,11 @@ CONF_ENTITY_SPLIT: str = "entity_split"
 CONF_ENTITY_TEMP_OUTDOOR: str = "entity_temp_outdoor"
 CONF_ENTITY_WEATHER: str = "entity_weather"
 
+# Step 3.5: HP mode mapping
+CONF_ENTITY_HP_STATE: str = "entity_hp_state"
+CONF_HP_MODE_MAPPING: str = "hp_mode_mapping"
+HP_OPERATING_STATES: list[str] = ["heating", "cooling", "dhw", "idle", "defrost"]
+
 # Step 4: Algorithm parameters
 CONF_ALGORITHM_MODE: str = "algorithm_mode"
 CONF_W_COMFORT: str = "w_comfort"

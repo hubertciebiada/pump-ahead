@@ -198,10 +198,14 @@ def cf_mocks() -> Any:  # noqa: C901
         sys.path.insert(0, repo_root_str)
 
     # Import the modules under test.
-    from custom_components.pumpahead.config_flow import PumpAheadConfigFlow
+    from custom_components.pumpahead.config_flow import (
+        PumpAheadConfigFlow,
+        PumpAheadOptionsFlow,
+    )
     from custom_components.pumpahead.const import (
         CONF_ADD_ANOTHER,
         CONF_ALGORITHM_MODE,
+        CONF_ENTITY_HP_STATE,
         CONF_ENTITY_HUMIDITY,
         CONF_ENTITY_SPLIT,
         CONF_ENTITY_TEMP_FLOOR,
@@ -210,6 +214,7 @@ def cf_mocks() -> Any:  # noqa: C901
         CONF_ENTITY_VALVE,
         CONF_ENTITY_WEATHER,
         CONF_HAS_SPLIT,
+        CONF_HP_MODE_MAPPING,
         CONF_LATITUDE,
         CONF_LONGITUDE,
         CONF_ROOM_AREA,
@@ -218,6 +223,7 @@ def cf_mocks() -> Any:  # noqa: C901
         CONF_W_COMFORT,
         CONF_W_ENERGY,
         CONF_W_SMOOTH,
+        HP_OPERATING_STATES,
         VALID_PERCENT_UNITS,
         VALID_POWER_UNITS,
         VALID_TEMP_UNITS,
@@ -232,6 +238,7 @@ def cf_mocks() -> Any:  # noqa: C901
 
     ns = _Namespace()
     ns.PumpAheadConfigFlow = PumpAheadConfigFlow  # type: ignore[attr-defined]
+    ns.PumpAheadOptionsFlow = PumpAheadOptionsFlow  # type: ignore[attr-defined]
     ns.CONF_LATITUDE = CONF_LATITUDE  # type: ignore[attr-defined]
     ns.CONF_LONGITUDE = CONF_LONGITUDE  # type: ignore[attr-defined]
     ns.CONF_ROOM_NAME = CONF_ROOM_NAME  # type: ignore[attr-defined]
@@ -246,6 +253,9 @@ def cf_mocks() -> Any:  # noqa: C901
     ns.CONF_ENTITY_SPLIT = CONF_ENTITY_SPLIT  # type: ignore[attr-defined]
     ns.CONF_ENTITY_TEMP_OUTDOOR = CONF_ENTITY_TEMP_OUTDOOR  # type: ignore[attr-defined]
     ns.CONF_ENTITY_WEATHER = CONF_ENTITY_WEATHER  # type: ignore[attr-defined]
+    ns.CONF_ENTITY_HP_STATE = CONF_ENTITY_HP_STATE  # type: ignore[attr-defined]
+    ns.CONF_HP_MODE_MAPPING = CONF_HP_MODE_MAPPING  # type: ignore[attr-defined]
+    ns.HP_OPERATING_STATES = HP_OPERATING_STATES  # type: ignore[attr-defined]
     ns.CONF_ALGORITHM_MODE = CONF_ALGORITHM_MODE  # type: ignore[attr-defined]
     ns.CONF_W_COMFORT = CONF_W_COMFORT  # type: ignore[attr-defined]
     ns.CONF_W_ENERGY = CONF_W_ENERGY  # type: ignore[attr-defined]
@@ -859,3 +869,293 @@ class TestEntityValidation:
         )
         assert result.valid is False
         assert result.error_key == "invalid_unit"
+
+
+# ---------------------------------------------------------------------------
+# TestStepHPMapping (Step 3.5: HP mode mapping)
+# ---------------------------------------------------------------------------
+
+
+class TestStepHPMapping:
+    """Tests for the HP mode mapping config flow step."""
+
+    def _setup_to_hp_mapping(self, cf_mocks: Any) -> Any:
+        """Create a flow and advance to the HP mapping step.
+
+        Includes an HP state entity in global entities so that the
+        hp_mapping step is NOT skipped.
+        """
+        flow = _make_flow(cf_mocks)
+        _run(
+            flow.async_step_user(
+                {cf_mocks.CONF_LATITUDE: 50.0, cf_mocks.CONF_LONGITUDE: 20.0}
+            )
+        )
+        _run(
+            flow.async_step_rooms(
+                {
+                    cf_mocks.CONF_ROOM_NAME: "Living Room",
+                    cf_mocks.CONF_ROOM_AREA: 25.0,
+                    cf_mocks.CONF_HAS_SPLIT: False,
+                    cf_mocks.CONF_ADD_ANOTHER: False,
+                }
+            )
+        )
+        _run(
+            flow.async_step_entities(
+                {
+                    cf_mocks.CONF_ENTITY_TEMP_ROOM: "sensor.temp_living",
+                    cf_mocks.CONF_ENTITY_VALVE: "number.valve_living",
+                    cf_mocks.CONF_ENTITY_TEMP_OUTDOOR: "sensor.outdoor_temp",
+                    cf_mocks.CONF_ENTITY_HP_STATE: "sensor.hp_state",
+                }
+            )
+        )
+        return flow
+
+    @pytest.mark.unit
+    def test_show_hp_mapping_form(self, cf_mocks: Any) -> None:
+        """After entity step with HP state entity, hp_mapping form must show."""
+        flow = self._setup_to_hp_mapping(cf_mocks)
+        result = _run(flow.async_step_hp_mapping(None))
+        assert result["type"] == "form"
+        assert result["step_id"] == "hp_mapping"
+
+    @pytest.mark.unit
+    def test_skip_when_no_hp_entity(self, cf_mocks: Any) -> None:
+        """When no HP state entity is selected, hp_mapping must be skipped."""
+        flow = _make_flow(cf_mocks)
+        _run(
+            flow.async_step_user(
+                {cf_mocks.CONF_LATITUDE: 50.0, cf_mocks.CONF_LONGITUDE: 20.0}
+            )
+        )
+        _run(
+            flow.async_step_rooms(
+                {
+                    cf_mocks.CONF_ROOM_NAME: "Living Room",
+                    cf_mocks.CONF_ROOM_AREA: 25.0,
+                    cf_mocks.CONF_HAS_SPLIT: False,
+                    cf_mocks.CONF_ADD_ANOTHER: False,
+                }
+            )
+        )
+        # Entities step WITHOUT HP state entity.
+        result = _run(
+            flow.async_step_entities(
+                {
+                    cf_mocks.CONF_ENTITY_TEMP_ROOM: "sensor.temp_living",
+                    cf_mocks.CONF_ENTITY_VALVE: "number.valve_living",
+                    cf_mocks.CONF_ENTITY_TEMP_OUTDOOR: "sensor.outdoor_temp",
+                }
+            )
+        )
+        # Should skip hp_mapping and go straight to algorithm.
+        assert result["type"] == "form"
+        assert result["step_id"] == "algorithm"
+
+    @pytest.mark.unit
+    def test_add_single_mapping_proceeds_to_algorithm(self, cf_mocks: Any) -> None:
+        """Submit one mapping without 'add another' must proceed to algorithm."""
+        flow = self._setup_to_hp_mapping(cf_mocks)
+        result = _run(
+            flow.async_step_hp_mapping(
+                {
+                    "hp_state_raw": "Heat",
+                    "hp_state_target": "heating",
+                    "add_another_mapping": False,
+                }
+            )
+        )
+        assert result["type"] == "form"
+        assert result["step_id"] == "algorithm"
+        assert flow._hp_mode_mapping == {"Heat": "heating"}
+
+    @pytest.mark.unit
+    def test_add_multiple_mappings_loop(self, cf_mocks: Any) -> None:
+        """Submit with add_another=True must re-show hp_mapping form."""
+        flow = self._setup_to_hp_mapping(cf_mocks)
+        # First mapping.
+        result = _run(
+            flow.async_step_hp_mapping(
+                {
+                    "hp_state_raw": "Heat",
+                    "hp_state_target": "heating",
+                    "add_another_mapping": True,
+                }
+            )
+        )
+        assert result["type"] == "form"
+        assert result["step_id"] == "hp_mapping"
+
+        # Second mapping.
+        result = _run(
+            flow.async_step_hp_mapping(
+                {
+                    "hp_state_raw": "Cool",
+                    "hp_state_target": "cooling",
+                    "add_another_mapping": False,
+                }
+            )
+        )
+        assert result["type"] == "form"
+        assert result["step_id"] == "algorithm"
+        assert flow._hp_mode_mapping == {"Heat": "heating", "Cool": "cooling"}
+
+    @pytest.mark.unit
+    def test_empty_state_string_error(self, cf_mocks: Any) -> None:
+        """Empty hp_state_raw must show empty_hp_state error."""
+        flow = self._setup_to_hp_mapping(cf_mocks)
+        result = _run(
+            flow.async_step_hp_mapping(
+                {
+                    "hp_state_raw": "",
+                    "hp_state_target": "heating",
+                    "add_another_mapping": False,
+                }
+            )
+        )
+        assert result["type"] == "form"
+        assert result["step_id"] == "hp_mapping"
+        assert "empty_hp_state" in result["errors"].values()
+
+    @pytest.mark.unit
+    def test_duplicate_state_error(self, cf_mocks: Any) -> None:
+        """Duplicate state string (case-insensitive) must show error."""
+        flow = self._setup_to_hp_mapping(cf_mocks)
+        # Add first mapping.
+        _run(
+            flow.async_step_hp_mapping(
+                {
+                    "hp_state_raw": "Heat",
+                    "hp_state_target": "heating",
+                    "add_another_mapping": True,
+                }
+            )
+        )
+        # Try duplicate (different case).
+        result = _run(
+            flow.async_step_hp_mapping(
+                {
+                    "hp_state_raw": "heat",
+                    "hp_state_target": "cooling",
+                    "add_another_mapping": False,
+                }
+            )
+        )
+        assert result["type"] == "form"
+        assert result["step_id"] == "hp_mapping"
+        assert "duplicate_hp_state" in result["errors"].values()
+
+    @pytest.mark.unit
+    def test_mapping_in_final_data(self, cf_mocks: Any) -> None:
+        """After full flow, CONF_HP_MODE_MAPPING must be in created entry data."""
+        flow = self._setup_to_hp_mapping(cf_mocks)
+        # Add a mapping.
+        _run(
+            flow.async_step_hp_mapping(
+                {
+                    "hp_state_raw": "Heat",
+                    "hp_state_target": "heating",
+                    "add_another_mapping": False,
+                }
+            )
+        )
+        # Algorithm step.
+        _run(
+            flow.async_step_algorithm(
+                {
+                    cf_mocks.CONF_ALGORITHM_MODE: "heating",
+                    cf_mocks.CONF_W_COMFORT: 1.0,
+                    cf_mocks.CONF_W_ENERGY: 0.1,
+                    cf_mocks.CONF_W_SMOOTH: 0.01,
+                }
+            )
+        )
+        # Confirm step.
+        result = _run(flow.async_step_confirm({}))
+        assert result["type"] == "create_entry"
+        data = result["data"]
+        assert cf_mocks.CONF_HP_MODE_MAPPING in data
+        assert data[cf_mocks.CONF_HP_MODE_MAPPING] == {"Heat": "heating"}
+
+
+# ---------------------------------------------------------------------------
+# TestOptionsHPMapping (Options flow HP mapping)
+# ---------------------------------------------------------------------------
+
+
+class TestOptionsHPMapping:
+    """Tests for HP mode mapping editing in options flow."""
+
+    def _make_options_flow(self, cf_mocks: Any, mapping: dict | None = None) -> Any:
+        """Create an options flow with a mock config entry."""
+        flow = cf_mocks.PumpAheadOptionsFlow()
+        entry = MagicMock()
+        entry.data = {
+            "rooms": [{"room_name": "Living Room"}],
+            "hp_mode_mapping": mapping or {},
+        }
+        entry.options = {}
+        flow.config_entry = entry
+        return flow
+
+    @pytest.mark.unit
+    def test_options_flow_shows_hp_mapping_step(self, cf_mocks: Any) -> None:
+        """After init step, options flow must show hp_mapping form."""
+        flow = self._make_options_flow(cf_mocks)
+        # Submit init step (live control toggles).
+        result = _run(
+            flow.async_step_init({"enable_live_control_living_room": True})
+        )
+        assert result["type"] == "form"
+        assert result["step_id"] == "hp_mapping"
+
+    @pytest.mark.unit
+    def test_edit_hp_mapping_in_options(self, cf_mocks: Any) -> None:
+        """Submitting new mapping values through options flow must persist."""
+        flow = self._make_options_flow(
+            cf_mocks, mapping={"Heat": "heating"}
+        )
+        # Submit init step.
+        _run(flow.async_step_init({"enable_live_control_living_room": True}))
+        # Submit HP mapping edit -- modify existing + add new.
+        result = _run(
+            flow.async_step_hp_mapping(
+                {
+                    "hp_raw_0": "Heat",
+                    "hp_target_0": "heating",
+                    "hp_raw_new": "Cool",
+                    "hp_target_new": "cooling",
+                }
+            )
+        )
+        assert result["type"] == "create_entry"
+        assert result["data"]["hp_mode_mapping"] == {
+            "Heat": "heating",
+            "Cool": "cooling",
+        }
+
+    @pytest.mark.unit
+    def test_options_flow_shows_current_mapping(self, cf_mocks: Any) -> None:
+        """Existing mapping must be pre-populated in the form."""
+        flow = self._make_options_flow(
+            cf_mocks, mapping={"Heat": "heating", "DHW": "dhw"}
+        )
+        # Submit init step.
+        _run(flow.async_step_init({"enable_live_control_living_room": False}))
+        # Show HP mapping form.
+        result = _run(flow.async_step_hp_mapping(None))
+        assert result["type"] == "form"
+        assert result["step_id"] == "hp_mapping"
+        # Schema should have keys for existing entries.
+        schema = result["data_schema"]
+        schema_keys = [
+            k.key if hasattr(k, "key") else k for k in schema._schema
+        ]
+        assert "hp_raw_0" in schema_keys
+        assert "hp_target_0" in schema_keys
+        assert "hp_raw_1" in schema_keys
+        assert "hp_target_1" in schema_keys
+        assert "hp_raw_new" in schema_keys
+        assert "hp_target_new" in schema_keys

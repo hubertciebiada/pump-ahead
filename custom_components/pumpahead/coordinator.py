@@ -16,10 +16,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from pumpahead.controller import PIDController
+from pumpahead.hp_mode_mapping import HPModeMapper, HPOperatingState
 from pumpahead.watchdog import WatchdogMonitor
 
 from .const import (
     CONF_ALGORITHM_MODE,
+    CONF_ENTITY_HP_STATE,
     CONF_ENTITY_HUMIDITY,
     CONF_ENTITY_SPLIT,
     CONF_ENTITY_TEMP_FLOOR,
@@ -28,6 +30,7 @@ from .const import (
     CONF_ENTITY_VALVE,
     CONF_ENTITY_WEATHER,
     CONF_HAS_SPLIT,
+    CONF_HP_MODE_MAPPING,
     CONF_LATITUDE,
     CONF_LIVE_CONTROL,
     CONF_LONGITUDE,
@@ -80,6 +83,7 @@ class PumpAheadCoordinatorData:
     algorithm_status: str = "running"  # "running" / "error" / "stale"
     last_update_timestamp: str | None = None  # ISO 8601 timestamp
     watchdog_state: str = "ok"  # "ok" / "fallback" / "recovering"
+    hp_operating_state: HPOperatingState | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -110,6 +114,20 @@ class PumpAheadCoordinator(DataUpdateCoordinator[PumpAheadCoordinatorData]):
         lon: float = entry.data.get(CONF_LONGITUDE, hass.config.longitude)  # type: ignore[assignment]
         if self._weather_entity:
             self._weather_source = HAWeatherSource(self._weather_entity, lat, lon)
+
+        # HP mode mapping (options override data).
+        self._hp_state_entity: str = entry.data.get(CONF_ENTITY_HP_STATE, "")  # type: ignore[assignment]
+        hp_mapping_config: dict[str, str] = {
+            **entry.data.get(CONF_HP_MODE_MAPPING, {}),  # type: ignore[arg-type]
+            **entry.options.get(CONF_HP_MODE_MAPPING, {}),  # type: ignore[arg-type]
+        }
+        self._hp_mode_mapper: HPModeMapper | None = None
+        self._last_hp_state: HPOperatingState | None = None
+        if self._hp_state_entity and hp_mapping_config:
+            try:
+                self._hp_mode_mapper = HPModeMapper.from_config(hp_mapping_config)
+            except ValueError:
+                _LOGGER.exception("Invalid HP mode mapping configuration")
 
         # Per-room live control settings from options flow.
         self._live_control_map: dict[str, bool] = entry.options.get(
@@ -165,6 +183,9 @@ class PumpAheadCoordinator(DataUpdateCoordinator[PumpAheadCoordinatorData]):
         # Heartbeat: successful update means age is 0.
         watchdog_status = self._watchdog.update(0.0)
 
+        # Read HP operating state.
+        hp_state = self._read_hp_state()
+
         # Populate split recommendations for rooms with splits.
         self._compute_split_recommendations(rooms)
 
@@ -187,6 +208,7 @@ class PumpAheadCoordinator(DataUpdateCoordinator[PumpAheadCoordinatorData]):
             algorithm_status=algorithm_status,
             last_update_timestamp=now_iso,
             watchdog_state=watchdog_status.state.value,
+            hp_operating_state=hp_state,
         )
 
     # -- Shadow-mode PID -----------------------------------------------------
@@ -331,6 +353,38 @@ class PumpAheadCoordinator(DataUpdateCoordinator[PumpAheadCoordinatorData]):
                 split_entity,
                 room_data.room_name,
             )
+
+    # -- HP state reader -----------------------------------------------------
+
+    def _read_hp_state(self) -> HPOperatingState | None:
+        """Read the HP operating state entity and map it.
+
+        Returns ``None`` when no HP state entity or mapper is
+        configured.  Falls back to the last known state when the
+        entity is unavailable/unknown; falls back to ``IDLE`` when
+        no previous state is available.
+        """
+        if not self._hp_state_entity or self._hp_mode_mapper is None:
+            return None
+
+        state = self.hass.states.get(self._hp_state_entity)
+        if state is None or state.state in ("unavailable", "unknown"):
+            if self._last_hp_state is not None:
+                _LOGGER.debug(
+                    "HP state entity %s unavailable; using last known state %s",
+                    self._hp_state_entity,
+                    self._last_hp_state.value,
+                )
+                return self._last_hp_state
+            _LOGGER.warning(
+                "HP state entity %s is unavailable and no previous state exists",
+                self._hp_state_entity,
+            )
+            return HPOperatingState.IDLE
+
+        mapped = self._hp_mode_mapper.map(state.state)
+        self._last_hp_state = mapped
+        return mapped
 
     # -- Helpers ------------------------------------------------------------
 
