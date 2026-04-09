@@ -16,7 +16,6 @@ from pumpahead.cwu_coordinator import (
     CWUCoordinator,
 )
 
-
 # ---------------------------------------------------------------------------
 # TestCWUScheduleConstants
 # ---------------------------------------------------------------------------
@@ -174,7 +173,8 @@ class TestGetPreChargeBoost:
             cwu_pre_charge_valve_boost_pct=15.0,
         )
         # CWU starts at t=60, duration=45, interval=180
-        schedule = (CWUCycle(start_minute=60, duration_minutes=45, interval_minutes=180),)
+        cycle = CWUCycle(start_minute=60, duration_minutes=45, interval_minutes=180)
+        schedule = (cycle,)
         cwu = CWUCoordinator(config, cwu_schedule=schedule)
 
         # At t=35, CWU starts at t=60 (25 min away) => within 30 min lookahead
@@ -187,7 +187,8 @@ class TestGetPreChargeBoost:
             cwu_pre_charge_lookahead_minutes=30,
             cwu_pre_charge_valve_boost_pct=15.0,
         )
-        schedule = (CWUCycle(start_minute=100, duration_minutes=45, interval_minutes=180),)
+        cycle = CWUCycle(start_minute=100, duration_minutes=45, interval_minutes=180)
+        schedule = (cycle,)
         cwu = CWUCoordinator(config, cwu_schedule=schedule)
 
         # At t=60, CWU starts at t=100 (40 min away) => beyond 30 min

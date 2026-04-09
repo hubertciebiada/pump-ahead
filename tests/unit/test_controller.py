@@ -819,7 +819,7 @@ class TestPumpAheadControllerCWU:
             cwu_schedule=schedule,
         )
         # Step to t=35 (25 min before CWU) => within 30 min lookahead
-        for t in range(35):
+        for _ in range(35):
             meas = {"room_a": _make_measurements(t_room=20.0, is_cwu_active=False)}
             ctrl.step(meas)
 

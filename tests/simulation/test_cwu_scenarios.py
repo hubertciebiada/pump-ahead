@@ -26,7 +26,6 @@ from pumpahead.scenarios import cwu_heavy, cwu_with_splits
 from pumpahead.simulation_log import SimulationLog
 from pumpahead.simulator import SplitMode
 
-
 # ---------------------------------------------------------------------------
 # TestCWUWithSplits — anti-panic and split blocking
 # ---------------------------------------------------------------------------

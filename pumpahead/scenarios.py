@@ -40,11 +40,10 @@ from pumpahead.building_profiles import (
 from pumpahead.config import (
     BuildingParams,
     ControllerConfig,
-    CWUCycle,
     RoomConfig,
     SimScenario,
 )
-from pumpahead.cwu_coordinator import CWU_HEAVY, CWU_STANDARD, CWU_WORST_CASE
+from pumpahead.cwu_coordinator import CWU_HEAVY
 from pumpahead.weather import ChannelProfile, ProfileKind, SyntheticWeather
 
 __all__ = [

@@ -25,12 +25,6 @@ from pumpahead.config import (
     SimScenario,
 )
 from pumpahead.controller import PIDController, PumpAheadController
-from pumpahead.cwu_coordinator import (
-    CWU_HEAVY,
-    CWU_STANDARD,
-    CWU_WORST_CASE,
-    CWUCoordinator,
-)
 from pumpahead.cross_validation import (
     DEFAULT_HORIZONS,
     DEFAULT_OVERFITTING_THRESHOLD,
@@ -38,6 +32,12 @@ from pumpahead.cross_validation import (
     HorizonRMSE,
     cross_validate,
     cross_validate_rooms,
+)
+from pumpahead.cwu_coordinator import (
+    CWU_HEAVY,
+    CWU_STANDARD,
+    CWU_WORST_CASE,
+    CWUCoordinator,
 )
 from pumpahead.disturbance_vector import (
     MPC_DT_SECONDS,
