@@ -445,8 +445,10 @@ class TestEntityValidatorUnitsToCOPCalculatorAlignment:
         # COPCalculator uses W directly.
         calc = COPCalculator(mode=COPMode.CONSTANT, default_cop=3.5)
         assert calc.add_sample(
-            t_outdoor=0.0, t_supply=35.0,
-            p_electric=2000.0, q_thermal=7000.0,
+            t_outdoor=0.0,
+            t_supply=35.0,
+            p_electric=2000.0,
+            q_thermal=7000.0,
         )
 
     def test_temperature_unit_celsius_accepted_by_validator_and_used_by_cop(
@@ -456,7 +458,8 @@ class TestEntityValidatorUnitsToCOPCalculatorAlignment:
         temperatures in Celsius."""
         validator, hass = _make_validator(epic20_mocks)
         hass.states.get.return_value = _make_state(
-            unit="\u00b0C", device_class="temperature",
+            unit="\u00b0C",
+            device_class="temperature",
         )
         result = validator.validate_unit(
             "sensor.outdoor_temp", epic20_mocks.VALID_TEMP_UNITS
@@ -468,9 +471,7 @@ class TestEntityValidatorUnitsToCOPCalculatorAlignment:
         cop = calc.get_cop(t_outdoor=5.0)
         assert COP_MIN <= cop <= COP_MAX
 
-    def test_all_valid_temp_units_are_celsius_variants(
-        self, epic20_mocks: Any
-    ) -> None:
+    def test_all_valid_temp_units_are_celsius_variants(self, epic20_mocks: Any) -> None:
         """VALID_TEMP_UNITS must contain only Celsius-equivalent strings."""
         valid_celsius = {"\u00b0C", "C"}
         assert valid_celsius == epic20_mocks.VALID_TEMP_UNITS
@@ -522,17 +523,23 @@ class TestCombinedEpic20Scenarios:
         hass.states.get.return_value = _make_state(
             state_value="35.0", unit="\u00b0C", device_class="temperature"
         )
-        assert validator.validate_unit(
-            "sensor.heishamon_t_supply", epic20_mocks.VALID_TEMP_UNITS
-        ).valid is True
+        assert (
+            validator.validate_unit(
+                "sensor.heishamon_t_supply", epic20_mocks.VALID_TEMP_UNITS
+            ).valid
+            is True
+        )
 
         # Validate power entity.
         hass.states.get.return_value = _make_state(
             state_value="2000", unit="W", device_class="power"
         )
-        assert validator.validate_unit(
-            "sensor.heishamon_power", epic20_mocks.VALID_POWER_UNITS
-        ).valid is True
+        assert (
+            validator.validate_unit(
+                "sensor.heishamon_power", epic20_mocks.VALID_POWER_UNITS
+            ).valid
+            is True
+        )
 
         # Map HP state.
         mapper = HPModeMapper.from_config(_HEISHAMON_CONFIG)
@@ -544,9 +551,7 @@ class TestCombinedEpic20Scenarios:
         cop = calc.get_cop(t_outdoor=-5.0)
         assert cop == 3.5
 
-    def test_fallback_cop_when_mapper_returns_idle(
-        self, epic20_mocks: Any
-    ) -> None:
+    def test_fallback_cop_when_mapper_returns_idle(self, epic20_mocks: Any) -> None:
         """Unknown raw state -> IDLE -> HeatPumpMode.OFF -> COP uses fallback."""
         mapper = HPModeMapper.from_config(_HEISHAMON_CONFIG)
 
@@ -637,17 +642,13 @@ class TestAcceptanceCriteriaVerification:
         )
         assert result.valid is True
 
-    def test_ac_unit_validation_rejects_wrong_units(
-        self, epic20_mocks: Any
-    ) -> None:
+    def test_ac_unit_validation_rejects_wrong_units(self, epic20_mocks: Any) -> None:
         """AC: Unit validation rejects entities with incorrect units."""
         validator, hass = _make_validator(epic20_mocks)
 
         # Fahrenheit rejected.
         hass.states.get.return_value = _make_state(unit="\u00b0F")
-        result = validator.validate_unit(
-            "sensor.temp_f", epic20_mocks.VALID_TEMP_UNITS
-        )
+        result = validator.validate_unit("sensor.temp_f", epic20_mocks.VALID_TEMP_UNITS)
         assert result.valid is False
         assert result.error_key == "invalid_unit"
 
@@ -676,9 +677,7 @@ class TestAcceptanceCriteriaVerification:
         assert mapper.map("Warmwasser") == HPOperatingState.DHW
         assert mapper.map("Aus") == HPOperatingState.IDLE
 
-    def test_ac_system_works_with_any_hp_integration(
-        self, epic20_mocks: Any
-    ) -> None:
+    def test_ac_system_works_with_any_hp_integration(self, epic20_mocks: Any) -> None:
         """AC: Multi-brand compatibility -- HeishaMon, Daikin, Nibe, eBUS all work."""
         all_configs = [
             ("HeishaMon", _HEISHAMON_CONFIG),
@@ -692,13 +691,9 @@ class TestAcceptanceCriteriaVerification:
 
             # Every config must have a heating state that maps to HEATING.
             heating_states = [
-                raw
-                for raw, target in config.items()
-                if target == "heating"
+                raw for raw, target in config.items() if target == "heating"
             ]
-            assert len(heating_states) >= 1, (
-                f"{brand_name}: no heating state in config"
-            )
+            assert len(heating_states) >= 1, f"{brand_name}: no heating state in config"
 
             for raw_state in heating_states:
                 op_state = mapper.map(raw_state)
@@ -819,9 +814,7 @@ class TestArchitecturalIntegrity:
             assert hasattr(pumpahead, symbol), (
                 f"{symbol} not exported from pumpahead.__init__"
             )
-            assert symbol in pumpahead.__all__, (
-                f"{symbol} not in pumpahead.__all__"
-            )
+            assert symbol in pumpahead.__all__, f"{symbol} not in pumpahead.__all__"
 
     def test_entity_validator_not_in_core_init(self) -> None:
         """EntityValidator must NOT be exported from pumpahead.__init__."""
