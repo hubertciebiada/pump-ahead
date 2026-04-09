@@ -328,6 +328,7 @@ class TestSimulationLogDataFrame:
             "T_outdoor",
             "valve_pos",
             "hp_mode",
+            "is_cwu_active",
             "valve_position",
             "split_mode",
             "split_setpoint",

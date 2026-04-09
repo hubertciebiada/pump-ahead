@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import pytest
 
-from pumpahead.config import ControllerConfig
+from pumpahead.config import ControllerConfig, CWUCycle
 from pumpahead.controller import PIDController, PumpAheadController
+from pumpahead.cwu_coordinator import CWU_HEAVY
 from pumpahead.simulator import Actions, HeatPumpMode, Measurements, SplitMode
 
 # ---------------------------------------------------------------------------
@@ -275,6 +276,7 @@ def _make_measurements(
     t_outdoor: float = 0.0,
     valve_pos: float = 50.0,
     hp_mode: HeatPumpMode = HeatPumpMode.HEATING,
+    is_cwu_active: bool = False,
 ) -> Measurements:
     """Create a Measurements instance for testing."""
     return Measurements(
@@ -283,6 +285,7 @@ def _make_measurements(
         T_outdoor=t_outdoor,
         valve_pos=valve_pos,
         hp_mode=hp_mode,
+        is_cwu_active=is_cwu_active,
     )
 
 
@@ -716,3 +719,188 @@ class TestPumpAheadControllerSplitCoordination:
 
         diag_after = ctrl.get_diagnostics()
         assert diag_after["room_a"]["split_runtime_minutes"] == 0.0
+
+
+# ---------------------------------------------------------------------------
+# PumpAheadController CWU coordination tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestPumpAheadControllerCWU:
+    """Tests for CWU coordination integration in PumpAheadController."""
+
+    def test_split_blocked_during_cwu_when_warm(self) -> None:
+        """Split is blocked during CWU when T_room > setpoint - margin."""
+        config = ControllerConfig(
+            kp=5.0,
+            ki=0.0,
+            setpoint=21.0,
+            split_deadband=0.5,
+            cwu_anti_panic_margin=1.0,
+        )
+        ctrl = PumpAheadController(
+            config,
+            ["room_a"],
+            room_has_split={"room_a": True},
+            cwu_schedule=CWU_HEAVY,
+        )
+        # T_room=20.5, setpoint=21.0, margin=1.0 => threshold=20.0
+        # 20.5 > 20.0 => split blocked
+        # error=0.5 <= deadband=0.5 => split would be OFF anyway, but
+        # let's use a larger error to ensure the block is active
+        meas = {"room_a": _make_measurements(t_room=19.5, is_cwu_active=True)}
+        actions = ctrl.step(meas)
+        # T_room=19.5 > 20.0? No. So split should NOT be blocked.
+        # Let's test with T_room=20.5 where split would activate
+        meas = {"room_a": _make_measurements(t_room=20.2, is_cwu_active=True)}
+        actions = ctrl.step(meas)
+        # error = 21.0 - 20.2 = 0.8 > 0.5 deadband => split would
+        # normally activate, but CWU anti-panic blocks it
+        assert actions["room_a"].split_mode == SplitMode.OFF
+
+    def test_split_unblocked_during_cwu_safety_fallback(self) -> None:
+        """Split is unblocked during CWU when T_room drops below safety threshold."""
+        config = ControllerConfig(
+            kp=5.0,
+            ki=0.0,
+            setpoint=21.0,
+            split_deadband=0.5,
+            cwu_anti_panic_margin=1.0,
+        )
+        ctrl = PumpAheadController(
+            config,
+            ["room_a"],
+            room_has_split={"room_a": True},
+            cwu_schedule=CWU_HEAVY,
+        )
+        # T_room=19.5, threshold=20.0 => 19.5 <= 20.0 => unblocked
+        # error = 21.0 - 19.5 = 1.5 > 0.5 deadband => split activates
+        meas = {"room_a": _make_measurements(t_room=19.5, is_cwu_active=True)}
+        actions = ctrl.step(meas)
+        assert actions["room_a"].split_mode == SplitMode.HEATING
+
+    def test_split_normal_when_cwu_inactive(self) -> None:
+        """Split operates normally when CWU is not active."""
+        config = ControllerConfig(
+            kp=5.0,
+            ki=0.0,
+            setpoint=21.0,
+            split_deadband=0.5,
+        )
+        ctrl = PumpAheadController(
+            config,
+            ["room_a"],
+            room_has_split={"room_a": True},
+            cwu_schedule=CWU_HEAVY,
+        )
+        # CWU not active, error > deadband => split activates normally
+        meas = {"room_a": _make_measurements(t_room=20.0, is_cwu_active=False)}
+        actions = ctrl.step(meas)
+        assert actions["room_a"].split_mode == SplitMode.HEATING
+
+    def test_pre_charge_boosts_valve(self) -> None:
+        """Pre-charge boosts valve floor before CWU cycle."""
+        config = ControllerConfig(
+            kp=0.0,
+            ki=0.0,
+            setpoint=21.0,
+            valve_floor_pct=10.0,
+            cwu_pre_charge_lookahead_minutes=30,
+            cwu_pre_charge_valve_boost_pct=15.0,
+        )
+        # CWU starts at t=60 (single-shot, 45 min)
+        schedule = (CWUCycle(start_minute=60, duration_minutes=45, interval_minutes=0),)
+        ctrl = PumpAheadController(
+            config,
+            ["room_a"],
+            cwu_schedule=schedule,
+        )
+        # Step to t=35 (25 min before CWU) => within 30 min lookahead
+        for _ in range(35):
+            meas = {"room_a": _make_measurements(t_room=20.0, is_cwu_active=False)}
+            ctrl.step(meas)
+
+        # At step 35, pre-charge should boost valve
+        meas = {"room_a": _make_measurements(t_room=20.0, is_cwu_active=False)}
+        actions = ctrl.step(meas)
+        # Valve should be boosted: valve_floor + pre_charge = 10 + 15 = 25
+        assert actions["room_a"].valve_position == pytest.approx(25.0)
+
+    def test_backward_compatibility_no_cwu(self) -> None:
+        """Without cwu_schedule, controller behaves exactly as before."""
+        config = ControllerConfig(kp=5.0, ki=0.0, setpoint=21.0)
+        ctrl = PumpAheadController(config, ["room_a"])
+        meas = {"room_a": _make_measurements(t_room=20.0)}
+        actions = ctrl.step(meas)
+        assert isinstance(actions["room_a"], Actions)
+        # Valve should match PID output + valve floor
+        assert actions["room_a"].valve_position == pytest.approx(10.0)
+
+    def test_cwu_diagnostics_present(self) -> None:
+        """Diagnostics include CWU fields when coordinator exists."""
+        config = ControllerConfig(kp=5.0, ki=0.0, setpoint=21.0)
+        ctrl = PumpAheadController(
+            config,
+            ["room_a"],
+            cwu_schedule=CWU_HEAVY,
+        )
+        # Run one step to populate diagnostics
+        meas = {"room_a": _make_measurements(t_room=20.0, is_cwu_active=False)}
+        ctrl.step(meas)
+
+        diag = ctrl.get_diagnostics()
+        assert "cwu_pre_charge_active" in diag["room_a"]
+        assert "cwu_split_blocked" in diag["room_a"]
+
+    def test_cwu_diagnostics_absent_without_cwu(self) -> None:
+        """Diagnostics do not include CWU fields without coordinator."""
+        config = ControllerConfig(kp=5.0, ki=0.0, setpoint=21.0)
+        ctrl = PumpAheadController(config, ["room_a"])
+        meas = {"room_a": _make_measurements(t_room=20.0)}
+        ctrl.step(meas)
+        diag = ctrl.get_diagnostics()
+        assert "cwu_pre_charge_active" not in diag["room_a"]
+        assert "cwu_split_blocked" not in diag["room_a"]
+
+    def test_reset_clears_step_count(self) -> None:
+        """Reset clears step count for pre-charge timing."""
+        config = ControllerConfig(kp=5.0, ki=0.0, setpoint=21.0)
+        ctrl = PumpAheadController(
+            config,
+            ["room_a"],
+            cwu_schedule=CWU_HEAVY,
+        )
+        # Run 10 steps
+        for _ in range(10):
+            meas = {"room_a": _make_measurements(t_room=20.0)}
+            ctrl.step(meas)
+
+        ctrl.reset()
+        # After reset, step count should be 0 (checked via pre-charge
+        # which uses step count as time proxy)
+        assert ctrl._step_count == 0
+
+    def test_split_runtime_window_not_contaminated_during_cwu(self) -> None:
+        """Split runtime window is not contaminated when split is blocked."""
+        config = ControllerConfig(
+            kp=5.0,
+            ki=0.0,
+            setpoint=21.0,
+            split_deadband=0.5,
+            cwu_anti_panic_margin=1.0,
+        )
+        ctrl = PumpAheadController(
+            config,
+            ["room_a"],
+            room_has_split={"room_a": True},
+            cwu_schedule=CWU_HEAVY,
+        )
+        # Run 30 steps with CWU active, T_room warm enough to block split
+        for _ in range(30):
+            meas = {"room_a": _make_measurements(t_room=20.5, is_cwu_active=True)}
+            ctrl.step(meas)
+
+        # Split runtime should be 0 because split was always blocked
+        diag = ctrl.get_diagnostics()
+        assert diag["room_a"]["split_runtime_minutes"] == pytest.approx(0.0)

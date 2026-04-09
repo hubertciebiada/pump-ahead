@@ -230,6 +230,7 @@ class TestSaveLoadJson:
             "T_outdoor",
             "valve_pos",
             "hp_mode",
+            "is_cwu_active",
         }
         assert set(first["actions"].keys()) == {
             "valve_position",

@@ -91,6 +91,7 @@ def _dict_to_record(d: dict[str, Any]) -> SimRecord:
         T_outdoor=m["T_outdoor"],
         valve_pos=m["valve_pos"],
         hp_mode=HeatPumpMode(m["hp_mode"]),
+        is_cwu_active=m.get("is_cwu_active", False),
     )
 
     a = d["actions"]

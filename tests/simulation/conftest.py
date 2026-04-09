@@ -174,7 +174,10 @@ def run_scenario() -> Callable[
         room_names = [r.name for r in scenario.building.rooms]
         room_has_split = {r.name: r.has_split for r in scenario.building.rooms}
         controller = PumpAheadController(
-            scenario.controller, room_names, room_has_split=room_has_split
+            scenario.controller,
+            room_names,
+            room_has_split=room_has_split,
+            cwu_schedule=tuple(scenario.cwu_schedule),
         )
 
         for t in range(n_steps):

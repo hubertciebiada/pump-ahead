@@ -85,6 +85,11 @@ class SimRecord:
         """Current heat pump operating mode."""
         return self.measurements.hp_mode
 
+    @property
+    def is_cwu_active(self) -> bool:
+        """Whether a CWU (DHW) cycle is currently active."""
+        return self.measurements.is_cwu_active
+
     # -- Action properties ----------------------------------------------------
 
     @property
@@ -262,8 +267,9 @@ class SimulationLog:
         """Convert the log to a pandas ``DataFrame`` with flattened columns.
 
         Columns: ``t``, ``T_room``, ``T_slab``, ``T_outdoor``, ``valve_pos``,
-        ``hp_mode``, ``valve_position``, ``split_mode``, ``split_setpoint``,
-        ``T_out``, ``GHI``, ``wind_speed``, ``humidity``, ``room_name``.
+        ``hp_mode``, ``is_cwu_active``, ``valve_position``, ``split_mode``,
+        ``split_setpoint``, ``T_out``, ``GHI``, ``wind_speed``, ``humidity``,
+        ``room_name``.
 
         Enum fields (``hp_mode``, ``split_mode``) are stored as their string
         ``.value`` representation.
@@ -291,6 +297,7 @@ class SimulationLog:
                 "T_outdoor": r.T_outdoor,
                 "valve_pos": r.valve_pos,
                 "hp_mode": r.hp_mode.value,
+                "is_cwu_active": r.is_cwu_active,
                 "valve_position": r.valve_position,
                 "split_mode": r.split_mode.value,
                 "split_setpoint": r.split_setpoint,

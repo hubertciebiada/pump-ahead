@@ -212,6 +212,13 @@ class ControllerConfig:
             (must be in [1, 60]).
         anti_takeover_valve_boost_pct: Valve floor boost applied during
             anti-takeover [%] (must be in (0, 100]).
+        cwu_anti_panic_margin: Temperature margin below setpoint for
+            anti-panic split blocking during CWU [degC] (must be > 0).
+        cwu_pre_charge_lookahead_minutes: How many minutes before a
+            predicted CWU cycle to start pre-charging the slab
+            (must be in [0, 120]).
+        cwu_pre_charge_valve_boost_pct: Additional valve floor percentage
+            during pre-charge [%] (must be in [0, 50]).
     """
 
     kp: float = 5.0
@@ -227,6 +234,9 @@ class ControllerConfig:
     split_setpoint_offset: float = 2.0
     anti_takeover_threshold_minutes: int = 30
     anti_takeover_valve_boost_pct: float = 50.0
+    cwu_anti_panic_margin: float = 1.0
+    cwu_pre_charge_lookahead_minutes: int = 30
+    cwu_pre_charge_valve_boost_pct: float = 15.0
 
     def __post_init__(self) -> None:
         """Validate controller parameters.
@@ -285,6 +295,27 @@ class ControllerConfig:
             msg = (
                 f"anti_takeover_valve_boost_pct must be in (0, 100], "
                 f"got {self.anti_takeover_valve_boost_pct}"
+            )
+            raise ValueError(msg)
+        if self.cwu_anti_panic_margin <= 0:
+            msg = f"cwu_anti_panic_margin must be > 0, got {self.cwu_anti_panic_margin}"
+            raise ValueError(msg)
+        if (
+            self.cwu_pre_charge_lookahead_minutes < 0
+            or self.cwu_pre_charge_lookahead_minutes > 120
+        ):
+            msg = (
+                f"cwu_pre_charge_lookahead_minutes must be in [0, 120], "
+                f"got {self.cwu_pre_charge_lookahead_minutes}"
+            )
+            raise ValueError(msg)
+        if (
+            self.cwu_pre_charge_valve_boost_pct < 0
+            or self.cwu_pre_charge_valve_boost_pct > 50
+        ):
+            msg = (
+                f"cwu_pre_charge_valve_boost_pct must be in [0, 50], "
+                f"got {self.cwu_pre_charge_valve_boost_pct}"
             )
             raise ValueError(msg)
 

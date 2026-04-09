@@ -339,3 +339,36 @@ class TestCWUInterruptSimulation:
 
         # Minute 15+: neither active
         assert not sim.is_cwu_active
+
+    @pytest.mark.unit
+    def test_measurements_include_cwu_active_flag(
+        self,
+        siso_room: SimulatedRoom,
+        constant_weather: SyntheticWeather,
+    ) -> None:
+        """Measurements include is_cwu_active flag reflecting CWU state."""
+        cycle = CWUCycle(start_minute=0, duration_minutes=10, interval_minutes=0)
+        sim = BuildingSimulator(siso_room, constant_weather, cwu_schedule=[cycle])
+
+        # During CWU: flag is True
+        meas_during = sim.get_measurements()
+        assert meas_during.is_cwu_active is True
+
+        # Step past the CWU period
+        for _ in range(10):
+            sim.step(Actions(valve_position=50.0))
+
+        # After CWU: flag is False
+        meas_after = sim.get_measurements()
+        assert meas_after.is_cwu_active is False
+
+    @pytest.mark.unit
+    def test_measurements_default_cwu_false(
+        self,
+        siso_room: SimulatedRoom,
+        constant_weather: SyntheticWeather,
+    ) -> None:
+        """Measurements default is_cwu_active to False without CWU schedule."""
+        sim = BuildingSimulator(siso_room, constant_weather)
+        meas = sim.get_measurements()
+        assert meas.is_cwu_active is False

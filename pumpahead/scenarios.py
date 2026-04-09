@@ -40,10 +40,10 @@ from pumpahead.building_profiles import (
 from pumpahead.config import (
     BuildingParams,
     ControllerConfig,
-    CWUCycle,
     RoomConfig,
     SimScenario,
 )
+from pumpahead.cwu_coordinator import CWU_HEAVY
 from pumpahead.weather import ChannelProfile, ProfileKind, SyntheticWeather
 
 __all__ = [
@@ -51,6 +51,7 @@ __all__ = [
     "SCENARIO_LIBRARY",
     "cold_snap",
     "cwu_heavy",
+    "cwu_with_splits",
     "dual_source_cold_snap",
     "dual_source_steady_state",
     "extreme_cold",
@@ -404,16 +405,51 @@ def cwu_heavy() -> SimScenario:
         duration_minutes=1440,
         mode="heating",
         dt_seconds=60.0,
-        cwu_schedule=(
-            CWUCycle(
-                start_minute=0,
-                duration_minutes=45,
-                interval_minutes=180,
-            ),
-        ),
+        cwu_schedule=CWU_HEAVY,
         description=(
             "Heavy CWU schedule (45 min every 3h) at -5C. "
             "Tests UFH recovery after repeated HP interruptions."
+        ),
+    )
+
+
+def cwu_with_splits() -> SimScenario:
+    """Heavy CWU schedule with split-equipped rooms at -5C.
+
+    Combines the ``hubert_real`` multi-room building (which has
+    split-equipped rooms) with a heavy CWU schedule.  Primary test
+    scenario for verifying anti-panic logic: splits should NOT
+    activate during CWU cycles when T_room is close to setpoint.
+
+    Returns:
+        ``SimScenario`` with ``hubert_real`` building, 24h duration,
+        CWU_HEAVY schedule.
+    """
+    weather = SyntheticWeather.constant(
+        T_out=-5.0,
+        GHI=0.0,
+        wind_speed=1.0,
+        humidity=60.0,
+    )
+    return SimScenario(
+        name="cwu_with_splits",
+        building=hubert_real(),
+        weather=weather,
+        controller=ControllerConfig(
+            kp=5.0,
+            ki=0.01,
+            setpoint=21.0,
+            split_deadband=1.0,
+            valve_floor_pct=15.0,
+        ),
+        duration_minutes=1440,
+        mode="heating",
+        dt_seconds=60.0,
+        cwu_schedule=CWU_HEAVY,
+        description=(
+            "Heavy CWU schedule (45 min every 3h) at -5C with splits. "
+            "Tests anti-panic logic: no false-alarm split activations "
+            "during CWU when T_room > setpoint - 1.0 degC."
         ),
     )
 
@@ -657,6 +693,7 @@ SCENARIO_LIBRARY: dict[str, Callable[[], SimScenario]] = {
     "extreme_cold": extreme_cold,
     "rapid_warming": rapid_warming,
     "cwu_heavy": cwu_heavy,
+    "cwu_with_splits": cwu_with_splits,
     "dual_source_steady_state": dual_source_steady_state,
     "dual_source_cold_snap": dual_source_cold_snap,
     "priority_inversion_stress": priority_inversion_stress,
