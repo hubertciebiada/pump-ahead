@@ -114,6 +114,13 @@ class SafetyYAMLConfig:
         s4_threshold_off: S4 emergency cool clear [degC].
         s5_threshold_on: S5 watchdog trigger [minutes].
         s5_threshold_off: S5 watchdog clear [minutes].
+        entity_hp_thermostat: HA entity for the heat pump's native
+            thermostat (e.g., ``climate.heat_pump``).  When set,
+            the S5 fallback action restores native HP control.
+            ``None`` means no HP thermostat action (Axiom #8).
+        entity_watchdog_flag: HA ``input_boolean`` entity that
+            tracks whether watchdog fallback is active.  Defaults
+            to ``input_boolean.pumpahead_watchdog_fallback``.
     """
 
     rooms: tuple[RoomEntityConfig, ...]
@@ -138,6 +145,10 @@ class SafetyYAMLConfig:
     # S5: Watchdog
     s5_threshold_on: float = S5_WATCHDOG.threshold_on
     s5_threshold_off: float = S5_WATCHDOG.threshold_off
+
+    # Watchdog fallback entities
+    entity_hp_thermostat: str | None = None
+    entity_watchdog_flag: str = "input_boolean.pumpahead_watchdog_fallback"
 
     def __post_init__(self) -> None:
         if not self.rooms:
@@ -659,6 +670,86 @@ def _build_s4_automations(
 # ---------------------------------------------------------------------------
 
 
+def _build_s5_trigger_actions(
+    config: SafetyYAMLConfig,
+) -> list[dict[str, object]]:
+    """Build action list for the S5 watchdog trigger automation.
+
+    Actions include:
+    - Notification about watchdog timeout.
+    - Turn on the watchdog fallback flag (``input_boolean``).
+    - Optionally restore HP native control (if ``entity_hp_thermostat``
+      is configured).
+
+    Args:
+        config: Global safety YAML configuration.
+
+    Returns:
+        List of HA action dicts.
+    """
+    actions: list[dict[str, object]] = [
+        {
+            "service": "persistent_notification.create",
+            "data": {
+                "title": "PumpAhead Safety S5",
+                "message": (
+                    f"PumpAhead watchdog: No update for "
+                    f">{config.s5_threshold_on} minutes. "
+                    f"Falling back to heat pump native curve."
+                ),
+            },
+        },
+        {
+            "service": "input_boolean.turn_on",
+            "target": {"entity_id": config.entity_watchdog_flag},
+        },
+    ]
+
+    if config.entity_hp_thermostat is not None:
+        actions.append(
+            {
+                "service": "climate.set_hvac_mode",
+                "target": {"entity_id": config.entity_hp_thermostat},
+                "data": {"hvac_mode": "heat"},
+            },
+        )
+
+    return actions
+
+
+def _build_s5_clear_actions(
+    config: SafetyYAMLConfig,
+) -> list[dict[str, object]]:
+    """Build action list for the S5 watchdog clear automation.
+
+    Actions include:
+    - Notification about watchdog recovery.
+    - Turn off the watchdog fallback flag (``input_boolean``).
+
+    Args:
+        config: Global safety YAML configuration.
+
+    Returns:
+        List of HA action dicts.
+    """
+    return [
+        {
+            "service": "persistent_notification.create",
+            "data": {
+                "title": "PumpAhead Safety S5",
+                "message": (
+                    "PumpAhead watchdog cleared. "
+                    "PumpAhead resuming control."
+                ),
+            },
+        },
+        {
+            "service": "input_boolean.turn_off",
+            "target": {"entity_id": config.entity_watchdog_flag},
+        },
+    ]
+
+
 def _build_s5_automations(
     config: SafetyYAMLConfig,
 ) -> list[dict[str, object]]:
@@ -713,19 +804,7 @@ def _build_s5_automations(
             },
         ],
         "condition": [],
-        "action": [
-            {
-                "service": "persistent_notification.create",
-                "data": {
-                    "title": "PumpAhead Safety S5",
-                    "message": (
-                        f"PumpAhead watchdog: No update for "
-                        f">{config.s5_threshold_on} minutes. "
-                        f"Falling back to heat pump native curve."
-                    ),
-                },
-            },
-        ],
+        "action": _build_s5_trigger_actions(config),
     }
 
     clear_auto: dict[str, object] = {
@@ -743,17 +822,7 @@ def _build_s5_automations(
             },
         ],
         "condition": [],
-        "action": [
-            {
-                "service": "persistent_notification.create",
-                "data": {
-                    "title": "PumpAhead Safety S5",
-                    "message": (
-                        "PumpAhead watchdog cleared. Normal operation resumed."
-                    ),
-                },
-            },
-        ],
+        "action": _build_s5_clear_actions(config),
     }
 
     return [trigger_auto, clear_auto]

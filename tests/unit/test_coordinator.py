@@ -573,3 +573,29 @@ class TestFallbackCache:
         hass.states.get = MagicMock(return_value=None)
         val = coordinator._read_float_state("sensor.temp_living")
         assert val == 24.0  # cached
+
+
+# ---------------------------------------------------------------------------
+# TestWatchdogIntegration
+# ---------------------------------------------------------------------------
+
+
+class TestWatchdogIntegration:
+    """Tests for watchdog integration in the coordinator."""
+
+    @pytest.mark.unit
+    def test_update_data_includes_watchdog_state(self, coord_mocks: Any) -> None:
+        """Successful update must return data with watchdog_state 'ok'."""
+        hass, entry = _make_hass_and_entry(coord_mocks)
+        coordinator = coord_mocks.PumpAheadCoordinator(hass, entry)
+        coordinator._weather_source = None
+        data = asyncio.run(coordinator._async_update_data())
+        assert data.watchdog_state == "ok"
+
+    @pytest.mark.unit
+    def test_watchdog_monitor_initialized(self, coord_mocks: Any) -> None:
+        """Coordinator must initialize a WatchdogMonitor instance."""
+        hass, entry = _make_hass_and_entry(coord_mocks)
+        coordinator = coord_mocks.PumpAheadCoordinator(hass, entry)
+        assert hasattr(coordinator, "_watchdog")
+        assert coordinator._watchdog is not None

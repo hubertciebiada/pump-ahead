@@ -948,3 +948,108 @@ class TestNotifications:
             assert len(notification_actions) >= 1, (
                 f"Automation {auto['id']} has no notification action"
             )
+
+
+# ---------------------------------------------------------------------------
+# S5 watchdog fallback actions (issue #62)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestS5WatchdogFallback:
+    """S5 watchdog trigger/clear include fallback flag and HP thermostat actions."""
+
+    def test_s5_trigger_has_watchdog_flag_action(self) -> None:
+        """S5 trigger includes input_boolean.turn_on for the watchdog flag."""
+        config = _make_config()
+        parsed = _parse_yaml(generate_safety_yaml(config))
+        s5_trigger = parsed[-2]
+        flag_actions = [
+            a
+            for a in s5_trigger["action"]
+            if isinstance(a.get("service"), str)
+            and a["service"] == "input_boolean.turn_on"
+        ]
+        assert len(flag_actions) == 1
+        assert (
+            flag_actions[0]["target"]["entity_id"]
+            == "input_boolean.pumpahead_watchdog_fallback"
+        )
+
+    def test_s5_clear_has_watchdog_flag_action(self) -> None:
+        """S5 clear includes input_boolean.turn_off for the watchdog flag."""
+        config = _make_config()
+        parsed = _parse_yaml(generate_safety_yaml(config))
+        s5_clear = parsed[-1]
+        flag_actions = [
+            a
+            for a in s5_clear["action"]
+            if isinstance(a.get("service"), str)
+            and a["service"] == "input_boolean.turn_off"
+        ]
+        assert len(flag_actions) == 1
+        assert (
+            flag_actions[0]["target"]["entity_id"]
+            == "input_boolean.pumpahead_watchdog_fallback"
+        )
+
+    def test_s5_trigger_has_hp_thermostat_action_when_configured(self) -> None:
+        """S5 trigger includes climate.set_hvac_mode when HP thermostat set."""
+        config = _make_config(entity_hp_thermostat="climate.heat_pump")
+        parsed = _parse_yaml(generate_safety_yaml(config))
+        s5_trigger = parsed[-2]
+        hvac_actions = [
+            a
+            for a in s5_trigger["action"]
+            if isinstance(a.get("service"), str)
+            and a["service"] == "climate.set_hvac_mode"
+        ]
+        assert len(hvac_actions) == 1
+        assert hvac_actions[0]["target"]["entity_id"] == "climate.heat_pump"
+        assert hvac_actions[0]["data"]["hvac_mode"] == "heat"
+
+    def test_s5_trigger_no_hp_thermostat_action_when_not_configured(self) -> None:
+        """S5 trigger omits climate actions when HP thermostat is None."""
+        config = _make_config()
+        parsed = _parse_yaml(generate_safety_yaml(config))
+        s5_trigger = parsed[-2]
+        hvac_actions = [
+            a
+            for a in s5_trigger["action"]
+            if isinstance(a.get("service"), str)
+            and a["service"] == "climate.set_hvac_mode"
+        ]
+        assert len(hvac_actions) == 0
+
+    def test_s5_custom_watchdog_flag_entity(self) -> None:
+        """Custom watchdog flag entity appears in generated YAML."""
+        config = _make_config(
+            entity_watchdog_flag="input_boolean.custom_watchdog",
+        )
+        parsed = _parse_yaml(generate_safety_yaml(config))
+        s5_trigger = parsed[-2]
+        flag_actions = [
+            a
+            for a in s5_trigger["action"]
+            if isinstance(a.get("service"), str)
+            and a["service"] == "input_boolean.turn_on"
+        ]
+        assert len(flag_actions) == 1
+        assert (
+            flag_actions[0]["target"]["entity_id"]
+            == "input_boolean.custom_watchdog"
+        )
+
+    def test_s5_clear_message_mentions_resuming(self) -> None:
+        """S5 clear notification message mentions PumpAhead resuming."""
+        config = _make_config()
+        parsed = _parse_yaml(generate_safety_yaml(config))
+        s5_clear = parsed[-1]
+        notif_actions = [
+            a
+            for a in s5_clear["action"]
+            if isinstance(a.get("service"), str)
+            and a["service"] == "persistent_notification.create"
+        ]
+        assert len(notif_actions) == 1
+        assert "resuming" in notif_actions[0]["data"]["message"].lower()

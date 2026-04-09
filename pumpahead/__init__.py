@@ -152,6 +152,7 @@ from pumpahead.visualization import (
     plot_valves,
     plot_weather,
 )
+from pumpahead.watchdog import WatchdogMonitor, WatchdogState, WatchdogStatus
 from pumpahead.weather import (
     ChannelProfile,
     CSVConfig,
@@ -263,6 +264,9 @@ __all__ = [
     "WeatherDataError",
     "WeatherPoint",
     "WeatherRangeError",
+    "WatchdogMonitor",
+    "WatchdogState",
+    "WatchdogStatus",
     "WeatherSource",
     "WindowConfig",
     "__version__",

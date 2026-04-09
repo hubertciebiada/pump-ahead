@@ -16,6 +16,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from pumpahead.controller import PIDController
+from pumpahead.watchdog import WatchdogMonitor
 
 from .const import (
     CONF_ALGORITHM_MODE,
@@ -78,6 +79,7 @@ class PumpAheadCoordinatorData:
     algorithm_mode: str  # "heating" / "cooling" / "auto"
     algorithm_status: str = "running"  # "running" / "error" / "stale"
     last_update_timestamp: str | None = None  # ISO 8601 timestamp
+    watchdog_state: str = "ok"  # "ok" / "fallback" / "recovering"
 
 
 # ---------------------------------------------------------------------------
@@ -113,6 +115,9 @@ class PumpAheadCoordinator(DataUpdateCoordinator[PumpAheadCoordinatorData]):
         self._live_control_map: dict[str, bool] = entry.options.get(
             CONF_LIVE_CONTROL, {}
         )
+
+        # Watchdog monitor for heartbeat tracking.
+        self._watchdog = WatchdogMonitor()
 
         # Fallback cache: entity_id -> (last_value, timestamp).
         self._entity_cache: dict[str, tuple[float, datetime]] = {}
@@ -157,6 +162,9 @@ class PumpAheadCoordinator(DataUpdateCoordinator[PumpAheadCoordinatorData]):
         algorithm_status = self._run_shadow_pid(rooms)
         now_iso = datetime.now(UTC).isoformat()
 
+        # Heartbeat: successful update means age is 0.
+        watchdog_status = self._watchdog.update(0.0)
+
         # Populate split recommendations for rooms with splits.
         self._compute_split_recommendations(rooms)
 
@@ -178,6 +186,7 @@ class PumpAheadCoordinator(DataUpdateCoordinator[PumpAheadCoordinatorData]):
             algorithm_mode=self._algorithm_mode,
             algorithm_status=algorithm_status,
             last_update_timestamp=now_iso,
+            watchdog_state=watchdog_status.state.value,
         )
 
     # -- Shadow-mode PID -----------------------------------------------------
