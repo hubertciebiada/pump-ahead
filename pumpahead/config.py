@@ -298,10 +298,7 @@ class ControllerConfig:
             )
             raise ValueError(msg)
         if self.cwu_anti_panic_margin <= 0:
-            msg = (
-                f"cwu_anti_panic_margin must be > 0, "
-                f"got {self.cwu_anti_panic_margin}"
-            )
+            msg = f"cwu_anti_panic_margin must be > 0, got {self.cwu_anti_panic_margin}"
             raise ValueError(msg)
         if (
             self.cwu_pre_charge_lookahead_minutes < 0

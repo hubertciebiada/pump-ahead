@@ -216,7 +216,10 @@ class TestCWUHeavyScenario:
         from pumpahead.weather import SyntheticWeather
 
         weather = SyntheticWeather.constant(
-            T_out=-5.0, GHI=0.0, wind_speed=1.0, humidity=60.0,
+            T_out=-5.0,
+            GHI=0.0,
+            wind_speed=1.0,
+            humidity=60.0,
         )
         scenario_without = SimScenario(
             name="cwu_heavy_no_precharge",
@@ -237,7 +240,8 @@ class TestCWUHeavyScenario:
         first_room = scenario_with.building.rooms[0].name
 
         def _max_slab_drop_during_cwu(
-            log: SimulationLog, room_name: str,
+            log: SimulationLog,
+            room_name: str,
         ) -> float:
             records = list(log.get_room(room_name))
             max_drop = 0.0

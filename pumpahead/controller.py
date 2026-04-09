@@ -362,9 +362,7 @@ class PumpAheadController:
 
                     # Apply anti-takeover valve boost
                     if decision.valve_floor_boost > 0:
-                        boosted_floor = (
-                            cfg.valve_floor_pct + decision.valve_floor_boost
-                        )
+                        boosted_floor = cfg.valve_floor_pct + decision.valve_floor_boost
                         valve = max(valve, min(boosted_floor, 100.0))
 
             actions[name] = Actions(

@@ -810,9 +810,7 @@ class TestPumpAheadControllerCWU:
             cwu_pre_charge_valve_boost_pct=15.0,
         )
         # CWU starts at t=60 (single-shot, 45 min)
-        schedule = (
-            CWUCycle(start_minute=60, duration_minutes=45, interval_minutes=0),
-        )
+        schedule = (CWUCycle(start_minute=60, duration_minutes=45, interval_minutes=0),)
         ctrl = PumpAheadController(
             config,
             ["room_a"],
