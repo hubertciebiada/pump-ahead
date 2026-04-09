@@ -53,6 +53,7 @@ __all__ = [
     "cwu_heavy",
     "cwu_with_splits",
     "dual_source_cold_snap",
+    "dual_source_cooling_steady",
     "dual_source_steady_state",
     "extreme_cold",
     "full_year_2025",
@@ -62,6 +63,7 @@ __all__ = [
     "rapid_warming",
     "screed_sweep",
     "solar_overshoot",
+    "spring_transition",
     "steady_state",
 ]
 
@@ -107,6 +109,7 @@ def _hubert_single_room() -> BuildingParams:
         has_split=False,
         split_power_w=0.0,
         ufh_max_power_w=salon.ufh_max_power_w,
+        ufh_cooling_max_power_w=salon.ufh_cooling_max_power_w,
         ufh_loops=salon.ufh_loops,
         q_int_w=salon.q_int_w,
     )
@@ -580,6 +583,99 @@ def priority_inversion_stress() -> SimScenario:
     )
 
 
+def dual_source_cooling_steady() -> SimScenario:
+    """Steady-state cooling with dual-source rooms at T_out=32C.
+
+    Uses ``hubert_real`` building (5 rooms with splits, 3 without).
+    Constant high outdoor temperature, moderate solar gains.  Tests
+    that cooling mode produces negative Q_floor, splits cool correctly,
+    and splits NEVER heat in cooling mode (Axiom #3).
+
+    Returns:
+        ``SimScenario`` with ``hubert_real`` building, 7-day duration.
+    """
+    weather = SyntheticWeather(
+        t_out=ChannelProfile(
+            kind=ProfileKind.SINUSOIDAL,
+            baseline=32.0,
+            amplitude=4.0,
+            period_minutes=1440.0,
+        ),
+        ghi=ChannelProfile(
+            kind=ProfileKind.SINUSOIDAL,
+            baseline=350.0,
+            amplitude=350.0,
+            period_minutes=1440.0,
+        ),
+        wind_speed=ChannelProfile(kind=ProfileKind.CONSTANT, baseline=1.0),
+        humidity=ChannelProfile(kind=ProfileKind.CONSTANT, baseline=50.0),
+    )
+    return SimScenario(
+        name="dual_source_cooling_steady",
+        building=hubert_real(),
+        weather=weather,
+        controller=ControllerConfig(
+            kp=5.0,
+            ki=0.01,
+            setpoint=25.0,
+            split_deadband=1.0,
+        ),
+        duration_minutes=10080,
+        mode="cooling",
+        dt_seconds=60.0,
+        description=(
+            "Steady-state dual-source cooling at T_out~32C with solar. "
+            "Tests negative Q_floor and Axiom #3 compliance."
+        ),
+    )
+
+
+def spring_transition() -> SimScenario:
+    """Spring transition scenario with auto mode switching.
+
+    Ramp T_out from 5C to 28C over 5 days.  Tests the ModeController's
+    hysteresis: system should switch from HEATING to COOLING once the
+    outdoor temperature crosses the cooling threshold and the minimum
+    hold time is satisfied.
+
+    Returns:
+        ``SimScenario`` with ``hubert_real`` building, 7-day duration.
+    """
+    weather = SyntheticWeather(
+        t_out=ChannelProfile(
+            kind=ProfileKind.RAMP,
+            baseline=5.0,
+            amplitude=23.0,
+            period_minutes=7200.0,
+        ),
+        ghi=ChannelProfile(
+            kind=ProfileKind.SINUSOIDAL,
+            baseline=200.0,
+            amplitude=200.0,
+            period_minutes=1440.0,
+        ),
+        wind_speed=ChannelProfile(kind=ProfileKind.CONSTANT, baseline=1.5),
+        humidity=ChannelProfile(kind=ProfileKind.CONSTANT, baseline=55.0),
+    )
+    return SimScenario(
+        name="spring_transition",
+        building=hubert_real(),
+        weather=weather,
+        controller=ControllerConfig(
+            kp=5.0,
+            ki=0.01,
+            setpoint=22.0,
+        ),
+        duration_minutes=10080,
+        mode="auto",
+        dt_seconds=60.0,
+        description=(
+            "Spring transition: ramp T_out 5C->28C over 5 days. "
+            "Tests auto mode switching with hysteresis."
+        ),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Parametric sweep functions
 # ---------------------------------------------------------------------------
@@ -697,6 +793,8 @@ SCENARIO_LIBRARY: dict[str, Callable[[], SimScenario]] = {
     "dual_source_steady_state": dual_source_steady_state,
     "dual_source_cold_snap": dual_source_cold_snap,
     "priority_inversion_stress": priority_inversion_stress,
+    "dual_source_cooling_steady": dual_source_cooling_steady,
+    "spring_transition": spring_transition,
 }
 """Mapping of scenario name to factory function (single scenarios)."""
 

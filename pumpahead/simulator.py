@@ -201,9 +201,25 @@ class BuildingSimulator:
         return {r.name: r for r in self._rooms}
 
     @property
+    def hp_mode(self) -> HeatPumpMode:
+        """Return the current heat pump operating mode."""
+        return self._hp_mode
+
+    @property
     def is_cwu_active(self) -> bool:
         """Return whether a CWU cycle is active at the current time."""
         return self._check_cwu_active()
+
+    def set_hp_mode(self, mode: HeatPumpMode) -> None:
+        """Update the heat pump operating mode.
+
+        Used by the controller to switch between HEATING and COOLING
+        during auto-mode simulation.
+
+        Args:
+            mode: The new heat pump operating mode.
+        """
+        self._hp_mode = mode
 
     # -- Private helpers -----------------------------------------------------
 
@@ -440,29 +456,43 @@ class BuildingSimulator:
     ) -> dict[str, float]:
         """Compute per-room floor power respecting HP capacity.
 
-        Algorithm:
+        In HEATING mode:
         1. For each room compute demand = (valve / 100) * ufh_max_power_w.
         2. If total demand <= hp_max_power_w, each room gets its full demand.
-        3. Otherwise, scale down proportionally:
-           allocated_i = demand_i * (hp_max_power_w / total_demand).
+        3. Otherwise, scale down proportionally.
+
+        In COOLING mode:
+        1. For each room compute demand = (valve / 100) * ufh_cooling_max_power_w.
+        2. Scale proportionally if total demand exceeds HP capacity.
+        3. Return negative values (cold water in the slab).
 
         Returns:
             Dictionary of allocated floor power [W] keyed by room name.
+            Positive in heating mode, negative in cooling mode.
         """
+        is_cooling = self._hp_mode == HeatPumpMode.COOLING
+
         demands: dict[str, float] = {}
         for r in self._rooms:
             valve = actions[r.name].valve_position
             # Use the clamped value that apply_actions would compute
             clamped = max(0.0, min(100.0, valve))
-            demands[r.name] = clamped / 100.0 * r.ufh_max_power_w
+            if is_cooling:
+                demands[r.name] = clamped / 100.0 * r.ufh_cooling_max_power_w
+            else:
+                demands[r.name] = clamped / 100.0 * r.ufh_max_power_w
 
         total_demand = sum(demands.values())
 
         if total_demand == 0.0:
-            return {name: 0.0 for name in demands}
+            result = {name: 0.0 for name in demands}
+        elif total_demand <= self._hp_max_power_w:
+            result = demands
+        else:
+            scale = self._hp_max_power_w / total_demand
+            result = {name: d * scale for name, d in demands.items()}
 
-        if total_demand <= self._hp_max_power_w:
-            return demands
-
-        scale = self._hp_max_power_w / total_demand
-        return {name: d * scale for name, d in demands.items()}
+        # In cooling mode, power is negative (cold water)
+        if is_cooling:
+            return {name: -d for name, d in result.items()}
+        return result

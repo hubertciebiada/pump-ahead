@@ -32,9 +32,11 @@ Units:
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Literal
 
 from pumpahead.config import ControllerConfig, CWUCycle
 from pumpahead.cwu_coordinator import CWUCoordinator
+from pumpahead.mode_controller import ModeController
 from pumpahead.simulator import Actions, HeatPumpMode, Measurements, SplitMode
 from pumpahead.split_coordinator import SplitCoordinator
 
@@ -188,6 +190,7 @@ class PumpAheadController:
         room_overrides: dict[str, ControllerConfig] | None = None,
         room_has_split: dict[str, bool] | None = None,
         cwu_schedule: tuple[CWUCycle, ...] = (),
+        mode: Literal["heating", "cooling", "auto"] = "heating",
     ) -> None:
         """Initialize the multi-room controller.
 
@@ -204,6 +207,9 @@ class PumpAheadController:
             cwu_schedule: CWU (DHW) interrupt schedule.  When non-empty,
                 a ``CWUCoordinator`` is created for anti-panic split
                 blocking and pre-charge valve boosting.
+            mode: Operating mode.  ``"heating"`` or ``"cooling"`` for
+                fixed mode, ``"auto"`` for automatic switching based on
+                outdoor temperature.
 
         Raises:
             ValueError: If *room_names* is empty or contains duplicates,
@@ -229,6 +235,16 @@ class PumpAheadController:
         self._pids: dict[str, PIDController] = {}
         self._split_coordinators: dict[str, SplitCoordinator] = {}
         self._step_count: int = 0
+        self._mode = mode
+
+        # Mode controller for auto-switching
+        self._mode_controller: ModeController | None = None
+        if mode == "auto":
+            self._mode_controller = ModeController(
+                heating_threshold=config.mode_switch_heating_threshold,
+                cooling_threshold=config.mode_switch_cooling_threshold,
+                min_hold_minutes=config.mode_switch_min_hold_minutes,
+            )
 
         # CWU coordinator (system-level, not per-room)
         self._cwu_coordinator: CWUCoordinator | None = None
@@ -256,23 +272,32 @@ class PumpAheadController:
         """List of managed room names (read-only copy)."""
         return list(self._room_names)
 
+    @property
+    def mode_controller(self) -> ModeController | None:
+        """Return the mode controller (``None`` when not in auto mode)."""
+        return self._mode_controller
+
     # -- Public interface -----------------------------------------------------
 
     def step(
         self,
         measurements: dict[str, Measurements],
+        *,
+        simulator: object | None = None,
     ) -> dict[str, Actions]:
         """Compute control actions for all rooms from current measurements.
 
         For each room:
-        1. Compute the error: ``setpoint - T_room``.
+        1. Compute the error (direction depends on mode).
         2. Feed the error to the room's ``PIDController``.
-        3. Apply valve floor minimum if the room is in heating mode
-           and below ``setpoint + deadband``.
+        3. Apply valve floor minimum (heating mode only).
 
         Args:
             measurements: Dictionary of ``Measurements`` keyed by room name.
                 Must contain exactly one entry per managed room.
+            simulator: Optional ``BuildingSimulator`` reference.  When
+                provided and mode is ``"auto"``, the simulator's HP mode
+                is updated on mode switch.
 
         Returns:
             Dictionary of ``Actions`` keyed by room name.
@@ -297,6 +322,25 @@ class PumpAheadController:
         first_meas = next(iter(measurements.values()))
         is_cwu_active = first_meas.is_cwu_active
 
+        # Auto-mode switching: update mode based on outdoor temperature
+        hp_mode = first_meas.hp_mode
+        if self._mode_controller is not None:
+            old_mode = self._mode_controller.current_mode
+            new_mode = self._mode_controller.update(first_meas.T_outdoor)
+            if new_mode != old_mode:
+                # Mode switched — reset all PIDs to avoid integral windup
+                for pid in self._pids.values():
+                    pid.reset()
+                # Update the simulator's HP mode
+                if simulator is not None:
+                    from pumpahead.simulator import BuildingSimulator
+
+                    if isinstance(simulator, BuildingSimulator):
+                        simulator.set_hp_mode(new_mode)
+            hp_mode = new_mode
+
+        is_cooling = hp_mode == HeatPumpMode.COOLING
+
         # CWU pre-charge: compute valve boost before CWU starts
         cwu_pre_charge_boost = 0.0
         cwu_pre_charge_active = False
@@ -313,20 +357,32 @@ class PumpAheadController:
             meas = measurements[name]
             cfg = self._room_configs[name]
 
-            error = cfg.setpoint - meas.T_room
+            # Error direction depends on mode:
+            # Heating: setpoint - T_room (positive when room is cold)
+            # Cooling: T_room - setpoint (positive when room is hot)
+            if is_cooling:
+                error = meas.T_room - cfg.setpoint
+            else:
+                error = cfg.setpoint - meas.T_room
             valve = self._pids[name].compute(error)
 
-            # Valve floor minimum: enforce when HP is heating and room
-            # is below setpoint + deadband (room needs heat)
+            # Valve floor minimum: enforce only in heating mode when
+            # the room is below setpoint + deadband (room needs heat).
+            # In cooling mode, valve floor is NOT enforced — the PID
+            # controls the cooling valve position directly.
             if (
-                meas.hp_mode == HeatPumpMode.HEATING
+                not is_cooling
+                and hp_mode == HeatPumpMode.HEATING
                 and meas.T_room < cfg.setpoint + cfg.deadband
             ):
                 valve = max(valve, cfg.valve_floor_pct)
 
             # CWU pre-charge: boost valve floor before predicted CWU
-            if cwu_pre_charge_boost > 0.0 and (
-                meas.hp_mode == HeatPumpMode.HEATING
+            # (only in heating mode)
+            if (
+                cwu_pre_charge_boost > 0.0
+                and not is_cooling
+                and hp_mode == HeatPumpMode.HEATING
                 and meas.T_room < cfg.setpoint + cfg.deadband
             ):
                 boosted_floor = cfg.valve_floor_pct + cwu_pre_charge_boost
@@ -352,16 +408,19 @@ class PumpAheadController:
                     split_setpoint = 0.0
                     cwu_split_blocked = True
                 else:
+                    # For split coordinator, error is always setpoint-T_room
+                    # (the coordinator handles mode-based direction internally)
+                    split_error = cfg.setpoint - meas.T_room
                     decision = self._split_coordinators[name].decide(
-                        error=error,
+                        error=split_error,
                         setpoint=cfg.setpoint,
-                        hp_mode=meas.hp_mode,
+                        hp_mode=hp_mode,
                     )
                     split_mode = decision.split_mode
                     split_setpoint = decision.split_setpoint
 
-                    # Apply anti-takeover valve boost
-                    if decision.valve_floor_boost > 0:
+                    # Apply anti-takeover valve boost (heating mode only)
+                    if decision.valve_floor_boost > 0 and not is_cooling:
                         boosted_floor = cfg.valve_floor_pct + decision.valve_floor_boost
                         valve = max(valve, min(boosted_floor, 100.0))
 
@@ -381,13 +440,15 @@ class PumpAheadController:
         return actions
 
     def reset(self) -> None:
-        """Reset all per-room PID controllers, split coordinators, and CWU state."""
+        """Reset all PID controllers, split coordinators, CWU, and mode."""
         for pid in self._pids.values():
             pid.reset()
         for coordinator in self._split_coordinators.values():
             coordinator.reset()
         if self._cwu_coordinator is not None:
             self._cwu_coordinator.reset()
+        if self._mode_controller is not None:
+            self._mode_controller.reset()
         self._step_count = 0
 
     def get_diagnostics(self) -> dict[str, dict[str, float]]:
