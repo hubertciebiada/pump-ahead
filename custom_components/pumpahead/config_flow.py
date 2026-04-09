@@ -59,6 +59,7 @@ from .const import (
     VALID_PERCENT_UNITS,
     VALID_TEMP_UNITS,
 )
+from .entity_validator import EntityValidator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -202,34 +203,65 @@ class PumpAheadConfigFlow(ConfigFlow, domain=DOMAIN):
         room_name = room[CONF_ROOM_NAME]
 
         if user_input is not None:
+            validator = EntityValidator(self.hass)
+
             # Validate per-room temperature entity (required).
-            err = self._validate_entity_unit(
-                user_input.get(CONF_ENTITY_TEMP_ROOM, ""), VALID_TEMP_UNITS
+            result = validator.validate_entity(
+                user_input.get(CONF_ENTITY_TEMP_ROOM, ""),
+                valid_units=VALID_TEMP_UNITS,
+                expected_device_class="temperature",
             )
-            if err:
-                errors["base"] = err
+            if not result.valid:
+                errors["base"] = result.error_key  # type: ignore[assignment]
+                if result.error_details:
+                    _LOGGER.warning("%s", result.error_details)
 
             # Validate optional floor temperature entity.
             floor_entity = user_input.get(CONF_ENTITY_TEMP_FLOOR, "")
-            if floor_entity:
-                err = self._validate_entity_unit(floor_entity, VALID_TEMP_UNITS)
-                if err:
-                    errors["base"] = err
+            if floor_entity and not errors:
+                result = validator.validate_entity(
+                    floor_entity,
+                    valid_units=VALID_TEMP_UNITS,
+                    expected_device_class="temperature",
+                )
+                if not result.valid:
+                    errors["base"] = result.error_key  # type: ignore[assignment]
+                    if result.error_details:
+                        _LOGGER.warning("%s", result.error_details)
 
             # Validate optional humidity entity.
             humidity_entity = user_input.get(CONF_ENTITY_HUMIDITY, "")
-            if humidity_entity:
-                err = self._validate_entity_unit(humidity_entity, VALID_PERCENT_UNITS)
-                if err:
-                    errors["base"] = err
+            if humidity_entity and not errors:
+                result = validator.validate_entity(
+                    humidity_entity,
+                    valid_units=VALID_PERCENT_UNITS,
+                    expected_device_class="humidity",
+                )
+                if not result.valid:
+                    errors["base"] = result.error_key  # type: ignore[assignment]
+                    if result.error_details:
+                        _LOGGER.warning("%s", result.error_details)
+
+            # Validate valve entity (existence only, no unit/device_class).
+            valve_entity = user_input.get(CONF_ENTITY_VALVE, "")
+            if valve_entity and not errors:
+                result = validator.validate_entity(valve_entity)
+                if not result.valid and result.error_key != "entity_unavailable":
+                    errors["base"] = result.error_key  # type: ignore[assignment]
 
             # Global entities (only validated for the first room).
-            if self._entity_room_idx == 0:
+            if self._entity_room_idx == 0 and not errors:
                 outdoor_entity = user_input.get(CONF_ENTITY_TEMP_OUTDOOR, "")
                 if outdoor_entity:
-                    err = self._validate_entity_unit(outdoor_entity, VALID_TEMP_UNITS)
-                    if err:
-                        errors["base"] = err
+                    result = validator.validate_entity(
+                        outdoor_entity,
+                        valid_units=VALID_TEMP_UNITS,
+                        expected_device_class="temperature",
+                    )
+                    if not result.valid:
+                        errors["base"] = result.error_key  # type: ignore[assignment]
+                        if result.error_details:
+                            _LOGGER.warning("%s", result.error_details)
 
             if not errors:
                 room[CONF_ENTITY_TEMP_ROOM] = user_input.get(CONF_ENTITY_TEMP_ROOM, "")
@@ -394,33 +426,6 @@ class PumpAheadConfigFlow(ConfigFlow, domain=DOMAIN):
             },
         )
 
-    # -- Helpers ------------------------------------------------------------
-
-    def _validate_entity_unit(
-        self, entity_id: str, valid_units: set[str]
-    ) -> str | None:
-        """Validate an entity's ``unit_of_measurement``.
-
-        Returns an error key string or ``None`` when the entity is valid.
-        Entities with no ``unit_of_measurement`` attribute are accepted
-        (some actuators may not report units).
-        """
-        if not entity_id:
-            return None
-
-        state = self.hass.states.get(entity_id)
-        if state is None:
-            return "entity_not_found"
-
-        unit = getattr(state, "attributes", {}).get("unit_of_measurement")
-        if unit is None:
-            # Entity exists but doesn't declare a unit -- accept it.
-            return None
-
-        if unit not in valid_units:
-            return "invalid_unit"
-
-        return None
 
 
 # ---------------------------------------------------------------------------

@@ -56,6 +56,8 @@
       "no_rooms": "At least one room is required",
       "entity_not_found": "Entity not found in Home Assistant",
       "invalid_unit": "Entity has incorrect unit of measurement",
+      "invalid_device_class": "Entity has incorrect device class",
+      "entity_unavailable": "Entity is currently unavailable — it may come online later",
       "invalid_weight": "Weight must be >= 0"
     },
     "abort": {

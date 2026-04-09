@@ -340,6 +340,9 @@ def ha_integration_mocks() -> Any:  # noqa: C901
         PumpAheadCoordinatorData,
         RoomSensorData,
     )
+    from custom_components.pumpahead.entity_validator import (
+        EntityValidator,
+    )
     from custom_components.pumpahead.sensor import (
         GLOBAL_SENSORS,
         ROOM_SENSORS,
@@ -356,6 +359,7 @@ def ha_integration_mocks() -> Any:  # noqa: C901
     # config_flow
     ns.PumpAheadConfigFlow = PumpAheadConfigFlow  # type: ignore[attr-defined]
     ns.PumpAheadOptionsFlow = PumpAheadOptionsFlow  # type: ignore[attr-defined]
+    ns.EntityValidator = EntityValidator  # type: ignore[attr-defined]
     # coordinator
     ns.PumpAheadCoordinator = PumpAheadCoordinator  # type: ignore[attr-defined]
     ns.PumpAheadCoordinatorData = PumpAheadCoordinatorData  # type: ignore[attr-defined]
@@ -698,39 +702,34 @@ class TestConfigFlowToCoordinatorPipeline:
     def test_config_flow_entity_validation_prevents_bad_coordinator(
         self, ha_integration_mocks: Any
     ) -> None:
-        """Config flow validates entity units, preventing invalid configs."""
+        """EntityValidator rejects entities with wrong unit."""
         ns = ha_integration_mocks
 
-        flow = ns.PumpAheadConfigFlow()
         hass = MagicMock()
-        hass.config.latitude = 50.06
-        hass.config.longitude = 19.94
-
         # Provide entity with wrong unit
         wrong_unit_state = MagicMock()
         wrong_unit_state.attributes = {"unit_of_measurement": "F"}
         hass.states.get = MagicMock(return_value=wrong_unit_state)
-        flow.hass = hass
 
-        # Verify _validate_entity_unit rejects bad unit
-        result = flow._validate_entity_unit("sensor.bad_temp", {"\u00b0C", "C"})
-        assert result == "invalid_unit"
+        validator = ns.EntityValidator(hass)
+        result = validator.validate_unit("sensor.bad_temp", {"\u00b0C", "C"})
+        assert result.valid is False
+        assert result.error_key == "invalid_unit"
 
     def test_config_flow_accepts_entity_with_no_unit(
         self, ha_integration_mocks: Any
     ) -> None:
-        """Config flow accepts entities without unit_of_measurement (e.g. actuators)."""
+        """EntityValidator accepts entities without unit_of_measurement."""
         ns = ha_integration_mocks
 
-        flow = ns.PumpAheadConfigFlow()
         hass = MagicMock()
         no_unit_state = MagicMock()
         no_unit_state.attributes = {}
         hass.states.get = MagicMock(return_value=no_unit_state)
-        flow.hass = hass
 
-        result = flow._validate_entity_unit("number.valve", {"%"})
-        assert result is None
+        validator = ns.EntityValidator(hass)
+        result = validator.validate_unit("number.valve", {"%"})
+        assert result.valid is True
 
 
 # ---------------------------------------------------------------------------
