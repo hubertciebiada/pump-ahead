@@ -995,3 +995,104 @@ class TestControllerConfigModeSwitch:
         assert cfg.mode_switch_heating_threshold == 15.0
         assert cfg.mode_switch_cooling_threshold == 25.0
         assert cfg.mode_switch_min_hold_minutes == 120
+
+
+# ---------------------------------------------------------------------------
+# TestGraduatedCoolingThrottle — condensation-safe valve throttling
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestGraduatedCoolingThrottle:
+    """Tests for graduated cooling valve throttle in PumpAheadController."""
+
+    def test_controller_throttles_valve_near_dew_point(self) -> None:
+        """In cooling mode, valve is throttled when T_slab approaches T_dew.
+
+        With T_room=25, humidity=80 -> T_dew ~ 21.3 (Magnus).
+        T_slab=23.0 -> gap = 23.0 - 21.3 = 1.7 < margin(2.0) -> throttle=0.0.
+        """
+        config = ControllerConfig(kp=10.0, ki=0.0, setpoint=22.0)
+        ctrl = PumpAheadController(config, ["room"], mode="cooling")
+        meas = {
+            "room": Measurements(
+                T_room=25.0,
+                T_slab=23.0,
+                T_outdoor=32.0,
+                valve_pos=0.0,
+                hp_mode=HeatPumpMode.COOLING,
+                humidity=80.0,
+            )
+        }
+        actions = ctrl.step(meas)
+        # PID would produce a positive valve (room is 3C above setpoint)
+        # but throttle should reduce it to 0.0 since gap < margin
+        assert actions["room"].valve_position == pytest.approx(0.0)
+
+    def test_controller_no_throttle_when_floor_safe(self) -> None:
+        """Valve is not throttled when T_slab is well above T_dew + margin.
+
+        With T_room=25, humidity=40 -> T_dew ~ 10.5.
+        T_slab=25.0 -> gap = 25 - 10.5 = 14.5 >> margin + ramp = 4.
+        Throttle = 1.0 (no reduction).
+        """
+        config = ControllerConfig(kp=5.0, ki=0.0, setpoint=22.0)
+        ctrl = PumpAheadController(config, ["room"], mode="cooling")
+        meas = {
+            "room": Measurements(
+                T_room=25.0,
+                T_slab=25.0,
+                T_outdoor=32.0,
+                valve_pos=0.0,
+                hp_mode=HeatPumpMode.COOLING,
+                humidity=40.0,
+            )
+        }
+        actions = ctrl.step(meas)
+        # Room is 3C above setpoint -> PID output = 5*3 = 15%
+        # No throttle -> valve stays at PID output
+        assert actions["room"].valve_position == pytest.approx(15.0)
+
+    def test_controller_zero_valve_at_condensation_limit(self) -> None:
+        """Valve forced to 0 when T_slab is at condensation limit.
+
+        With T_room=25, humidity=90 -> T_dew ~ 23.3.
+        T_slab=25.0 -> gap = 25 - 23.3 = 1.7 < margin(2.0) -> throttle=0.0.
+        """
+        config = ControllerConfig(kp=10.0, ki=0.0, setpoint=22.0)
+        ctrl = PumpAheadController(config, ["room"], mode="cooling")
+        meas = {
+            "room": Measurements(
+                T_room=25.0,
+                T_slab=25.0,
+                T_outdoor=32.0,
+                valve_pos=0.0,
+                hp_mode=HeatPumpMode.COOLING,
+                humidity=90.0,
+            )
+        }
+        actions = ctrl.step(meas)
+        assert actions["room"].valve_position == pytest.approx(0.0)
+
+    def test_throttle_only_in_cooling_mode(self) -> None:
+        """Graduated throttle does NOT apply in heating mode.
+
+        Same high humidity conditions but in heating mode — valve should
+        not be throttled.
+        """
+        config = ControllerConfig(kp=5.0, ki=0.0, setpoint=22.0, valve_floor_pct=0.0)
+        ctrl = PumpAheadController(config, ["room"], mode="heating")
+        meas = {
+            "room": Measurements(
+                T_room=20.0,
+                T_slab=20.0,
+                T_outdoor=5.0,
+                valve_pos=0.0,
+                hp_mode=HeatPumpMode.HEATING,
+                humidity=90.0,
+            )
+        }
+        actions = ctrl.step(meas)
+        # Room is 2C below setpoint -> error = 2 -> valve = 10%
+        # No throttle in heating mode
+        assert actions["room"].valve_position == pytest.approx(10.0)

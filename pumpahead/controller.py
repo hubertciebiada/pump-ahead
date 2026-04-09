@@ -36,6 +36,7 @@ from typing import Literal
 
 from pumpahead.config import ControllerConfig, CWUCycle
 from pumpahead.cwu_coordinator import CWUCoordinator
+from pumpahead.dew_point import cooling_throttle_factor, dew_point
 from pumpahead.mode_controller import ModeController
 from pumpahead.simulator import Actions, HeatPumpMode, Measurements, SplitMode
 from pumpahead.split_coordinator import SplitCoordinator
@@ -387,6 +388,14 @@ class PumpAheadController:
             ):
                 boosted_floor = cfg.valve_floor_pct + cwu_pre_charge_boost
                 valve = max(valve, min(boosted_floor, 100.0))
+
+            # Graduated cooling throttle: reduce valve near dew point
+            # to prevent condensation (Axiom #5).  Applied only in
+            # cooling mode, before split coordination.
+            if is_cooling and valve > 0.0:
+                t_dew = dew_point(meas.T_room, meas.humidity)
+                throttle = cooling_throttle_factor(meas.T_slab, t_dew)
+                valve *= throttle
 
             # Split coordination (only for rooms with a coordinator)
             split_mode = SplitMode.OFF

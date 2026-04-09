@@ -231,6 +231,7 @@ class TestSaveLoadJson:
             "valve_pos",
             "hp_mode",
             "is_cwu_active",
+            "humidity",
         }
         assert set(first["actions"].keys()) == {
             "valve_position",

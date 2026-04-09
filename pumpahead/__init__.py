@@ -39,6 +39,12 @@ from pumpahead.cwu_coordinator import (
     CWU_WORST_CASE,
     CWUCoordinator,
 )
+from pumpahead.dew_point import (
+    condensation_margin,
+    cooling_throttle_factor,
+    dew_point,
+    dew_point_simplified,
+)
 from pumpahead.disturbance_vector import (
     MPC_DT_SECONDS,
     MPC_HORIZON_STEPS,
@@ -192,6 +198,8 @@ __all__ = [
     "CrossValidationResult",
     "PIDController",
     "PumpAheadController",
+    "condensation_margin",
+    "cooling_throttle_factor",
     "CSVConfig",
     "CSVParseError",
     "CSVWeather",
@@ -202,6 +210,8 @@ __all__ = [
     "CWU_WORST_CASE",
     "cross_validate",
     "cross_validate_rooms",
+    "dew_point",
+    "dew_point_simplified",
     "DEFAULT_HORIZONS",
     "DEFAULT_OVERFITTING_THRESHOLD",
     "DisturbanceBuilder",

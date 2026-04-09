@@ -178,9 +178,9 @@ class TestAssertFloorTempSafe:
     def test_raises_on_condensation_risk(self) -> None:
         """T_floor < T_dew + 2 raises AssertionError.
 
-        With T_room=21.0, humidity=80%: T_dew = 21 - (100-80)/5 = 17.0
-        Threshold = 17.0 + 2.0 = 19.0
-        T_slab=18.0 < 19.0 -> condensation risk.
+        Magnus: T_dew ~ 17.42 at T_room=21, RH=80.
+        Threshold ~ 17.42 + 2.0 = 19.42.
+        T_slab=18.0 < 19.42 -> condensation risk.
         """
         log = _make_log(
             [
@@ -191,12 +191,12 @@ class TestAssertFloorTempSafe:
             assert_floor_temp_safe(log)
 
     def test_exact_dew_margin_passes(self) -> None:
-        """T_floor exactly T_dew + 2.0 passes (check is <, not <=).
+        """T_floor at T_dew + 2.0 passes (check is <, not <=).
 
-        T_dew = 21.0 - (100-80)/5 = 17.0, threshold = 19.0.
-        T_slab=19.0 is NOT < 19.0 -> passes.
+        Magnus: T_dew ~ 17.42 at T_room=21, RH=80, threshold ~ 19.42.
+        T_slab=19.5 is NOT < 19.42 -> passes.
         """
-        log = _make_log([_make_record(t=0, T_slab=19.0, humidity=80.0)])
+        log = _make_log([_make_record(t=0, T_slab=19.5, humidity=80.0)])
         assert_floor_temp_safe(log)  # should not raise
 
     def test_empty_log_passes_silently(self) -> None:
