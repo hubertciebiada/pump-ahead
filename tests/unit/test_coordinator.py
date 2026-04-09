@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import sys
 import types
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
@@ -463,3 +463,113 @@ class TestCoordinatorDataStructure:
         coordinator._weather_source = None
         result = asyncio.run(coordinator._async_update_data())
         assert result.algorithm_mode == "cooling"
+
+
+# ---------------------------------------------------------------------------
+# TestFallbackCache
+# ---------------------------------------------------------------------------
+
+
+class TestFallbackCache:
+    """Tests for the 5-minute fallback cache in _read_float_state."""
+
+    @pytest.mark.unit
+    def test_cached_value_returned_within_5_minutes(self, coord_mocks: Any) -> None:
+        """Unavailable entity within cache TTL must return cached value."""
+        hass, entry = _make_hass_and_entry(coord_mocks)
+        coordinator = coord_mocks.PumpAheadCoordinator(hass, entry)
+
+        # First read succeeds — populates cache.
+        good_state = MagicMock()
+        good_state.state = "21.5"
+        hass.states.get = MagicMock(return_value=good_state)
+        val = coordinator._read_float_state("sensor.temp_living")
+        assert val == 21.5
+
+        # Second read — entity is now unavailable.
+        unavail_state = MagicMock()
+        unavail_state.state = "unavailable"
+        hass.states.get = MagicMock(return_value=unavail_state)
+        val = coordinator._read_float_state("sensor.temp_living")
+        assert val == 21.5  # cached
+
+    @pytest.mark.unit
+    def test_cached_value_expires_after_5_minutes(self, coord_mocks: Any) -> None:
+        """Unavailable entity beyond cache TTL must return None."""
+        hass, entry = _make_hass_and_entry(coord_mocks)
+        coordinator = coord_mocks.PumpAheadCoordinator(hass, entry)
+
+        # Populate cache with an old timestamp.
+        old_ts = datetime.now(UTC) - timedelta(seconds=301)
+        coordinator._entity_cache["sensor.temp_living"] = (21.5, old_ts)
+
+        # Read when entity is unavailable — cache expired.
+        unavail_state = MagicMock()
+        unavail_state.state = "unavailable"
+        hass.states.get = MagicMock(return_value=unavail_state)
+        val = coordinator._read_float_state("sensor.temp_living")
+        assert val is None
+
+    @pytest.mark.unit
+    def test_never_cached_entity_returns_none(self, coord_mocks: Any) -> None:
+        """Entity that was never available must return None immediately."""
+        hass, entry = _make_hass_and_entry(coord_mocks)
+        coordinator = coord_mocks.PumpAheadCoordinator(hass, entry)
+
+        unavail_state = MagicMock()
+        unavail_state.state = "unavailable"
+        hass.states.get = MagicMock(return_value=unavail_state)
+        val = coordinator._read_float_state("sensor.temp_living")
+        assert val is None
+
+    @pytest.mark.unit
+    def test_cache_updated_on_successful_read(self, coord_mocks: Any) -> None:
+        """Successful read must update the cache entry."""
+        hass, entry = _make_hass_and_entry(coord_mocks)
+        coordinator = coord_mocks.PumpAheadCoordinator(hass, entry)
+
+        good_state = MagicMock()
+        good_state.state = "22.0"
+        hass.states.get = MagicMock(return_value=good_state)
+        coordinator._read_float_state("sensor.temp_living")
+
+        assert "sensor.temp_living" in coordinator._entity_cache
+        cached_val, cached_ts = coordinator._entity_cache["sensor.temp_living"]
+        assert cached_val == 22.0
+        assert (datetime.now(UTC) - cached_ts).total_seconds() < 2.0
+
+    @pytest.mark.unit
+    def test_unknown_state_uses_cache(self, coord_mocks: Any) -> None:
+        """Entity with 'unknown' state must use cache if available."""
+        hass, entry = _make_hass_and_entry(coord_mocks)
+        coordinator = coord_mocks.PumpAheadCoordinator(hass, entry)
+
+        # First read succeeds.
+        good_state = MagicMock()
+        good_state.state = "23.0"
+        hass.states.get = MagicMock(return_value=good_state)
+        coordinator._read_float_state("sensor.temp_living")
+
+        # Second read — entity is unknown.
+        unknown_state = MagicMock()
+        unknown_state.state = "unknown"
+        hass.states.get = MagicMock(return_value=unknown_state)
+        val = coordinator._read_float_state("sensor.temp_living")
+        assert val == 23.0
+
+    @pytest.mark.unit
+    def test_none_entity_returns_none_no_cache(self, coord_mocks: Any) -> None:
+        """None entity state (missing) must use cache if available."""
+        hass, entry = _make_hass_and_entry(coord_mocks)
+        coordinator = coord_mocks.PumpAheadCoordinator(hass, entry)
+
+        # First read succeeds.
+        good_state = MagicMock()
+        good_state.state = "24.0"
+        hass.states.get = MagicMock(return_value=good_state)
+        coordinator._read_float_state("sensor.temp_living")
+
+        # Second read — entity returns None.
+        hass.states.get = MagicMock(return_value=None)
+        val = coordinator._read_float_state("sensor.temp_living")
+        assert val == 24.0  # cached

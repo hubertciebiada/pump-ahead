@@ -219,7 +219,12 @@ def cf_mocks() -> Any:  # noqa: C901
         CONF_W_ENERGY,
         CONF_W_SMOOTH,
         VALID_PERCENT_UNITS,
+        VALID_POWER_UNITS,
         VALID_TEMP_UNITS,
+    )
+    from custom_components.pumpahead.entity_validator import (
+        EntityValidator,
+        ValidationResult,
     )
 
     class _Namespace:
@@ -247,6 +252,9 @@ def cf_mocks() -> Any:  # noqa: C901
     ns.CONF_W_SMOOTH = CONF_W_SMOOTH  # type: ignore[attr-defined]
     ns.VALID_TEMP_UNITS = VALID_TEMP_UNITS  # type: ignore[attr-defined]
     ns.VALID_PERCENT_UNITS = VALID_PERCENT_UNITS  # type: ignore[attr-defined]
+    ns.VALID_POWER_UNITS = VALID_POWER_UNITS  # type: ignore[attr-defined]
+    ns.EntityValidator = EntityValidator  # type: ignore[attr-defined]
+    ns.ValidationResult = ValidationResult  # type: ignore[attr-defined]
 
     yield ns
 
@@ -777,63 +785,77 @@ class TestStepConfirm:
 
 
 class TestEntityValidation:
-    """Tests for the _validate_entity_unit helper."""
+    """Tests for entity validation via EntityValidator in the config flow."""
 
     @pytest.mark.unit
     def test_validate_celsius_entity(self, cf_mocks: Any) -> None:
         """Entity with unit degC must pass validation."""
-        flow = _make_flow(cf_mocks)
-        result = flow._validate_entity_unit(
-            "sensor.temp_room", cf_mocks.VALID_TEMP_UNITS
-        )
-        assert result is None
+        hass = MagicMock()
+        state = MagicMock()
+        state.state = "21.5"
+        state.attributes = {"unit_of_measurement": "\u00b0C"}
+        hass.states.get.return_value = state
+        validator = cf_mocks.EntityValidator(hass)
+        result = validator.validate_unit("sensor.temp_room", cf_mocks.VALID_TEMP_UNITS)
+        assert result.valid is True
 
     @pytest.mark.unit
     def test_validate_percent_entity(self, cf_mocks: Any) -> None:
         """Entity with unit % must pass validation."""
-        flow = _make_flow(cf_mocks)
-        result = flow._validate_entity_unit(
+        hass = MagicMock()
+        state = MagicMock()
+        state.state = "55.0"
+        state.attributes = {"unit_of_measurement": "%"}
+        hass.states.get.return_value = state
+        validator = cf_mocks.EntityValidator(hass)
+        result = validator.validate_unit(
             "sensor.humidity_room", cf_mocks.VALID_PERCENT_UNITS
         )
-        assert result is None
+        assert result.valid is True
 
     @pytest.mark.unit
     def test_validate_missing_entity_returns_error(self, cf_mocks: Any) -> None:
         """Non-existent entity must return entity_not_found."""
-        flow = _make_flow(cf_mocks)
-        flow.hass.states.get = MagicMock(return_value=None)
-        result = flow._validate_entity_unit(
+        hass = MagicMock()
+        hass.states.get.return_value = None
+        validator = cf_mocks.EntityValidator(hass)
+        result = validator.validate_unit(
             "sensor.nonexistent", cf_mocks.VALID_TEMP_UNITS
         )
-        assert result == "entity_not_found"
+        assert result.valid is False
+        assert result.error_key == "entity_not_found"
 
     @pytest.mark.unit
-    def test_validate_empty_entity_id_returns_none(self, cf_mocks: Any) -> None:
-        """Empty entity ID must return None (skip validation)."""
-        flow = _make_flow(cf_mocks)
-        result = flow._validate_entity_unit("", cf_mocks.VALID_TEMP_UNITS)
-        assert result is None
+    def test_validate_empty_entity_id_returns_valid(self, cf_mocks: Any) -> None:
+        """Empty entity ID must return valid (skip validation)."""
+        hass = MagicMock()
+        validator = cf_mocks.EntityValidator(hass)
+        result = validator.validate_unit("", cf_mocks.VALID_TEMP_UNITS)
+        assert result.valid is True
 
     @pytest.mark.unit
     def test_validate_entity_no_unit_attribute_accepted(self, cf_mocks: Any) -> None:
         """Entity without unit_of_measurement attribute must be accepted."""
-        flow = _make_flow(cf_mocks)
+        hass = MagicMock()
         state = MagicMock()
         state.attributes = {}
-        flow.hass.states.get = MagicMock(return_value=state)
-        result = flow._validate_entity_unit(
+        hass.states.get.return_value = state
+        validator = cf_mocks.EntityValidator(hass)
+        result = validator.validate_unit(
             "number.valve_living", cf_mocks.VALID_PERCENT_UNITS
         )
-        assert result is None
+        assert result.valid is True
 
     @pytest.mark.unit
     def test_validate_wrong_unit_returns_error(self, cf_mocks: Any) -> None:
         """Entity with wrong unit must return invalid_unit."""
-        flow = _make_flow(cf_mocks)
+        hass = MagicMock()
         state = MagicMock()
         state.attributes = {"unit_of_measurement": "\u00b0F"}
-        flow.hass.states.get = MagicMock(return_value=state)
-        result = flow._validate_entity_unit(
+        hass.states.get.return_value = state
+        validator = cf_mocks.EntityValidator(hass)
+        result = validator.validate_unit(
             "sensor.temp_fahrenheit", cf_mocks.VALID_TEMP_UNITS
         )
-        assert result == "invalid_unit"
+        assert result.valid is False
+        assert result.error_key == "invalid_unit"

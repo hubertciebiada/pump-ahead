@@ -37,6 +37,7 @@ from .const import (
     DEFAULT_KP,
     DEFAULT_SETPOINT,
     DOMAIN,
+    ENTITY_STALE_MAX_SECONDS,
     UPDATE_INTERVAL_MINUTES,
 )
 from .ha_weather import HAWeatherSource
@@ -112,6 +113,9 @@ class PumpAheadCoordinator(DataUpdateCoordinator[PumpAheadCoordinatorData]):
         self._live_control_map: dict[str, bool] = entry.options.get(
             CONF_LIVE_CONTROL, {}
         )
+
+        # Fallback cache: entity_id -> (last_value, timestamp).
+        self._entity_cache: dict[str, tuple[float, datetime]] = {}
 
         # Shadow-mode PID controllers (one per room).
         self._pid_controllers: dict[str, PIDController] = {}
@@ -322,13 +326,36 @@ class PumpAheadCoordinator(DataUpdateCoordinator[PumpAheadCoordinatorData]):
     # -- Helpers ------------------------------------------------------------
 
     def _read_float_state(self, entity_id: str | None) -> float | None:
-        """Read a numeric entity state, returning ``None`` on failure."""
+        """Read a numeric entity state, returning ``None`` on failure.
+
+        On a successful read the value is cached.  When the entity is
+        unavailable or unknown the cached value is returned if it is
+        less than :data:`ENTITY_STALE_MAX_SECONDS` old.
+        """
         if not entity_id:
             return None
         state = self.hass.states.get(entity_id)
         if state is None or state.state in ("unavailable", "unknown"):
+            cached = self._entity_cache.get(entity_id)
+            if cached is not None:
+                value, ts = cached
+                age = (datetime.now(UTC) - ts).total_seconds()
+                if age <= ENTITY_STALE_MAX_SECONDS:
+                    _LOGGER.debug(
+                        "Entity %s unavailable; using cached value %.2f (age %.0fs)",
+                        entity_id,
+                        value,
+                        age,
+                    )
+                    return value
+            _LOGGER.warning(
+                "Entity %s is unavailable and no recent cached value exists",
+                entity_id,
+            )
             return None
         try:
-            return float(state.state)
+            value = float(state.state)
         except (ValueError, TypeError):
             return None
+        self._entity_cache[entity_id] = (value, datetime.now(UTC))
+        return value
