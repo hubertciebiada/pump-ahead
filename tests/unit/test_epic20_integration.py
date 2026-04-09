@@ -295,7 +295,8 @@ _EBUS_CONFIG: dict[str, str] = {
 
 @pytest.mark.unit
 class TestEntityValidatorToHPModeMapperPipeline:
-    """Cross-module: EntityValidator validates HP state entity -> HPModeMapper maps states."""
+    """Cross-module: EntityValidator validates HP state entity,
+    HPModeMapper maps states."""
 
     def test_validated_hp_state_entity_produces_valid_mapper(
         self, epic20_mocks: Any
@@ -318,7 +319,8 @@ class TestEntityValidatorToHPModeMapperPipeline:
     def test_hp_operating_states_const_matches_enum_values(
         self, epic20_mocks: Any
     ) -> None:
-        """HP_OPERATING_STATES in const.py must match HPOperatingState enum values exactly."""
+        """HP_OPERATING_STATES in const.py must match
+        HPOperatingState enum values exactly."""
         enum_values = sorted(s.value for s in HPOperatingState)
         const_values = sorted(epic20_mocks.HP_OPERATING_STATES)
         assert enum_values == const_values
@@ -326,7 +328,8 @@ class TestEntityValidatorToHPModeMapperPipeline:
     def test_config_mapping_dict_roundtrips_through_mapper(
         self, epic20_mocks: Any
     ) -> None:
-        """A mapping dict from config flow roundtrips through HPModeMapper.from_config."""
+        """A mapping dict from config flow roundtrips
+        through HPModeMapper.from_config."""
         # Simulate config flow output.
         config_mapping = {
             "Heat": "heating",
@@ -441,14 +444,20 @@ class TestEntityValidatorUnitsToCOPCalculatorAlignment:
 
         # COPCalculator uses W directly.
         calc = COPCalculator(mode=COPMode.CONSTANT, default_cop=3.5)
-        assert calc.add_sample(t_outdoor=0.0, t_supply=35.0, p_electric=2000.0, q_thermal=7000.0)
+        assert calc.add_sample(
+            t_outdoor=0.0, t_supply=35.0,
+            p_electric=2000.0, q_thermal=7000.0,
+        )
 
     def test_temperature_unit_celsius_accepted_by_validator_and_used_by_cop(
         self, epic20_mocks: Any
     ) -> None:
-        """EntityValidator accepts degC; COPCalculator expects temperatures in Celsius."""
+        """EntityValidator accepts degC; COPCalculator expects
+        temperatures in Celsius."""
         validator, hass = _make_validator(epic20_mocks)
-        hass.states.get.return_value = _make_state(unit="\u00b0C", device_class="temperature")
+        hass.states.get.return_value = _make_state(
+            unit="\u00b0C", device_class="temperature",
+        )
         result = validator.validate_unit(
             "sensor.outdoor_temp", epic20_mocks.VALID_TEMP_UNITS
         )
@@ -464,11 +473,11 @@ class TestEntityValidatorUnitsToCOPCalculatorAlignment:
     ) -> None:
         """VALID_TEMP_UNITS must contain only Celsius-equivalent strings."""
         valid_celsius = {"\u00b0C", "C"}
-        assert epic20_mocks.VALID_TEMP_UNITS == valid_celsius
+        assert valid_celsius == epic20_mocks.VALID_TEMP_UNITS
 
     def test_all_valid_power_units_are_watts(self, epic20_mocks: Any) -> None:
         """VALID_POWER_UNITS must contain only 'W'."""
-        assert epic20_mocks.VALID_POWER_UNITS == {"W"}
+        assert {"W"} == epic20_mocks.VALID_POWER_UNITS
 
 
 # ---------------------------------------------------------------------------
