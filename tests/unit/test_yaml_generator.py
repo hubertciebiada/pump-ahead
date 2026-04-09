@@ -1035,10 +1035,7 @@ class TestS5WatchdogFallback:
             and a["service"] == "input_boolean.turn_on"
         ]
         assert len(flag_actions) == 1
-        assert (
-            flag_actions[0]["target"]["entity_id"]
-            == "input_boolean.custom_watchdog"
-        )
+        assert flag_actions[0]["target"]["entity_id"] == "input_boolean.custom_watchdog"
 
     def test_s5_clear_message_mentions_resuming(self) -> None:
         """S5 clear notification message mentions PumpAhead resuming."""

@@ -148,10 +148,7 @@ class WatchdogMonitor:
             fallback is active.
         """
         if seconds_since_heartbeat < 0.0:
-            msg = (
-                "seconds_since_heartbeat must be >= 0, "
-                f"got {seconds_since_heartbeat}"
-            )
+            msg = f"seconds_since_heartbeat must be >= 0, got {seconds_since_heartbeat}"
             raise ValueError(msg)
 
         previous_state = self._state

@@ -737,10 +737,7 @@ def _build_s5_clear_actions(
             "service": "persistent_notification.create",
             "data": {
                 "title": "PumpAhead Safety S5",
-                "message": (
-                    "PumpAhead watchdog cleared. "
-                    "PumpAhead resuming control."
-                ),
+                "message": ("PumpAhead watchdog cleared. PumpAhead resuming control."),
             },
         },
         {
