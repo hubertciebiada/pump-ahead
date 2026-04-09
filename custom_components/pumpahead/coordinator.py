@@ -283,7 +283,7 @@ class PumpAheadCoordinator(DataUpdateCoordinator[PumpAheadCoordinatorData]):
     async def _apply_split_control(
         self, room_cfg: dict, room_data: RoomSensorData
     ) -> None:
-        """Issue ``climate.set_hvac_mode`` and ``climate.set_temperature`` for the split.
+        """Issue set_hvac_mode and set_temperature for the split.
 
         Only called when the recommended state differs from the current
         state to avoid unnecessary service calls.  Axiom 3: splits never

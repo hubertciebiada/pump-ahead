@@ -12,7 +12,7 @@ import sys
 import types
 from pathlib import Path
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, call
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -918,7 +918,7 @@ class TestLiveControlGuard:
 
     @pytest.mark.unit
     def test_live_control_enabled_from_options(self, climate_mocks: Any) -> None:
-        """Rooms with live_control=True in options must have live_control_enabled=True."""
+        """Rooms with live_control=True in options have live_control_enabled."""
         hass = MagicMock()
         hass.config.latitude = 50.06
         hass.config.longitude = 19.94
@@ -1326,7 +1326,7 @@ class TestSplitRecommendations:
     def test_axiom3_no_cooling_in_heating_mode(
         self, climate_mocks: Any
     ) -> None:
-        """Axiom 3: split must NOT recommend 'cooling' when algorithm_mode is 'heating'."""
+        """Axiom 3: no 'cooling' recommendation in 'heating' mode."""
         hass = MagicMock()
         hass.config.latitude = 50.06
         hass.config.longitude = 19.94
