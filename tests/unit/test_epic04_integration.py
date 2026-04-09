@@ -63,6 +63,7 @@ def _build_simulator_from_scenario(scenario: SimScenario) -> BuildingSimulator:
             room_cfg.name,
             model,
             ufh_max_power_w=room_cfg.ufh_max_power_w,
+            ufh_cooling_max_power_w=room_cfg.ufh_cooling_max_power_w,
             split_power_w=room_cfg.split_power_w,
             q_int_w=room_cfg.q_int_w,
         )
@@ -257,6 +258,7 @@ class TestSplitConsistencyAcrossModules:
                 room_cfg.name,
                 model,
                 ufh_max_power_w=room_cfg.ufh_max_power_w,
+                ufh_cooling_max_power_w=room_cfg.ufh_cooling_max_power_w,
                 split_power_w=room_cfg.split_power_w,
                 q_int_w=room_cfg.q_int_w,
             )

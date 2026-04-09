@@ -45,6 +45,7 @@ class SimulatedRoom:
         name: str,
         model: RCModel,
         ufh_max_power_w: float = 5000.0,
+        ufh_cooling_max_power_w: float = 0.0,
         split_power_w: float = 0.0,
         q_int_w: float = 0.0,
     ) -> None:
@@ -54,12 +55,16 @@ class SimulatedRoom:
             name: Human-readable room name (e.g. "living_room").
             model: The RC thermal model for this room.
             ufh_max_power_w: Maximum UFH heat output at 100 % valve [W].
+            ufh_cooling_max_power_w: Maximum UFH cooling power [W].
+                Typically ~60 % of heating power due to asymmetric
+                floor heat transfer.  Zero if no floor cooling.
             split_power_w: Maximum split/AC power [W].  Zero if no split.
             q_int_w: Constant internal heat gains [W] (occupancy, appliances).
         """
         self._name = name
         self._model = model
         self._ufh_max_power_w = ufh_max_power_w
+        self._ufh_cooling_max_power_w = ufh_cooling_max_power_w
         self._split_power_w = split_power_w
         self._q_int_w = q_int_w
 
@@ -106,6 +111,11 @@ class SimulatedRoom:
     def ufh_max_power_w(self) -> float:
         """Return the maximum UFH heat output at 100 % valve [W]."""
         return self._ufh_max_power_w
+
+    @property
+    def ufh_cooling_max_power_w(self) -> float:
+        """Return the maximum UFH cooling power at 100 % valve [W]."""
+        return self._ufh_cooling_max_power_w
 
     # -- State manipulation --------------------------------------------------
 

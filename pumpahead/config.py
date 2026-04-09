@@ -84,6 +84,10 @@ class RoomConfig:
         split_power_w: Maximum split power [W] (> 0 when has_split=True,
             must be 0.0 when has_split=False).
         ufh_max_power_w: Maximum UFH power [W] (must be > 0).
+        ufh_cooling_max_power_w: Maximum UFH cooling power [W]
+            (must be >= 0).  Typically ~60 % of heating power due to
+            asymmetric floor heat transfer.  Defaults to 0.0 (no floor
+            cooling capability).
         ufh_loops: Number of UFH loops (must be >= 1).
         q_int_w: Internal heat gains [W] (must be >= 0).
     """
@@ -95,6 +99,7 @@ class RoomConfig:
     has_split: bool = False
     split_power_w: float = 0.0
     ufh_max_power_w: float = 5000.0
+    ufh_cooling_max_power_w: float = 0.0
     ufh_loops: int = 1
     q_int_w: float = 0.0
 
@@ -123,6 +128,12 @@ class RoomConfig:
             raise ValueError(msg)
         if self.ufh_max_power_w <= 0:
             msg = f"ufh_max_power_w must be > 0, got {self.ufh_max_power_w}"
+            raise ValueError(msg)
+        if self.ufh_cooling_max_power_w < 0:
+            msg = (
+                f"ufh_cooling_max_power_w must be >= 0, "
+                f"got {self.ufh_cooling_max_power_w}"
+            )
             raise ValueError(msg)
         if self.ufh_loops < 1:
             msg = f"ufh_loops must be >= 1, got {self.ufh_loops}"
@@ -219,6 +230,13 @@ class ControllerConfig:
             (must be in [0, 120]).
         cwu_pre_charge_valve_boost_pct: Additional valve floor percentage
             during pre-charge [%] (must be in [0, 50]).
+        mode_switch_heating_threshold: Outdoor temperature below which
+            the system switches to HEATING mode [degC].
+        mode_switch_cooling_threshold: Outdoor temperature above which
+            the system switches to COOLING mode [degC].  Must be >
+            ``mode_switch_heating_threshold``.
+        mode_switch_min_hold_minutes: Minimum time to hold the current
+            mode before allowing a switch [min] (must be >= 0).
     """
 
     kp: float = 5.0
@@ -237,6 +255,9 @@ class ControllerConfig:
     cwu_anti_panic_margin: float = 1.0
     cwu_pre_charge_lookahead_minutes: int = 30
     cwu_pre_charge_valve_boost_pct: float = 15.0
+    mode_switch_heating_threshold: float = 18.0
+    mode_switch_cooling_threshold: float = 22.0
+    mode_switch_min_hold_minutes: int = 60
 
     def __post_init__(self) -> None:
         """Validate controller parameters.
@@ -316,6 +337,19 @@ class ControllerConfig:
             msg = (
                 f"cwu_pre_charge_valve_boost_pct must be in [0, 50], "
                 f"got {self.cwu_pre_charge_valve_boost_pct}"
+            )
+            raise ValueError(msg)
+        if self.mode_switch_heating_threshold >= self.mode_switch_cooling_threshold:
+            msg = (
+                f"mode_switch_heating_threshold ({self.mode_switch_heating_threshold}) "
+                f"must be < mode_switch_cooling_threshold "
+                f"({self.mode_switch_cooling_threshold})"
+            )
+            raise ValueError(msg)
+        if self.mode_switch_min_hold_minutes < 0:
+            msg = (
+                f"mode_switch_min_hold_minutes must be >= 0, "
+                f"got {self.mode_switch_min_hold_minutes}"
             )
             raise ValueError(msg)
 

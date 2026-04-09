@@ -84,6 +84,7 @@ def _build_simulator(scenario: SimScenario) -> BuildingSimulator:
             room_cfg.name,
             model,
             ufh_max_power_w=room_cfg.ufh_max_power_w,
+            ufh_cooling_max_power_w=room_cfg.ufh_cooling_max_power_w,
             split_power_w=room_cfg.split_power_w,
             q_int_w=room_cfg.q_int_w,
         )
@@ -178,13 +179,14 @@ def run_scenario() -> Callable[
             room_names,
             room_has_split=room_has_split,
             cwu_schedule=tuple(scenario.cwu_schedule),
+            mode=scenario.mode,
         )
 
         for t in range(n_steps):
             all_meas = sim.get_all_measurements()
             wp = scenario.weather.get(float(t))
 
-            actions_dict = controller.step(all_meas)
+            actions_dict = controller.step(all_meas, simulator=sim)
 
             sim.step_all(actions_dict)
 

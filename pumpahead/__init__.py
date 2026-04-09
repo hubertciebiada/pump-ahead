@@ -71,6 +71,7 @@ from pumpahead.metrics import (
     assert_no_opposing_action,
     assert_no_priority_inversion,
 )
+from pumpahead.mode_controller import ModeController
 from pumpahead.model import ModelOrder, RCModel, RCParams
 from pumpahead.optimizer import (
     MPCConfig,
@@ -107,6 +108,7 @@ from pumpahead.scenarios import (
     cwu_heavy,
     cwu_with_splits,
     dual_source_cold_snap,
+    dual_source_cooling_steady,
     dual_source_steady_state,
     extreme_cold,
     full_year_2025,
@@ -116,6 +118,7 @@ from pumpahead.scenarios import (
     rapid_warming,
     screed_sweep,
     solar_overshoot,
+    spring_transition,
     steady_state,
 )
 from pumpahead.sensor_noise import SensorNoise
@@ -210,6 +213,7 @@ __all__ = [
     "IdentificationResult",
     "KalmanEstimator",
     "Measurements",
+    "ModeController",
     "MPCAdapter",
     "MPCConfig",
     "MPCController",
@@ -269,6 +273,7 @@ __all__ = [
     "cwu_heavy",
     "cwu_with_splits",
     "dual_source_cold_snap",
+    "dual_source_cooling_steady",
     "dual_source_steady_state",
     "extreme_cold",
     "full_year_2025",
@@ -298,6 +303,7 @@ __all__ = [
     "save_pickle",
     "screed_sweep",
     "solar_overshoot",
+    "spring_transition",
     "steady_state",
     "thin_screed",
     "well_insulated",
