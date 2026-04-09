@@ -33,7 +33,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from pumpahead.config import ControllerConfig
+from pumpahead.config import ControllerConfig, CWUCycle
+from pumpahead.cwu_coordinator import CWUCoordinator
 from pumpahead.simulator import Actions, HeatPumpMode, Measurements, SplitMode
 from pumpahead.split_coordinator import SplitCoordinator
 
@@ -186,6 +187,7 @@ class PumpAheadController:
         *,
         room_overrides: dict[str, ControllerConfig] | None = None,
         room_has_split: dict[str, bool] | None = None,
+        cwu_schedule: tuple[CWUCycle, ...] = (),
     ) -> None:
         """Initialize the multi-room controller.
 
@@ -199,6 +201,9 @@ class PumpAheadController:
                 When ``None`` (default), all rooms are treated as
                 UFH-only (backward compatible).  When provided, rooms
                 with ``True`` get a ``SplitCoordinator`` instance.
+            cwu_schedule: CWU (DHW) interrupt schedule.  When non-empty,
+                a ``CWUCoordinator`` is created for anti-panic split
+                blocking and pre-charge valve boosting.
 
         Raises:
             ValueError: If *room_names* is empty or contains duplicates,
@@ -223,6 +228,12 @@ class PumpAheadController:
         self._room_configs: dict[str, ControllerConfig] = {}
         self._pids: dict[str, PIDController] = {}
         self._split_coordinators: dict[str, SplitCoordinator] = {}
+        self._step_count: int = 0
+
+        # CWU coordinator (system-level, not per-room)
+        self._cwu_coordinator: CWUCoordinator | None = None
+        if cwu_schedule:
+            self._cwu_coordinator = CWUCoordinator(config, cwu_schedule)
 
         split_map = room_has_split or {}
 
@@ -282,7 +293,22 @@ class PumpAheadController:
             msg = f"Measurement keys do not match room names: {', '.join(parts)}"
             raise ValueError(msg)
 
+        # Determine CWU state from first room's measurements
+        first_meas = next(iter(measurements.values()))
+        is_cwu_active = first_meas.is_cwu_active
+
+        # CWU pre-charge: compute valve boost before CWU starts
+        cwu_pre_charge_boost = 0.0
+        cwu_pre_charge_active = False
+        if self._cwu_coordinator is not None:
+            cwu_pre_charge_boost = self._cwu_coordinator.get_pre_charge_boost(
+                self._step_count, is_cwu_active
+            )
+            cwu_pre_charge_active = cwu_pre_charge_boost > 0.0
+
         actions: dict[str, Actions] = {}
+        cwu_split_blocked = False
+
         for name in self._room_names:
             meas = measurements[name]
             cfg = self._room_configs[name]
@@ -298,23 +324,48 @@ class PumpAheadController:
             ):
                 valve = max(valve, cfg.valve_floor_pct)
 
+            # CWU pre-charge: boost valve floor before predicted CWU
+            if cwu_pre_charge_boost > 0.0 and (
+                meas.hp_mode == HeatPumpMode.HEATING
+                and meas.T_room < cfg.setpoint + cfg.deadband
+            ):
+                boosted_floor = cfg.valve_floor_pct + cwu_pre_charge_boost
+                valve = max(valve, min(boosted_floor, 100.0))
+
             # Split coordination (only for rooms with a coordinator)
             split_mode = SplitMode.OFF
             split_setpoint = 0.0
 
             if name in self._split_coordinators:
-                decision = self._split_coordinators[name].decide(
-                    error=error,
-                    setpoint=cfg.setpoint,
-                    hp_mode=meas.hp_mode,
-                )
-                split_mode = decision.split_mode
-                split_setpoint = decision.split_setpoint
+                # CWU anti-panic: block split when CWU is active and
+                # room is still warm enough
+                block_split = False
+                if self._cwu_coordinator is not None:
+                    block_split = self._cwu_coordinator.should_block_split(
+                        meas.T_room, cfg.setpoint, is_cwu_active
+                    )
 
-                # Apply anti-takeover valve boost
-                if decision.valve_floor_boost > 0:
-                    boosted_floor = cfg.valve_floor_pct + decision.valve_floor_boost
-                    valve = max(valve, min(boosted_floor, 100.0))
+                if block_split:
+                    # Split blocked — do NOT call SplitCoordinator.decide()
+                    # to avoid contaminating the runtime window
+                    split_mode = SplitMode.OFF
+                    split_setpoint = 0.0
+                    cwu_split_blocked = True
+                else:
+                    decision = self._split_coordinators[name].decide(
+                        error=error,
+                        setpoint=cfg.setpoint,
+                        hp_mode=meas.hp_mode,
+                    )
+                    split_mode = decision.split_mode
+                    split_setpoint = decision.split_setpoint
+
+                    # Apply anti-takeover valve boost
+                    if decision.valve_floor_boost > 0:
+                        boosted_floor = (
+                            cfg.valve_floor_pct + decision.valve_floor_boost
+                        )
+                        valve = max(valve, min(boosted_floor, 100.0))
 
             actions[name] = Actions(
                 valve_position=valve,
@@ -322,14 +373,24 @@ class PumpAheadController:
                 split_setpoint=split_setpoint,
             )
 
+        # Track step count for pre-charge timing
+        self._step_count += 1
+
+        # Store CWU diagnostic state for get_diagnostics()
+        self._cwu_pre_charge_active = cwu_pre_charge_active
+        self._cwu_split_blocked = cwu_split_blocked
+
         return actions
 
     def reset(self) -> None:
-        """Reset all per-room PID controllers and split coordinators."""
+        """Reset all per-room PID controllers, split coordinators, and CWU state."""
         for pid in self._pids.values():
             pid.reset()
         for coordinator in self._split_coordinators.values():
             coordinator.reset()
+        if self._cwu_coordinator is not None:
+            self._cwu_coordinator.reset()
+        self._step_count = 0
 
     def get_diagnostics(self) -> dict[str, dict[str, float]]:
         """Return per-room diagnostic information.
@@ -345,6 +406,11 @@ class PumpAheadController:
             - ``"anti_takeover_active"``: 1.0 if anti-takeover is
               triggered, 0.0 otherwise (only for rooms with a split
               coordinator).
+            - ``"cwu_pre_charge_active"``: 1.0 if CWU pre-charge is
+              active, 0.0 otherwise (only when CWU coordinator exists).
+            - ``"cwu_split_blocked"``: 1.0 if split is blocked by CWU
+              anti-panic, 0.0 otherwise (only when CWU coordinator
+              exists).
         """
         result: dict[str, dict[str, float]] = {}
         for name in self._room_names:
@@ -361,6 +427,13 @@ class PumpAheadController:
                 diag["split_runtime_minutes"] = float(coordinator.split_runtime_minutes)
                 diag["anti_takeover_active"] = (
                     1.0 if coordinator.anti_takeover_active else 0.0
+                )
+            if self._cwu_coordinator is not None:
+                diag["cwu_pre_charge_active"] = (
+                    1.0 if getattr(self, "_cwu_pre_charge_active", False) else 0.0
+                )
+                diag["cwu_split_blocked"] = (
+                    1.0 if getattr(self, "_cwu_split_blocked", False) else 0.0
                 )
             result[name] = diag
         return result

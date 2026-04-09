@@ -67,6 +67,7 @@ class Measurements:
         T_outdoor: Outdoor temperature [degC].
         valve_pos: Current valve position [0-100 %].
         hp_mode: Current heat pump operating mode.
+        is_cwu_active: Whether a CWU (DHW) cycle is currently active.
     """
 
     T_room: float
@@ -74,6 +75,7 @@ class Measurements:
     T_outdoor: float
     valve_pos: float
     hp_mode: HeatPumpMode
+    is_cwu_active: bool = False
 
 
 @dataclass(frozen=True)
@@ -254,6 +256,7 @@ class BuildingSimulator:
             T_outdoor=measurements.T_outdoor,
             valve_pos=measurements.valve_pos,
             hp_mode=measurements.hp_mode,
+            is_cwu_active=measurements.is_cwu_active,
         )
 
     # -- Public interface — single room (backward compatible) ----------------
@@ -269,12 +272,14 @@ class BuildingSimulator:
         """
         wp = self._weather.get(float(self._time_minutes))
         first = self._rooms[0]
+        cwu_active = self._check_cwu_active()
         clean = Measurements(
             T_room=first.T_air,
             T_slab=first.T_slab,
             T_outdoor=wp.T_out,
             valve_pos=first.valve_position,
             hp_mode=self._hp_mode,
+            is_cwu_active=cwu_active,
         )
         return self._apply_noise(clean)
 
@@ -344,6 +349,7 @@ class BuildingSimulator:
             Dictionary keyed by room name with ``Measurements`` values.
         """
         wp = self._weather.get(float(self._time_minutes))
+        cwu_active = self._check_cwu_active()
         result: dict[str, Measurements] = {}
         for r in self._rooms:
             clean = Measurements(
@@ -352,6 +358,7 @@ class BuildingSimulator:
                 T_outdoor=wp.T_out,
                 valve_pos=r.valve_position,
                 hp_mode=self._hp_mode,
+                is_cwu_active=cwu_active,
             )
             result[r.name] = self._apply_noise(clean)
         return result

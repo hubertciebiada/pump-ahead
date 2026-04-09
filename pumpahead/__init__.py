@@ -25,6 +25,12 @@ from pumpahead.config import (
     SimScenario,
 )
 from pumpahead.controller import PIDController, PumpAheadController
+from pumpahead.cwu_coordinator import (
+    CWU_HEAVY,
+    CWU_STANDARD,
+    CWU_WORST_CASE,
+    CWUCoordinator,
+)
 from pumpahead.cross_validation import (
     DEFAULT_HORIZONS,
     DEFAULT_OVERFITTING_THRESHOLD,
@@ -80,6 +86,7 @@ from pumpahead.scenarios import (
     SCENARIO_LIBRARY,
     cold_snap,
     cwu_heavy,
+    cwu_with_splits,
     dual_source_cold_snap,
     dual_source_steady_state,
     extreme_cold,
@@ -163,7 +170,11 @@ __all__ = [
     "CSVConfig",
     "CSVParseError",
     "CSVWeather",
+    "CWUCoordinator",
     "CWUCycle",
+    "CWU_HEAVY",
+    "CWU_STANDARD",
+    "CWU_WORST_CASE",
     "cross_validate",
     "cross_validate_rooms",
     "DEFAULT_HORIZONS",
@@ -224,6 +235,7 @@ __all__ = [
     "create_replay_app",
     "cold_snap",
     "cwu_heavy",
+    "cwu_with_splits",
     "dual_source_cold_snap",
     "dual_source_steady_state",
     "extreme_cold",
