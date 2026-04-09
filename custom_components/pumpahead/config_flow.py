@@ -589,9 +589,9 @@ class PumpAheadOptionsFlow(OptionsFlow):
         entries = list(current_mapping.items())
         for idx, (raw, target) in enumerate(entries):
             schema_dict[vol.Optional(f"hp_raw_{idx}", default=raw)] = TextSelector()
-            schema_dict[
-                vol.Optional(f"hp_target_{idx}", default=target)
-            ] = SelectSelector(SelectSelectorConfig(options=HP_OPERATING_STATES))
+            schema_dict[vol.Optional(f"hp_target_{idx}", default=target)] = (
+                SelectSelector(SelectSelectorConfig(options=HP_OPERATING_STATES))
+            )
 
         # Blank row for a new entry.
         schema_dict[vol.Optional("hp_raw_new", default="")] = TextSelector()

@@ -1105,18 +1105,14 @@ class TestOptionsHPMapping:
         """After init step, options flow must show hp_mapping form."""
         flow = self._make_options_flow(cf_mocks)
         # Submit init step (live control toggles).
-        result = _run(
-            flow.async_step_init({"enable_live_control_living_room": True})
-        )
+        result = _run(flow.async_step_init({"enable_live_control_living_room": True}))
         assert result["type"] == "form"
         assert result["step_id"] == "hp_mapping"
 
     @pytest.mark.unit
     def test_edit_hp_mapping_in_options(self, cf_mocks: Any) -> None:
         """Submitting new mapping values through options flow must persist."""
-        flow = self._make_options_flow(
-            cf_mocks, mapping={"Heat": "heating"}
-        )
+        flow = self._make_options_flow(cf_mocks, mapping={"Heat": "heating"})
         # Submit init step.
         _run(flow.async_step_init({"enable_live_control_living_room": True}))
         # Submit HP mapping edit -- modify existing + add new.
@@ -1150,9 +1146,7 @@ class TestOptionsHPMapping:
         assert result["step_id"] == "hp_mapping"
         # Schema should have keys for existing entries.
         schema = result["data_schema"]
-        schema_keys = [
-            k.key if hasattr(k, "key") else k for k in schema._schema
-        ]
+        schema_keys = [k.key if hasattr(k, "key") else k for k in schema._schema]
         assert "hp_raw_0" in schema_keys
         assert "hp_target_0" in schema_keys
         assert "hp_raw_1" in schema_keys
