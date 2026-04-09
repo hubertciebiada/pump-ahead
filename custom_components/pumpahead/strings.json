@@ -61,5 +61,13 @@
     "abort": {
       "already_configured": "PumpAhead is already configured for this location"
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "PumpAhead Live Control",
+        "description": "Enable live control per room. When enabled, PumpAhead will actively control valves and splits for the selected rooms. Disabled rooms remain in shadow (read-only) mode."
+      }
+    }
   }
 }

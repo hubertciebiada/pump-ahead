@@ -79,6 +79,19 @@ def cf_mocks() -> Any:  # noqa: C901
 
     ha_config_entries.ConfigFlow = _FakeConfigFlow  # type: ignore[attr-defined]
 
+    class _FakeOptionsFlow:
+        """Minimal stand-in for homeassistant.config_entries.OptionsFlow."""
+
+        config_entry: Any = None
+
+        def async_show_form(self, **kwargs: Any) -> dict[str, Any]:
+            return {"type": "form", **kwargs}
+
+        def async_create_entry(self, **kwargs: Any) -> dict[str, Any]:
+            return {"type": "create_entry", **kwargs}
+
+    ha_config_entries.OptionsFlow = _FakeOptionsFlow  # type: ignore[attr-defined]
+
     # data_entry_flow mock.
     ha_data_entry_flow = types.ModuleType("homeassistant.data_entry_flow")
     ha_data_entry_flow.FlowResult = dict  # type: ignore[attr-defined]

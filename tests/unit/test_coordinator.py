@@ -66,6 +66,11 @@ def coord_mocks() -> Any:  # noqa: C901
 
     ha_config_entries.ConfigFlow = _FakeConfigFlow  # type: ignore[attr-defined]
 
+    class _FakeOptionsFlow:
+        config_entry: Any = None
+
+    ha_config_entries.OptionsFlow = _FakeOptionsFlow  # type: ignore[attr-defined]
+
     # data_entry_flow mock.
     ha_data_entry_flow = types.ModuleType("homeassistant.data_entry_flow")
     ha_data_entry_flow.FlowResult = dict  # type: ignore[attr-defined]

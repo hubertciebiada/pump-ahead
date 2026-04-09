@@ -20,12 +20,15 @@ from pumpahead.controller import PIDController
 from .const import (
     CONF_ALGORITHM_MODE,
     CONF_ENTITY_HUMIDITY,
+    CONF_ENTITY_SPLIT,
     CONF_ENTITY_TEMP_FLOOR,
     CONF_ENTITY_TEMP_OUTDOOR,
     CONF_ENTITY_TEMP_ROOM,
     CONF_ENTITY_VALVE,
     CONF_ENTITY_WEATHER,
+    CONF_HAS_SPLIT,
     CONF_LATITUDE,
+    CONF_LIVE_CONTROL,
     CONF_LONGITUDE,
     CONF_ROOM_NAME,
     CONF_ROOMS,
@@ -57,6 +60,10 @@ class RoomSensorData:
     humidity: float | None  # % (optional)
     recommended_valve: float | None = None  # 0-100 % (shadow mode)
     predicted_temp: float | None = None  # degC (shadow mode)
+    live_control_enabled: bool = False  # per-room live control toggle
+    setpoint: float = DEFAULT_SETPOINT  # target temperature (degC)
+    split_recommended_mode: str | None = None  # "heating" / "cooling" / "off" / None
+    split_recommended_setpoint: float | None = None  # degC for split target
 
 
 @dataclass
@@ -101,6 +108,11 @@ class PumpAheadCoordinator(DataUpdateCoordinator[PumpAheadCoordinatorData]):
         if self._weather_entity:
             self._weather_source = HAWeatherSource(self._weather_entity, lat, lon)
 
+        # Per-room live control settings from options flow.
+        self._live_control_map: dict[str, bool] = entry.options.get(
+            CONF_LIVE_CONTROL, {}
+        )
+
         # Shadow-mode PID controllers (one per room).
         self._pid_controllers: dict[str, PIDController] = {}
         for room_cfg in self._room_configs:
@@ -119,12 +131,14 @@ class PumpAheadCoordinator(DataUpdateCoordinator[PumpAheadCoordinatorData]):
         rooms: dict[str, RoomSensorData] = {}
         for room_cfg in self._room_configs:
             room_name: str = room_cfg[CONF_ROOM_NAME]
+            is_live = self._live_control_map.get(room_name, False)
             rooms[room_name] = RoomSensorData(
                 room_name=room_name,
                 T_room=self._read_float_state(room_cfg.get(CONF_ENTITY_TEMP_ROOM)),
                 T_floor=self._read_float_state(room_cfg.get(CONF_ENTITY_TEMP_FLOOR)),
                 valve_pos=self._read_float_state(room_cfg.get(CONF_ENTITY_VALVE)),
                 humidity=self._read_float_state(room_cfg.get(CONF_ENTITY_HUMIDITY)),
+                live_control_enabled=is_live,
             )
 
         T_outdoor = self._read_float_state(self._outdoor_entity)
@@ -138,6 +152,19 @@ class PumpAheadCoordinator(DataUpdateCoordinator[PumpAheadCoordinatorData]):
         # Shadow-mode PID computation.
         algorithm_status = self._run_shadow_pid(rooms)
         now_iso = datetime.now(UTC).isoformat()
+
+        # Populate split recommendations for rooms with splits.
+        self._compute_split_recommendations(rooms)
+
+        # Live control: apply valve and split outputs for enabled rooms.
+        for room_cfg in self._room_configs:
+            room_name = room_cfg[CONF_ROOM_NAME]
+            room_data = rooms.get(room_name)
+            if room_data is None or not room_data.live_control_enabled:
+                continue
+            await self._apply_valve_control(room_cfg, room_data)
+            if room_cfg.get(CONF_HAS_SPLIT, False) and room_cfg.get(CONF_ENTITY_SPLIT):
+                await self._apply_split_control(room_cfg, room_data)
 
         return PumpAheadCoordinatorData(
             rooms=rooms,
@@ -180,6 +207,117 @@ class PumpAheadCoordinator(DataUpdateCoordinator[PumpAheadCoordinatorData]):
             return "error"
 
         return "stale" if has_any_stale else "running"
+
+    # -- Split recommendations ------------------------------------------------
+
+    def _compute_split_recommendations(self, rooms: dict[str, RoomSensorData]) -> None:
+        """Populate split recommendation fields for rooms with splits.
+
+        Determines whether the split should assist based on the PID error
+        and the current algorithm mode.  Axiom 3: splits never oppose the
+        mode (no cooling in heating mode, no heating in cooling mode).
+        """
+        for room_cfg in self._room_configs:
+            room_name = room_cfg[CONF_ROOM_NAME]
+            room_data = rooms.get(room_name)
+            if room_data is None:
+                continue
+            if not room_cfg.get(CONF_HAS_SPLIT, False):
+                continue
+            if room_data.T_room is None:
+                continue
+
+            error = room_data.setpoint - room_data.T_room
+
+            if self._algorithm_mode == "heating" and error > 0.5:
+                room_data.split_recommended_mode = "heating"
+                room_data.split_recommended_setpoint = room_data.setpoint
+            elif self._algorithm_mode == "cooling" and error < -0.5:
+                room_data.split_recommended_mode = "cooling"
+                room_data.split_recommended_setpoint = room_data.setpoint
+            elif self._algorithm_mode == "auto":
+                if error > 0.5:
+                    room_data.split_recommended_mode = "heating"
+                    room_data.split_recommended_setpoint = room_data.setpoint
+                elif error < -0.5:
+                    room_data.split_recommended_mode = "cooling"
+                    room_data.split_recommended_setpoint = room_data.setpoint
+                else:
+                    room_data.split_recommended_mode = "off"
+                    room_data.split_recommended_setpoint = None
+            else:
+                room_data.split_recommended_mode = "off"
+                room_data.split_recommended_setpoint = None
+
+    # -- Live control output ---------------------------------------------------
+
+    async def _apply_valve_control(
+        self, room_cfg: dict, room_data: RoomSensorData
+    ) -> None:
+        """Issue ``number.set_value`` for the room's valve entity.
+
+        Skipped when the room has no temperature data or no recommended
+        valve value.  Service call uses ``blocking=False`` to avoid
+        blocking the event loop.
+        """
+        valve_entity = room_cfg.get(CONF_ENTITY_VALVE)
+        if not valve_entity or room_data.recommended_valve is None:
+            return
+
+        try:
+            await self.hass.services.async_call(
+                "number",
+                "set_value",
+                {"entity_id": valve_entity, "value": room_data.recommended_valve},
+                blocking=False,
+            )
+        except Exception:  # noqa: BLE001
+            _LOGGER.exception(
+                "Failed to set valve %s for room %s",
+                valve_entity,
+                room_data.room_name,
+            )
+
+    async def _apply_split_control(
+        self, room_cfg: dict, room_data: RoomSensorData
+    ) -> None:
+        """Issue set_hvac_mode and set_temperature for the split.
+
+        Only called when the recommended state differs from the current
+        state to avoid unnecessary service calls.  Axiom 3: splits never
+        oppose the current mode.
+        """
+        split_entity = room_cfg.get(CONF_ENTITY_SPLIT)
+        if not split_entity or room_data.split_recommended_mode is None:
+            return
+
+        # Map internal mode names to HA HVAC modes.
+        mode_map = {"heating": "heat", "cooling": "cool", "off": "off"}
+        ha_mode = mode_map.get(room_data.split_recommended_mode, "off")
+
+        try:
+            await self.hass.services.async_call(
+                "climate",
+                "set_hvac_mode",
+                {"entity_id": split_entity, "hvac_mode": ha_mode},
+                blocking=False,
+            )
+            if ha_mode != "off" and room_data.split_recommended_setpoint is not None:
+                await self.hass.services.async_call(
+                    "climate",
+                    "set_temperature",
+                    {
+                        "entity_id": split_entity,
+                        "temperature": room_data.split_recommended_setpoint,
+                    },
+                    blocking=False,
+                )
+        except Exception:  # noqa: BLE001
+            _LOGGER.exception(
+                "Failed to control split %s for room %s",
+                split_entity,
+                room_data.room_name,
+            )
 
     # -- Helpers ------------------------------------------------------------
 
