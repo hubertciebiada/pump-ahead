@@ -265,7 +265,10 @@ class TestDewPointToSafetyRulesPipeline:
 
         # At this point, condensation_margin should be <= 0
         cm = condensation_margin(
-            t_floor_critical, t_room, humidity, safety_margin=margin_param,
+            t_floor_critical,
+            t_room,
+            humidity,
+            safety_margin=margin_param,
         )
         assert cm <= 0.0 + 1e-10
 
@@ -315,14 +318,15 @@ class TestModeControllerToCoolingPathPipeline:
         # Both should have valve > 0 but tight should be less than safe
         assert actions_safe["room1"].valve_position > 0.0
         assert (
-            actions_tight["room1"].valve_position
-            < actions_safe["room1"].valve_position
+            actions_tight["room1"].valve_position < actions_safe["room1"].valve_position
         )
 
     def test_cooling_mode_valve_floor_not_enforced(self) -> None:
         """Valve floor is NOT enforced in cooling mode."""
         ctrl = _make_cooling_controller(
-            ["room1"], mode="cooling", valve_floor_pct=15.0,
+            ["room1"],
+            mode="cooling",
+            valve_floor_pct=15.0,
         )
         # T_room=23 < setpoint=25 -> PID outputs 0 (room already cool)
         meas = {"room1": _make_measurements(T_room=23.0, T_slab=25.0)}
@@ -384,8 +388,11 @@ class TestSplitCoordinatorCoolingIntegration:
     def test_split_cools_when_room_above_setpoint_in_cooling(self) -> None:
         """Split activates COOLING when room is hot enough in cooling mode."""
         config = ControllerConfig(
-            kp=5.0, ki=0.0, setpoint=25.0,
-            split_deadband=1.0, split_setpoint_offset=2.0,
+            kp=5.0,
+            ki=0.0,
+            setpoint=25.0,
+            split_deadband=1.0,
+            split_setpoint_offset=2.0,
         )
         coordinator = SplitCoordinator(config)
 
@@ -401,7 +408,10 @@ class TestSplitCoordinatorCoolingIntegration:
     def test_split_off_when_error_within_deadband_cooling(self) -> None:
         """Split stays OFF when error is within deadband in cooling mode."""
         config = ControllerConfig(
-            kp=5.0, ki=0.0, setpoint=25.0, split_deadband=1.0,
+            kp=5.0,
+            ki=0.0,
+            setpoint=25.0,
+            split_deadband=1.0,
         )
         coordinator = SplitCoordinator(config)
 
@@ -569,7 +579,9 @@ class TestAcceptanceCriteriaVerification:
 
         # At T_floor = T_dew + 2, the margin should be 0
         snap = _normal_snapshot(
-            T_floor=t_dew + 2.0, T_room=t_room, humidity=humidity,
+            T_floor=t_dew + 2.0,
+            T_room=t_room,
+            humidity=humidity,
         )
         measured = S2_CONDENSATION.condition(snap)
         assert measured == pytest.approx(0.0, abs=1e-10)
@@ -614,7 +626,9 @@ class TestAcceptanceCriteriaVerification:
         # t_floor = t_dew + 3.0 = 13.0
         midpoint = cooling_throttle_factor(
             t_dew + margin + ramp_width / 2,
-            t_dew, margin=margin, ramp_width=ramp_width,
+            t_dew,
+            margin=margin,
+            ramp_width=ramp_width,
         )
         assert 0.0 < midpoint < 1.0
         assert midpoint == pytest.approx(0.5, abs=0.01)
@@ -715,6 +729,4 @@ class TestArchitecturalIntegrity:
             assert hasattr(pumpahead, symbol), (
                 f"{symbol} not exported from pumpahead.__init__"
             )
-            assert symbol in pumpahead.__all__, (
-                f"{symbol} not in pumpahead.__all__"
-            )
+            assert symbol in pumpahead.__all__, f"{symbol} not in pumpahead.__all__"
