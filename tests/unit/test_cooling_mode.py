@@ -239,12 +239,23 @@ class TestCoolingPowerAsymmetry:
     def test_default_cooling_power_is_zero(self) -> None:
         """Default ufh_cooling_max_power_w is 0.0."""
         params = RCParams(
-            C_air=60_000, C_slab=3_250_000, C_wall=1_500_000,
-            R_sf=0.01, R_wi=0.02, R_wo=0.03, R_ve=0.03, R_ins=0.01,
-            f_conv=0.6, f_rad=0.4, T_ground=10.0, has_split=False,
+            C_air=60_000,
+            C_slab=3_250_000,
+            C_wall=1_500_000,
+            R_sf=0.01,
+            R_wi=0.02,
+            R_wo=0.03,
+            R_ve=0.03,
+            R_ins=0.01,
+            f_conv=0.6,
+            f_rad=0.4,
+            T_ground=10.0,
+            has_split=False,
         )
         room = RoomConfig(
-            name="test", area_m2=20.0, params=params,
+            name="test",
+            area_m2=20.0,
+            params=params,
             ufh_max_power_w=5000.0,
         )
         assert room.ufh_cooling_max_power_w == 0.0
@@ -252,27 +263,51 @@ class TestCoolingPowerAsymmetry:
     def test_explicit_cooling_power(self) -> None:
         """Explicit ufh_cooling_max_power_w is stored correctly."""
         params = RCParams(
-            C_air=60_000, C_slab=3_250_000, C_wall=1_500_000,
-            R_sf=0.01, R_wi=0.02, R_wo=0.03, R_ve=0.03, R_ins=0.01,
-            f_conv=0.6, f_rad=0.4, T_ground=10.0, has_split=False,
+            C_air=60_000,
+            C_slab=3_250_000,
+            C_wall=1_500_000,
+            R_sf=0.01,
+            R_wi=0.02,
+            R_wo=0.03,
+            R_ve=0.03,
+            R_ins=0.01,
+            f_conv=0.6,
+            f_rad=0.4,
+            T_ground=10.0,
+            has_split=False,
         )
         room = RoomConfig(
-            name="test", area_m2=20.0, params=params,
-            ufh_max_power_w=5000.0, ufh_cooling_max_power_w=3000.0,
+            name="test",
+            area_m2=20.0,
+            params=params,
+            ufh_max_power_w=5000.0,
+            ufh_cooling_max_power_w=3000.0,
         )
         assert room.ufh_cooling_max_power_w == 3000.0
 
     def test_negative_cooling_power_raises(self) -> None:
         """Negative ufh_cooling_max_power_w raises ValueError."""
         params = RCParams(
-            C_air=60_000, C_slab=3_250_000, C_wall=1_500_000,
-            R_sf=0.01, R_wi=0.02, R_wo=0.03, R_ve=0.03, R_ins=0.01,
-            f_conv=0.6, f_rad=0.4, T_ground=10.0, has_split=False,
+            C_air=60_000,
+            C_slab=3_250_000,
+            C_wall=1_500_000,
+            R_sf=0.01,
+            R_wi=0.02,
+            R_wo=0.03,
+            R_ve=0.03,
+            R_ins=0.01,
+            f_conv=0.6,
+            f_rad=0.4,
+            T_ground=10.0,
+            has_split=False,
         )
         with pytest.raises(ValueError, match="ufh_cooling_max_power_w"):
             RoomConfig(
-                name="test", area_m2=20.0, params=params,
-                ufh_max_power_w=5000.0, ufh_cooling_max_power_w=-100.0,
+                name="test",
+                area_m2=20.0,
+                params=params,
+                ufh_max_power_w=5000.0,
+                ufh_cooling_max_power_w=-100.0,
             )
 
     def test_hubert_rooms_have_cooling_power(self) -> None:
@@ -298,8 +333,7 @@ class TestCoolingPowerAsymmetry:
         for room in building.rooms:
             ratio = room.ufh_cooling_max_power_w / room.ufh_max_power_w
             assert 0.5 <= ratio <= 0.7, (
-                f"{room.name}: cooling/heating ratio {ratio:.2f} "
-                f"outside [0.5, 0.7]"
+                f"{room.name}: cooling/heating ratio {ratio:.2f} outside [0.5, 0.7]"
             )
 
 
@@ -316,12 +350,17 @@ class TestControllerCoolingMode:
         """In cooling mode, room above setpoint produces positive PID output."""
         config = ControllerConfig(kp=5.0, ki=0.0, setpoint=25.0)
         ctrl = PumpAheadController(
-            config, ["room"], mode="cooling",
+            config,
+            ["room"],
+            mode="cooling",
         )
         meas = {
             "room": Measurements(
-                T_room=27.0, T_slab=26.0, T_outdoor=32.0,
-                valve_pos=0.0, hp_mode=HeatPumpMode.COOLING,
+                T_room=27.0,
+                T_slab=26.0,
+                T_outdoor=32.0,
+                valve_pos=0.0,
+                hp_mode=HeatPumpMode.COOLING,
             )
         }
         actions = ctrl.step(meas)
@@ -332,12 +371,17 @@ class TestControllerCoolingMode:
         """In cooling mode, room below setpoint produces zero valve output."""
         config = ControllerConfig(kp=5.0, ki=0.0, setpoint=25.0)
         ctrl = PumpAheadController(
-            config, ["room"], mode="cooling",
+            config,
+            ["room"],
+            mode="cooling",
         )
         meas = {
             "room": Measurements(
-                T_room=23.0, T_slab=24.0, T_outdoor=32.0,
-                valve_pos=0.0, hp_mode=HeatPumpMode.COOLING,
+                T_room=23.0,
+                T_slab=24.0,
+                T_outdoor=32.0,
+                valve_pos=0.0,
+                hp_mode=HeatPumpMode.COOLING,
             )
         }
         actions = ctrl.step(meas)
@@ -347,16 +391,24 @@ class TestControllerCoolingMode:
     def test_valve_floor_not_enforced_in_cooling_mode(self) -> None:
         """Valve floor minimum is NOT applied in cooling mode."""
         config = ControllerConfig(
-            kp=5.0, ki=0.0, setpoint=25.0, valve_floor_pct=15.0,
+            kp=5.0,
+            ki=0.0,
+            setpoint=25.0,
+            valve_floor_pct=15.0,
         )
         ctrl = PumpAheadController(
-            config, ["room"], mode="cooling",
+            config,
+            ["room"],
+            mode="cooling",
         )
         # Room exactly at setpoint — PID error = 0 -> valve = 0
         meas = {
             "room": Measurements(
-                T_room=25.0, T_slab=25.0, T_outdoor=32.0,
-                valve_pos=0.0, hp_mode=HeatPumpMode.COOLING,
+                T_room=25.0,
+                T_slab=25.0,
+                T_outdoor=32.0,
+                valve_pos=0.0,
+                hp_mode=HeatPumpMode.COOLING,
             )
         }
         actions = ctrl.step(meas)
@@ -365,16 +417,24 @@ class TestControllerCoolingMode:
     def test_valve_floor_enforced_in_heating_mode(self) -> None:
         """Valve floor IS applied in heating mode (regression check)."""
         config = ControllerConfig(
-            kp=5.0, ki=0.0, setpoint=21.0, valve_floor_pct=15.0,
+            kp=5.0,
+            ki=0.0,
+            setpoint=21.0,
+            valve_floor_pct=15.0,
         )
         ctrl = PumpAheadController(
-            config, ["room"], mode="heating",
+            config,
+            ["room"],
+            mode="heating",
         )
         # Room 0.3C below setpoint — small positive error
         meas = {
             "room": Measurements(
-                T_room=20.7, T_slab=22.0, T_outdoor=0.0,
-                valve_pos=0.0, hp_mode=HeatPumpMode.HEATING,
+                T_room=20.7,
+                T_slab=22.0,
+                T_outdoor=0.0,
+                valve_pos=0.0,
+                hp_mode=HeatPumpMode.HEATING,
             )
         }
         actions = ctrl.step(meas)
@@ -384,18 +444,25 @@ class TestControllerCoolingMode:
     def test_split_never_heats_in_cooling_mode(self) -> None:
         """In cooling mode, split NEVER activates in HEATING (Axiom #3)."""
         config = ControllerConfig(
-            kp=5.0, ki=0.0, setpoint=25.0, split_deadband=0.5,
+            kp=5.0,
+            ki=0.0,
+            setpoint=25.0,
+            split_deadband=0.5,
         )
         ctrl = PumpAheadController(
-            config, ["room"],
+            config,
+            ["room"],
             room_has_split={"room": True},
             mode="cooling",
         )
         # Room below setpoint in cooling mode
         meas = {
             "room": Measurements(
-                T_room=23.0, T_slab=24.0, T_outdoor=32.0,
-                valve_pos=0.0, hp_mode=HeatPumpMode.COOLING,
+                T_room=23.0,
+                T_slab=24.0,
+                T_outdoor=32.0,
+                valve_pos=0.0,
+                hp_mode=HeatPumpMode.COOLING,
             )
         }
         actions = ctrl.step(meas)
@@ -404,18 +471,25 @@ class TestControllerCoolingMode:
     def test_split_never_cools_in_heating_mode(self) -> None:
         """In heating mode, split NEVER activates in COOLING (Axiom #3)."""
         config = ControllerConfig(
-            kp=5.0, ki=0.0, setpoint=21.0, split_deadband=0.5,
+            kp=5.0,
+            ki=0.0,
+            setpoint=21.0,
+            split_deadband=0.5,
         )
         ctrl = PumpAheadController(
-            config, ["room"],
+            config,
+            ["room"],
             room_has_split={"room": True},
             mode="heating",
         )
         # Room above setpoint in heating mode
         meas = {
             "room": Measurements(
-                T_room=23.0, T_slab=22.0, T_outdoor=5.0,
-                valve_pos=50.0, hp_mode=HeatPumpMode.HEATING,
+                T_room=23.0,
+                T_slab=22.0,
+                T_outdoor=5.0,
+                valve_pos=50.0,
+                hp_mode=HeatPumpMode.HEATING,
             )
         }
         actions = ctrl.step(meas)
@@ -454,18 +528,32 @@ class TestControllerAutoMode:
         weather = SyntheticWeather.constant(T_out=25.0, GHI=0.0)
         room_model = RCModel(
             RCParams(
-                C_air=60_000, C_slab=3_250_000, C_wall=1_500_000,
-                R_sf=0.01, R_wi=0.02, R_wo=0.03, R_ve=0.03, R_ins=0.01,
-                f_conv=0.6, f_rad=0.4, T_ground=10.0, has_split=False,
+                C_air=60_000,
+                C_slab=3_250_000,
+                C_wall=1_500_000,
+                R_sf=0.01,
+                R_wi=0.02,
+                R_wo=0.03,
+                R_ve=0.03,
+                R_ins=0.01,
+                f_conv=0.6,
+                f_rad=0.4,
+                T_ground=10.0,
+                has_split=False,
             ),
-            ModelOrder.THREE, dt=60.0,
+            ModelOrder.THREE,
+            dt=60.0,
         )
         sim_room = SimulatedRoom(
-            "room", room_model, ufh_max_power_w=5000.0,
+            "room",
+            room_model,
+            ufh_max_power_w=5000.0,
             ufh_cooling_max_power_w=3000.0,
         )
         sim = BuildingSimulator(
-            sim_room, weather, hp_mode=HeatPumpMode.HEATING,
+            sim_room,
+            weather,
+            hp_mode=HeatPumpMode.HEATING,
         )
         ctrl = PumpAheadController(config, ["room"], mode="auto")
 
@@ -480,7 +568,9 @@ class TestControllerAutoMode:
     def test_auto_mode_resets_pid_on_switch(self) -> None:
         """PID integral resets to 0 when mode switches."""
         config = ControllerConfig(
-            kp=5.0, ki=0.01, setpoint=22.0,
+            kp=5.0,
+            ki=0.01,
+            setpoint=22.0,
             mode_switch_heating_threshold=18.0,
             mode_switch_cooling_threshold=22.0,
             mode_switch_min_hold_minutes=0,
@@ -491,8 +581,11 @@ class TestControllerAutoMode:
         for _ in range(10):
             meas = {
                 "room": Measurements(
-                    T_room=20.0, T_slab=20.0, T_outdoor=10.0,
-                    valve_pos=50.0, hp_mode=HeatPumpMode.HEATING,
+                    T_room=20.0,
+                    T_slab=20.0,
+                    T_outdoor=10.0,
+                    valve_pos=50.0,
+                    hp_mode=HeatPumpMode.HEATING,
                 )
             }
             ctrl.step(meas)
@@ -507,8 +600,11 @@ class TestControllerAutoMode:
         # (need at least 1 step to satisfy min_hold_minutes=0)
         meas = {
             "room": Measurements(
-                T_room=20.0, T_slab=20.0, T_outdoor=25.0,
-                valve_pos=50.0, hp_mode=HeatPumpMode.HEATING,
+                T_room=20.0,
+                T_slab=20.0,
+                T_outdoor=25.0,
+                valve_pos=50.0,
+                hp_mode=HeatPumpMode.HEATING,
             )
         }
         ctrl.step(meas)
@@ -532,18 +628,31 @@ class TestSimulatorCoolingMode:
     def test_distribute_hp_power_negative_in_cooling(self) -> None:
         """In cooling mode, _distribute_hp_power returns negative values."""
         params = RCParams(
-            C_air=60_000, C_slab=3_250_000, C_wall=1_500_000,
-            R_sf=0.01, R_wi=0.02, R_wo=0.03, R_ve=0.03, R_ins=0.01,
-            f_conv=0.6, f_rad=0.4, T_ground=10.0, has_split=False,
+            C_air=60_000,
+            C_slab=3_250_000,
+            C_wall=1_500_000,
+            R_sf=0.01,
+            R_wi=0.02,
+            R_wo=0.03,
+            R_ve=0.03,
+            R_ins=0.01,
+            f_conv=0.6,
+            f_rad=0.4,
+            T_ground=10.0,
+            has_split=False,
         )
         model = RCModel(params, ModelOrder.THREE, dt=60.0)
         room = SimulatedRoom(
-            "test", model, ufh_max_power_w=5000.0,
+            "test",
+            model,
+            ufh_max_power_w=5000.0,
             ufh_cooling_max_power_w=3000.0,
         )
         weather = SyntheticWeather.constant(T_out=30.0, GHI=0.0)
         sim = BuildingSimulator(
-            room, weather, hp_mode=HeatPumpMode.COOLING,
+            room,
+            weather,
+            hp_mode=HeatPumpMode.COOLING,
         )
 
         actions = {"test": Actions(valve_position=50.0)}
@@ -555,18 +664,31 @@ class TestSimulatorCoolingMode:
     def test_distribute_hp_power_positive_in_heating(self) -> None:
         """In heating mode, _distribute_hp_power returns positive values."""
         params = RCParams(
-            C_air=60_000, C_slab=3_250_000, C_wall=1_500_000,
-            R_sf=0.01, R_wi=0.02, R_wo=0.03, R_ve=0.03, R_ins=0.01,
-            f_conv=0.6, f_rad=0.4, T_ground=10.0, has_split=False,
+            C_air=60_000,
+            C_slab=3_250_000,
+            C_wall=1_500_000,
+            R_sf=0.01,
+            R_wi=0.02,
+            R_wo=0.03,
+            R_ve=0.03,
+            R_ins=0.01,
+            f_conv=0.6,
+            f_rad=0.4,
+            T_ground=10.0,
+            has_split=False,
         )
         model = RCModel(params, ModelOrder.THREE, dt=60.0)
         room = SimulatedRoom(
-            "test", model, ufh_max_power_w=5000.0,
+            "test",
+            model,
+            ufh_max_power_w=5000.0,
             ufh_cooling_max_power_w=3000.0,
         )
         weather = SyntheticWeather.constant(T_out=0.0, GHI=0.0)
         sim = BuildingSimulator(
-            room, weather, hp_mode=HeatPumpMode.HEATING,
+            room,
+            weather,
+            hp_mode=HeatPumpMode.HEATING,
         )
 
         actions = {"test": Actions(valve_position=50.0)}
@@ -578,9 +700,18 @@ class TestSimulatorCoolingMode:
     def test_set_hp_mode(self) -> None:
         """set_hp_mode updates the simulator's mode."""
         params = RCParams(
-            C_air=60_000, C_slab=3_250_000, C_wall=1_500_000,
-            R_sf=0.01, R_wi=0.02, R_wo=0.03, R_ve=0.03, R_ins=0.01,
-            f_conv=0.6, f_rad=0.4, T_ground=10.0, has_split=False,
+            C_air=60_000,
+            C_slab=3_250_000,
+            C_wall=1_500_000,
+            R_sf=0.01,
+            R_wi=0.02,
+            R_wo=0.03,
+            R_ve=0.03,
+            R_ins=0.01,
+            f_conv=0.6,
+            f_rad=0.4,
+            T_ground=10.0,
+            has_split=False,
         )
         model = RCModel(params, ModelOrder.THREE, dt=60.0)
         room = SimulatedRoom("test", model)
@@ -594,18 +725,31 @@ class TestSimulatorCoolingMode:
     def test_zero_cooling_power_means_no_floor_cooling(self) -> None:
         """Room with ufh_cooling_max_power_w=0 produces Q_floor=0 in cooling mode."""
         params = RCParams(
-            C_air=60_000, C_slab=3_250_000, C_wall=1_500_000,
-            R_sf=0.01, R_wi=0.02, R_wo=0.03, R_ve=0.03, R_ins=0.01,
-            f_conv=0.6, f_rad=0.4, T_ground=10.0, has_split=False,
+            C_air=60_000,
+            C_slab=3_250_000,
+            C_wall=1_500_000,
+            R_sf=0.01,
+            R_wi=0.02,
+            R_wo=0.03,
+            R_ve=0.03,
+            R_ins=0.01,
+            f_conv=0.6,
+            f_rad=0.4,
+            T_ground=10.0,
+            has_split=False,
         )
         model = RCModel(params, ModelOrder.THREE, dt=60.0)
         room = SimulatedRoom(
-            "test", model, ufh_max_power_w=5000.0,
+            "test",
+            model,
+            ufh_max_power_w=5000.0,
             ufh_cooling_max_power_w=0.0,
         )
         weather = SyntheticWeather.constant(T_out=30.0, GHI=0.0)
         sim = BuildingSimulator(
-            room, weather, hp_mode=HeatPumpMode.COOLING,
+            room,
+            weather,
+            hp_mode=HeatPumpMode.COOLING,
         )
 
         actions = {"test": Actions(valve_position=100.0)}
@@ -616,23 +760,37 @@ class TestSimulatorCoolingMode:
     def test_multi_room_cooling_power_distribution(self) -> None:
         """Multi-room cooling respects HP capacity and produces negative power."""
         params = RCParams(
-            C_air=60_000, C_slab=3_250_000, C_wall=1_500_000,
-            R_sf=0.01, R_wi=0.02, R_wo=0.03, R_ve=0.03, R_ins=0.01,
-            f_conv=0.6, f_rad=0.4, T_ground=10.0, has_split=False,
+            C_air=60_000,
+            C_slab=3_250_000,
+            C_wall=1_500_000,
+            R_sf=0.01,
+            R_wi=0.02,
+            R_wo=0.03,
+            R_ve=0.03,
+            R_ins=0.01,
+            f_conv=0.6,
+            f_rad=0.4,
+            T_ground=10.0,
+            has_split=False,
         )
         model1 = RCModel(params, ModelOrder.THREE, dt=60.0)
         model2 = RCModel(params, ModelOrder.THREE, dt=60.0)
         room1 = SimulatedRoom(
-            "a", model1, ufh_max_power_w=5000.0,
+            "a",
+            model1,
+            ufh_max_power_w=5000.0,
             ufh_cooling_max_power_w=3000.0,
         )
         room2 = SimulatedRoom(
-            "b", model2, ufh_max_power_w=5000.0,
+            "b",
+            model2,
+            ufh_max_power_w=5000.0,
             ufh_cooling_max_power_w=3000.0,
         )
         weather = SyntheticWeather.constant(T_out=30.0, GHI=0.0)
         sim = BuildingSimulator(
-            [room1, room2], weather,
+            [room1, room2],
+            weather,
             hp_mode=HeatPumpMode.COOLING,
             hp_max_power_w=4000.0,  # Limit < total demand
         )
@@ -652,19 +810,32 @@ class TestSimulatorCoolingMode:
     def test_step_all_cooling_mode_propagates(self) -> None:
         """step_all in cooling mode propagates negative Q_floor through RC model."""
         params = RCParams(
-            C_air=60_000, C_slab=3_250_000, C_wall=1_500_000,
-            R_sf=0.01, R_wi=0.02, R_wo=0.03, R_ve=0.03, R_ins=0.01,
-            f_conv=0.6, f_rad=0.4, T_ground=10.0, has_split=False,
+            C_air=60_000,
+            C_slab=3_250_000,
+            C_wall=1_500_000,
+            R_sf=0.01,
+            R_wi=0.02,
+            R_wo=0.03,
+            R_ve=0.03,
+            R_ins=0.01,
+            f_conv=0.6,
+            f_rad=0.4,
+            T_ground=10.0,
+            has_split=False,
         )
         model = RCModel(params, ModelOrder.THREE, dt=60.0)
         room = SimulatedRoom(
-            "test", model, ufh_max_power_w=5000.0,
+            "test",
+            model,
+            ufh_max_power_w=5000.0,
             ufh_cooling_max_power_w=3000.0,
         )
         room.set_initial_state(np.array([28.0, 28.0, 28.0]))
         weather = SyntheticWeather.constant(T_out=28.0, GHI=0.0)
         sim = BuildingSimulator(
-            [room], weather, hp_mode=HeatPumpMode.COOLING,
+            [room],
+            weather,
+            hp_mode=HeatPumpMode.COOLING,
             hp_max_power_w=9000.0,
         )
 
@@ -673,9 +844,7 @@ class TestSimulatorCoolingMode:
             actions = {"test": Actions(valve_position=80.0)}
             sim.step_all(actions)
 
-        assert room.T_slab < t_slab_initial, (
-            "T_slab should decrease in cooling mode"
-        )
+        assert room.T_slab < t_slab_initial, "T_slab should decrease in cooling mode"
 
 
 # ---------------------------------------------------------------------------
@@ -720,7 +889,9 @@ class TestHotJulyScenario:
             rooms.append(sim_room)
 
         sim = BuildingSimulator(
-            rooms, scenario.weather, hp_mode=HeatPumpMode.COOLING,
+            rooms,
+            scenario.weather,
+            hp_mode=HeatPumpMode.COOLING,
             hp_max_power_w=building.hp_max_power_w,
         )
 
@@ -760,7 +931,9 @@ class TestHotJulyScenario:
             rooms.append(sim_room)
 
         sim = BuildingSimulator(
-            rooms, scenario.weather, hp_mode=HeatPumpMode.COOLING,
+            rooms,
+            scenario.weather,
+            hp_mode=HeatPumpMode.COOLING,
             hp_max_power_w=building.hp_max_power_w,
         )
 
