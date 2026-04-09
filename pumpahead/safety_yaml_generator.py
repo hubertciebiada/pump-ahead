@@ -469,11 +469,7 @@ def _build_s3_automations(
                     f"Emergency heating in {room.room_name}: "
                     f"T_room < {config.s3_threshold_on}C. "
                     f"Valve set to 100%"
-                    + (
-                        ", split set to heat."
-                        if room.entity_split is not None
-                        else "."
-                    )
+                    + (", split set to heat." if room.entity_split is not None else ".")
                 ),
             },
         },
@@ -753,8 +749,7 @@ def _build_s5_automations(
                 "data": {
                     "title": "PumpAhead Safety S5",
                     "message": (
-                        "PumpAhead watchdog cleared. "
-                        "Normal operation resumed."
+                        "PumpAhead watchdog cleared. Normal operation resumed."
                     ),
                 },
             },

@@ -106,9 +106,7 @@ class TestRoomEntityConfig:
 
     def test_empty_entity_temp_floor_raises(self) -> None:
         """Empty entity_temp_floor raises ValueError."""
-        with pytest.raises(
-            ValueError, match="entity_temp_floor must be non-empty"
-        ):
+        with pytest.raises(ValueError, match="entity_temp_floor must be non-empty"):
             RoomEntityConfig(
                 room_name="Room",
                 entity_temp_floor="",
@@ -119,9 +117,7 @@ class TestRoomEntityConfig:
 
     def test_empty_entity_temp_room_raises(self) -> None:
         """Empty entity_temp_room raises ValueError."""
-        with pytest.raises(
-            ValueError, match="entity_temp_room must be non-empty"
-        ):
+        with pytest.raises(ValueError, match="entity_temp_room must be non-empty"):
             RoomEntityConfig(
                 room_name="Room",
                 entity_temp_floor="sensor.floor",
@@ -132,9 +128,7 @@ class TestRoomEntityConfig:
 
     def test_empty_entity_humidity_raises(self) -> None:
         """Empty entity_humidity raises ValueError."""
-        with pytest.raises(
-            ValueError, match="entity_humidity must be non-empty"
-        ):
+        with pytest.raises(ValueError, match="entity_humidity must be non-empty"):
             RoomEntityConfig(
                 room_name="Room",
                 entity_temp_floor="sensor.floor",
@@ -145,9 +139,7 @@ class TestRoomEntityConfig:
 
     def test_empty_entity_valve_raises(self) -> None:
         """Empty entity_valve raises ValueError."""
-        with pytest.raises(
-            ValueError, match="entity_valve must be non-empty"
-        ):
+        with pytest.raises(ValueError, match="entity_valve must be non-empty"):
             RoomEntityConfig(
                 room_name="Room",
                 entity_temp_floor="sensor.floor",
@@ -403,9 +395,7 @@ class TestEntitySubstitution:
             and a["service"] == "climate.set_hvac_mode"
         ]
         assert len(split_actions) == 1
-        assert (
-            split_actions[0]["target"]["entity_id"] == "climate.my_split"
-        )
+        assert split_actions[0]["target"]["entity_id"] == "climate.my_split"
 
     def test_s3_no_split_entity_when_absent(self) -> None:
         """S3 trigger omits split actions when room has no split."""
@@ -729,12 +719,18 @@ class TestAutomationStructure:
         condition, action."""
         config = _make_config()
         parsed = _parse_yaml(generate_safety_yaml(config))
-        required = {"id", "alias", "description", "mode", "trigger",
-                     "condition", "action"}
+        required = {
+            "id",
+            "alias",
+            "description",
+            "mode",
+            "trigger",
+            "condition",
+            "action",
+        }
         for auto in parsed:
             assert required.issubset(auto.keys()), (
-                f"Missing keys in {auto['id']}: "
-                f"{required - set(auto.keys())}"
+                f"Missing keys in {auto['id']}: {required - set(auto.keys())}"
             )
 
     def test_mode_is_single(self) -> None:
@@ -877,7 +873,8 @@ class TestSplitVariations:
         parsed = _parse_yaml(generate_safety_yaml(config))
         s3_trigger = parsed[4]
         hvac_actions = [
-            a for a in s3_trigger["action"]
+            a
+            for a in s3_trigger["action"]
             if isinstance(a.get("service"), str)
             and a["service"] == "climate.set_hvac_mode"
         ]
@@ -891,9 +888,9 @@ class TestSplitVariations:
         parsed = _parse_yaml(generate_safety_yaml(config))
         s3_trigger = parsed[4]
         valve_actions = [
-            a for a in s3_trigger["action"]
-            if isinstance(a.get("service"), str)
-            and a["service"] == "number.set_value"
+            a
+            for a in s3_trigger["action"]
+            if isinstance(a.get("service"), str) and a["service"] == "number.set_value"
         ]
         assert len(valve_actions) == 1
         assert valve_actions[0]["data"]["value"] == 100
@@ -905,7 +902,8 @@ class TestSplitVariations:
         parsed = _parse_yaml(generate_safety_yaml(config))
         s4_trigger = parsed[6]
         hvac_actions = [
-            a for a in s4_trigger["action"]
+            a
+            for a in s4_trigger["action"]
             if isinstance(a.get("service"), str)
             and a["service"] == "climate.set_hvac_mode"
         ]
@@ -919,9 +917,9 @@ class TestSplitVariations:
         parsed = _parse_yaml(generate_safety_yaml(config))
         s4_trigger = parsed[6]
         valve_actions = [
-            a for a in s4_trigger["action"]
-            if isinstance(a.get("service"), str)
-            and a["service"] == "number.set_value"
+            a
+            for a in s4_trigger["action"]
+            if isinstance(a.get("service"), str) and a["service"] == "number.set_value"
         ]
         assert len(valve_actions) == 1
         assert valve_actions[0]["data"]["value"] == 0
@@ -942,7 +940,8 @@ class TestNotifications:
         parsed = _parse_yaml(generate_safety_yaml(config))
         for auto in parsed:
             notification_actions = [
-                a for a in auto["action"]
+                a
+                for a in auto["action"]
                 if isinstance(a.get("service"), str)
                 and a["service"] == "persistent_notification.create"
             ]
