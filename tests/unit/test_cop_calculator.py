@@ -303,12 +303,8 @@ class TestCOPCalculatorLookupTable:
             lookup_t_outdoor=np.array([0.0, 10.0]),
             lookup_cop=np.array([3.0, 4.0]),
         )
-        assert calc.get_cop(t_outdoor=5.0, t_supply=30.0) == pytest.approx(
-            3.5
-        )
-        assert calc.get_cop(t_outdoor=5.0, t_supply=55.0) == pytest.approx(
-            3.5
-        )
+        assert calc.get_cop(t_outdoor=5.0, t_supply=30.0) == pytest.approx(3.5)
+        assert calc.get_cop(t_outdoor=5.0, t_supply=55.0) == pytest.approx(3.5)
 
     @pytest.mark.unit
     def test_lookup_missing_arrays_raises(self) -> None:
@@ -461,9 +457,7 @@ class TestCOPCalculatorAutoLearned:
     @pytest.mark.unit
     def test_fit_insufficient_samples(self) -> None:
         """fit() must return False when fewer than min_samples_hours samples."""
-        calc = COPCalculator(
-            mode=COPMode.AUTO_LEARNED, min_samples_hours=10
-        )
+        calc = COPCalculator(mode=COPMode.AUTO_LEARNED, min_samples_hours=10)
         for _ in range(5):
             calc.add_sample(
                 t_outdoor=5.0,
@@ -477,9 +471,7 @@ class TestCOPCalculatorAutoLearned:
     @pytest.mark.unit
     def test_fit_sufficient_samples(self) -> None:
         """fit() must succeed with sufficient samples and produce a model."""
-        calc = COPCalculator(
-            mode=COPMode.AUTO_LEARNED, min_samples_hours=10
-        )
+        calc = COPCalculator(mode=COPMode.AUTO_LEARNED, min_samples_hours=10)
         rng = np.random.default_rng(42)
         for _ in range(20):
             t_out = rng.uniform(-10.0, 15.0)
@@ -501,9 +493,7 @@ class TestCOPCalculatorAutoLearned:
     @pytest.mark.unit
     def test_regression_predictions(self) -> None:
         """Fitted model should produce reasonable COP predictions."""
-        calc = COPCalculator(
-            mode=COPMode.AUTO_LEARNED, min_samples_hours=10
-        )
+        calc = COPCalculator(mode=COPMode.AUTO_LEARNED, min_samples_hours=10)
         rng = np.random.default_rng(42)
         # Generate data with known relationship:
         # COP = 3.0 + 0.05 * T_outdoor - 0.02 * T_supply
@@ -530,9 +520,7 @@ class TestCOPCalculatorAutoLearned:
     @pytest.mark.unit
     def test_t_supply_none_uses_default(self) -> None:
         """AUTO_LEARNED with t_supply=None should use DEFAULT_T_SUPPLY."""
-        calc = COPCalculator(
-            mode=COPMode.AUTO_LEARNED, min_samples_hours=10
-        )
+        calc = COPCalculator(mode=COPMode.AUTO_LEARNED, min_samples_hours=10)
         rng = np.random.default_rng(42)
         for _ in range(20):
             t_out = rng.uniform(-10.0, 15.0)
@@ -548,17 +536,13 @@ class TestCOPCalculatorAutoLearned:
         calc.fit()
         # Should use DEFAULT_T_SUPPLY (35.0) internally
         result_none = calc.get_cop(t_outdoor=5.0)
-        result_explicit = calc.get_cop(
-            t_outdoor=5.0, t_supply=DEFAULT_T_SUPPLY
-        )
+        result_explicit = calc.get_cop(t_outdoor=5.0, t_supply=DEFAULT_T_SUPPLY)
         assert result_none == pytest.approx(result_explicit)
 
     @pytest.mark.unit
     def test_regression_cop_clamped(self) -> None:
         """Regression predictions outside [COP_MIN, COP_MAX] must be clamped."""
-        calc = COPCalculator(
-            mode=COPMode.AUTO_LEARNED, min_samples_hours=5
-        )
+        calc = COPCalculator(mode=COPMode.AUTO_LEARNED, min_samples_hours=5)
         # Provide data that will produce a model predicting very high COP
         # at certain conditions
         for i in range(10):
@@ -579,9 +563,7 @@ class TestCOPCalculatorAutoLearned:
     @pytest.mark.unit
     def test_reset_clears_state(self) -> None:
         """reset() must clear samples and fitted model."""
-        calc = COPCalculator(
-            mode=COPMode.AUTO_LEARNED, min_samples_hours=5
-        )
+        calc = COPCalculator(mode=COPMode.AUTO_LEARNED, min_samples_hours=5)
         for _ in range(10):
             calc.add_sample(
                 t_outdoor=5.0,
@@ -680,9 +662,7 @@ class TestCOPCalculatorFromConfig:
     def test_lookup_insufficient_data_raises(self) -> None:
         """Lookup table config with <2 entries must raise ValueError."""
         with pytest.raises(ValueError, match="at least 2 entries"):
-            COPCalculator.from_config(
-                {"mode": "lookup_table", "data": [[0, 3.0]]}
-            )
+            COPCalculator.from_config({"mode": "lookup_table", "data": [[0, 3.0]]})
 
 
 # ---------------------------------------------------------------------------

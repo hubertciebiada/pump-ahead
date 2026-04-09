@@ -106,9 +106,7 @@ class COPSample:
             msg = f"q_thermal must be positive, got {self.q_thermal}"
             raise ValueError(msg)
         if self.cop < COP_MIN or self.cop > COP_MAX:
-            msg = (
-                f"cop must be in [{COP_MIN}, {COP_MAX}], got {self.cop:.3f}"
-            )
+            msg = f"cop must be in [{COP_MIN}, {COP_MAX}], got {self.cop:.3f}"
             raise ValueError(msg)
 
 
@@ -170,12 +168,10 @@ class COPCalculator:
                 raise ValueError(msg)
             # Sort by temperature
             sort_idx = np.argsort(lookup_t_outdoor)
-            self._lookup_t_outdoor = np.asarray(
-                lookup_t_outdoor, dtype=np.float64
-            )[sort_idx]
-            self._lookup_cop = np.asarray(lookup_cop, dtype=np.float64)[
+            self._lookup_t_outdoor = np.asarray(lookup_t_outdoor, dtype=np.float64)[
                 sort_idx
             ]
+            self._lookup_cop = np.asarray(lookup_cop, dtype=np.float64)[sort_idx]
 
         # Auto-learned regression state
         self._samples: list[COPSample] = []
@@ -279,17 +275,14 @@ class COPCalculator:
         cop_values = np.array([s.cop for s in self._samples])
 
         # Design matrix: [1, T_outdoor, T_supply]
-        design = np.column_stack(
-            [np.ones(len(self._samples)), t_outdoor, t_supply]
-        )
+        design = np.column_stack([np.ones(len(self._samples)), t_outdoor, t_supply])
 
         # Least-squares fit
         result, _, _, _ = np.linalg.lstsq(design, cop_values, rcond=None)
         self._coefficients = result
 
         _LOGGER.info(
-            "COP model fitted: a0=%.4f, a1=%.4f, a2=%.4f "
-            "(n_samples=%d)",
+            "COP model fitted: a0=%.4f, a1=%.4f, a2=%.4f (n_samples=%d)",
             result[0],
             result[1],
             result[2],
@@ -348,9 +341,7 @@ class COPCalculator:
         )
         return self._clamp_cop(cop)
 
-    def _get_cop_regression(
-        self, t_outdoor: float, t_supply: float
-    ) -> float:
+    def _get_cop_regression(self, t_outdoor: float, t_supply: float) -> float:
         """Compute COP from the fitted bilinear regression."""
         assert self._coefficients is not None
         cop: float = float(
