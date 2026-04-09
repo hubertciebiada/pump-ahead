@@ -135,9 +135,7 @@ async def async_setup_entry(
 # ---------------------------------------------------------------------------
 
 
-class PumpAheadSensorEntity(
-    CoordinatorEntity[PumpAheadCoordinator], SensorEntity
-):
+class PumpAheadSensorEntity(CoordinatorEntity[PumpAheadCoordinator], SensorEntity):
     """Diagnostic sensor entity for PumpAhead shadow mode."""
 
     entity_description: PumpAheadSensorEntityDescription
@@ -177,6 +175,4 @@ class PumpAheadSensorEntity(
         """Return the sensor value from coordinator data."""
         if self.coordinator.data is None:
             return None
-        return self.entity_description.value_fn(
-            self.coordinator.data, self._room_name
-        )
+        return self.entity_description.value_fn(self.coordinator.data, self._room_name)

@@ -370,17 +370,13 @@ class TestSensorDescriptions:
     @pytest.mark.unit
     def test_predicted_temp_device_class(self, sensor_mocks: Any) -> None:
         """predicted_temp must have device_class TEMPERATURE."""
-        desc = next(
-            d for d in sensor_mocks.ROOM_SENSORS if d.key == "predicted_temp"
-        )
+        desc = next(d for d in sensor_mocks.ROOM_SENSORS if d.key == "predicted_temp")
         assert desc.device_class == "temperature"
 
     @pytest.mark.unit
     def test_last_update_device_class(self, sensor_mocks: Any) -> None:
         """last_update must have device_class TIMESTAMP."""
-        desc = next(
-            d for d in sensor_mocks.GLOBAL_SENSORS if d.key == "last_update"
-        )
+        desc = next(d for d in sensor_mocks.GLOBAL_SENSORS if d.key == "last_update")
         assert desc.device_class == "timestamp"
 
 
@@ -473,9 +469,7 @@ class TestSensorValues:
     def test_predicted_temp_value(self, sensor_mocks: Any) -> None:
         """predicted_temp must return the value from coordinator data."""
         coordinator = _make_coordinator_with_data(sensor_mocks)
-        desc = next(
-            d for d in sensor_mocks.ROOM_SENSORS if d.key == "predicted_temp"
-        )
+        desc = next(d for d in sensor_mocks.ROOM_SENSORS if d.key == "predicted_temp")
         entity = sensor_mocks.PumpAheadSensorEntity(
             coordinator=coordinator,
             description=desc,
@@ -503,9 +497,7 @@ class TestSensorValues:
     def test_last_update_value(self, sensor_mocks: Any) -> None:
         """last_update must return the ISO timestamp."""
         coordinator = _make_coordinator_with_data(sensor_mocks)
-        desc = next(
-            d for d in sensor_mocks.GLOBAL_SENSORS if d.key == "last_update"
-        )
+        desc = next(d for d in sensor_mocks.GLOBAL_SENSORS if d.key == "last_update")
         entity = sensor_mocks.PumpAheadSensorEntity(
             coordinator=coordinator,
             description=desc,
@@ -600,9 +592,7 @@ class TestAsyncSetupEntry:
             entities.extend(ents)
 
         hass = MagicMock()
-        asyncio.run(
-            sensor_mocks.async_setup_entry(hass, entry, capture_entities)
-        )
+        asyncio.run(sensor_mocks.async_setup_entry(hass, entry, capture_entities))
 
         # 1 room * 2 room sensors + 2 global sensors = 4
         assert len(entities) == 4
@@ -644,9 +634,7 @@ class TestAsyncSetupEntry:
             entities.extend(ents)
 
         hass = MagicMock()
-        asyncio.run(
-            sensor_mocks.async_setup_entry(hass, entry, capture_entities)
-        )
+        asyncio.run(sensor_mocks.async_setup_entry(hass, entry, capture_entities))
 
         # 2 rooms * 2 room sensors + 2 global sensors = 6
         assert len(entities) == 6
@@ -668,9 +656,7 @@ class TestAsyncSetupEntry:
             entities.extend(ents)
 
         hass = MagicMock()
-        asyncio.run(
-            sensor_mocks.async_setup_entry(hass, entry, capture_entities)
-        )
+        asyncio.run(sensor_mocks.async_setup_entry(hass, entry, capture_entities))
 
         # Only 2 global sensors
         assert len(entities) == 2
@@ -821,9 +807,7 @@ class TestCoordinatorPIDIntegration:
         assert room.predicted_temp == 21.5
 
     @pytest.mark.unit
-    def test_status_running_when_all_rooms_have_data(
-        self, sensor_mocks: Any
-    ) -> None:
+    def test_status_running_when_all_rooms_have_data(self, sensor_mocks: Any) -> None:
         """algorithm_status must be 'running' when all rooms have T_room."""
         hass = MagicMock()
         hass.config.latitude = 50.06
