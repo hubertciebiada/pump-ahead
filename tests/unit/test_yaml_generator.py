@@ -1050,3 +1050,111 @@ class TestS5WatchdogFallback:
         ]
         assert len(notif_actions) == 1
         assert "resuming" in notif_actions[0]["data"]["message"].lower()
+
+
+# ---------------------------------------------------------------------------
+# S2 emergency split cool (issue #56)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestS2EmergencySplitCool:
+    """S2 condensation trigger/clear include emergency split cool actions."""
+
+    def test_s2_trigger_activates_split_cool_when_split_present(self) -> None:
+        """S2 trigger sets split to cool mode when room has a split."""
+        room = _make_room(entity_split="climate.living_room_split")
+        config = _make_config(rooms=(room,))
+        parsed = _parse_yaml(generate_safety_yaml(config))
+        s2_trigger = parsed[2]  # After S1 trigger + S1 clear
+        action = s2_trigger["action"]
+        assert isinstance(action, list)
+        hvac_actions = [
+            a
+            for a in action
+            if isinstance(a.get("service"), str)
+            and a["service"] == "climate.set_hvac_mode"
+        ]
+        assert len(hvac_actions) == 1
+        assert hvac_actions[0]["target"]["entity_id"] == "climate.living_room_split"
+        assert hvac_actions[0]["data"]["hvac_mode"] == "cool"
+
+    def test_s2_trigger_no_split_action_when_no_split(self) -> None:
+        """S2 trigger omits split actions when room has no split."""
+        room = _make_room(entity_split=None)
+        config = _make_config(rooms=(room,))
+        parsed = _parse_yaml(generate_safety_yaml(config))
+        s2_trigger = parsed[2]  # After S1 trigger + S1 clear
+        action = s2_trigger["action"]
+        assert isinstance(action, list)
+        hvac_actions = [
+            a
+            for a in action
+            if isinstance(a.get("service"), str)
+            and a["service"] == "climate.set_hvac_mode"
+        ]
+        assert len(hvac_actions) == 0
+
+    def test_s2_clear_turns_split_off_when_split_present(self) -> None:
+        """S2 clear sets split to off mode when room has a split."""
+        room = _make_room(entity_split="climate.living_room_split")
+        config = _make_config(rooms=(room,))
+        parsed = _parse_yaml(generate_safety_yaml(config))
+        s2_clear = parsed[3]  # After S1 trigger + S1 clear + S2 trigger
+        action = s2_clear["action"]
+        assert isinstance(action, list)
+        hvac_actions = [
+            a
+            for a in action
+            if isinstance(a.get("service"), str)
+            and a["service"] == "climate.set_hvac_mode"
+        ]
+        assert len(hvac_actions) == 1
+        assert hvac_actions[0]["target"]["entity_id"] == "climate.living_room_split"
+        assert hvac_actions[0]["data"]["hvac_mode"] == "off"
+
+    def test_s2_clear_no_split_action_when_no_split(self) -> None:
+        """S2 clear omits split actions when room has no split."""
+        room = _make_room(entity_split=None)
+        config = _make_config(rooms=(room,))
+        parsed = _parse_yaml(generate_safety_yaml(config))
+        s2_clear = parsed[3]  # After S1 trigger + S1 clear + S2 trigger
+        action = s2_clear["action"]
+        assert isinstance(action, list)
+        hvac_actions = [
+            a
+            for a in action
+            if isinstance(a.get("service"), str)
+            and a["service"] == "climate.set_hvac_mode"
+        ]
+        assert len(hvac_actions) == 0
+
+    def test_s2_trigger_notification_mentions_split_when_present(self) -> None:
+        """S2 trigger notification mentions split set to cool when present."""
+        room = _make_room(entity_split="climate.my_split")
+        config = _make_config(rooms=(room,))
+        parsed = _parse_yaml(generate_safety_yaml(config))
+        s2_trigger = parsed[2]
+        notif_actions = [
+            a
+            for a in s2_trigger["action"]
+            if isinstance(a.get("service"), str)
+            and a["service"] == "persistent_notification.create"
+        ]
+        assert len(notif_actions) == 1
+        assert "split set to cool" in notif_actions[0]["data"]["message"]
+
+    def test_s2_trigger_notification_no_split_mention_when_absent(self) -> None:
+        """S2 trigger notification does not mention split when absent."""
+        room = _make_room(entity_split=None)
+        config = _make_config(rooms=(room,))
+        parsed = _parse_yaml(generate_safety_yaml(config))
+        s2_trigger = parsed[2]
+        notif_actions = [
+            a
+            for a in s2_trigger["action"]
+            if isinstance(a.get("service"), str)
+            and a["service"] == "persistent_notification.create"
+        ]
+        assert len(notif_actions) == 1
+        assert "split" not in notif_actions[0]["data"]["message"].lower()
