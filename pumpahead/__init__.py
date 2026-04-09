@@ -94,6 +94,12 @@ from pumpahead.safety_rules import (
     SafetyRuleResult,
     SensorSnapshot,
 )
+from pumpahead.safety_yaml_generator import (
+    RoomEntityConfig,
+    SafetyYAMLConfig,
+    generate_safety_yaml,
+    generate_safety_yaml_for_room,
+)
 from pumpahead.scenarios import (
     PARAMETRIC_SWEEPS,
     SCENARIO_LIBRARY,
@@ -224,6 +230,7 @@ __all__ = [
     "RCModel",
     "RCParams",
     "RoomConfig",
+    "RoomEntityConfig",
     "RoomReport",
     "S1_FLOOR_OVERHEAT",
     "S2_CONDENSATION",
@@ -235,6 +242,7 @@ __all__ = [
     "SafetyEvaluator",
     "SafetyRule",
     "SafetyRuleResult",
+    "SafetyYAMLConfig",
     "SensorNoise",
     "SensorSnapshot",
     "SimMetrics",
@@ -271,6 +279,8 @@ __all__ = [
     "leaky_old_house",
     "load_json",
     "load_pickle",
+    "generate_safety_yaml",
+    "generate_safety_yaml_for_room",
     "generate_plots",
     "plot_dashboard",
     "plot_overlay",
