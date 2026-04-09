@@ -34,7 +34,6 @@ from pumpahead.dew_point import dew_point as _dew_point
 from pumpahead.simulation_log import SimulationLog
 from pumpahead.simulator import HeatPumpMode, SplitMode
 
-
 # ---------------------------------------------------------------------------
 # SimMetrics — frozen aggregation dataclass
 # ---------------------------------------------------------------------------
