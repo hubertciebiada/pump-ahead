@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from pumpahead.simulation_log import SimRecord, SimulationLog
@@ -191,6 +193,21 @@ class TestCreateApp:
         from pumpahead.replay import create_app
 
         assert callable(create_app)
+
+    @pytest.mark.unit
+    def test_create_app_with_serialized_log(
+        self, sample_log: SimulationLog, tmp_path: Path
+    ) -> None:
+        """Serialize-deserialize-replay pipeline via JSON."""
+        from pumpahead.log_serializer import load_json, save_json
+        from pumpahead.replay.app import create_app
+
+        fp = tmp_path / "serialized.json"
+        save_json(sample_log, fp)
+        loaded = load_json(fp)
+        app = create_app(log=loaded)
+        assert app is not None
+        assert app.layout is not None
 
 
 # ---------------------------------------------------------------------------

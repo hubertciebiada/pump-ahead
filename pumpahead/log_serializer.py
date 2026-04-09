@@ -220,6 +220,54 @@ def load_json(path: Path | str) -> SimulationLog:
     return SimulationLog(records)
 
 
+def load_json_string(text: str) -> SimulationLog:
+    """Load a ``SimulationLog`` from a JSON string.
+
+    This is the in-memory counterpart of :func:`load_json`.  It is useful
+    when the JSON data is already available as a string (e.g. from a file
+    upload callback) and does not need to be read from disk.
+
+    Args:
+        text: JSON string produced by :func:`save_json` (or equivalent).
+
+    Returns:
+        A ``SimulationLog`` with all records restored.
+
+    Raises:
+        ValueError: If the string is not valid JSON, the schema version is
+            unsupported, or required fields are missing.
+    """
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
+        msg = f"Invalid JSON string: {exc}"
+        raise ValueError(msg) from exc
+
+    try:
+        version = data["version"]
+    except KeyError:
+        msg = "Malformed log data: missing key 'version'"
+        raise ValueError(msg) from None
+
+    if version != _SCHEMA_VERSION:
+        msg = f"Unsupported log version: {version}, expected {_SCHEMA_VERSION}"
+        raise ValueError(msg)
+
+    try:
+        raw_records = data["records"]
+    except KeyError:
+        msg = "Malformed log data: missing key 'records'"
+        raise ValueError(msg) from None
+
+    try:
+        records = [_dict_to_record(d) for d in raw_records]
+    except KeyError as exc:
+        msg = f"Malformed log data: missing key {exc}"
+        raise ValueError(msg) from exc
+
+    return SimulationLog(records)
+
+
 # ---------------------------------------------------------------------------
 # Public API — pickle
 # ---------------------------------------------------------------------------
