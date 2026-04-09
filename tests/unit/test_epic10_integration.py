@@ -27,28 +27,22 @@ import pytest
 from pumpahead.ab_testing import (
     ABReport,
     ABTestRunner,
-    ControllerAdapter,
     MPCAdapter,
     PIDAdapter,
-    plot_overlay,
 )
-from pumpahead.disturbance_vector import MPC_DT_SECONDS, MPC_HORIZON_STEPS
 from pumpahead.estimator import KalmanEstimator
 from pumpahead.metrics import SimMetrics, assert_floor_temp_safe
 from pumpahead.model import ModelOrder, RCModel, RCParams
 from pumpahead.optimizer import (
     MPCConfig,
     MPCController,
-    MPCInfeasibleError,
     MPCOptimizer,
     MPCResult,
     RecedingHorizonResult,
-    _PIDFallback,
 )
 from pumpahead.scenarios import cold_snap, steady_state
 from pumpahead.simulation_log import SimulationLog
 from pumpahead.weather import SyntheticWeather
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -142,7 +136,7 @@ class TestQPToSolverPipeline:
 
     @pytest.mark.unit
     def test_mimo_qp_feeds_controller_with_split(self) -> None:
-        """MIMO (UFH + split) model: optimizer and controller produce valid split output."""
+        """MIMO model: optimizer and controller produce valid split output."""
         model = _make_mimo_model()
         horizon = 10
         config = MPCConfig(horizon=horizon)
@@ -248,7 +242,7 @@ class TestControllerToSimulatorPipeline:
 
     @pytest.mark.unit
     def test_mpc_controller_drives_single_room_simulation(self) -> None:
-        """MPCController -> BuildingSimulator -> SimulationLog -> SimMetrics pipeline."""
+        """MPCController -> Simulator -> SimulationLog -> SimMetrics."""
         from pumpahead.simulated_room import SimulatedRoom
         from pumpahead.simulator import (
             Actions,
