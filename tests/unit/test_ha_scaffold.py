@@ -191,9 +191,10 @@ def test_const_domain_value(ha_mocks: Any) -> None:
 
 @pytest.mark.unit
 def test_const_platforms_is_list(ha_mocks: Any) -> None:
-    """PLATFORMS must be a list and currently empty."""
+    """PLATFORMS must be a list containing sensor platform."""
     assert isinstance(ha_mocks.PLATFORMS, list)
-    assert len(ha_mocks.PLATFORMS) == 0
+    assert len(ha_mocks.PLATFORMS) == 1
+    assert "sensor" in ha_mocks.PLATFORMS
 
 
 @pytest.mark.unit

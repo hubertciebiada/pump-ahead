@@ -1,18 +1,21 @@
 """DataUpdateCoordinator for the PumpAhead integration.
 
-Polls HA entity states every 5 minutes and provides typed data to
-entity platforms via ``coordinator.data``.
+Polls HA entity states every 5 minutes, runs shadow-mode PID
+computation, and provides typed data to entity platforms via
+``coordinator.data``.
 """
 
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+
+from pumpahead.controller import PIDController
 
 from .const import (
     CONF_ALGORITHM_MODE,
@@ -26,6 +29,10 @@ from .const import (
     CONF_LONGITUDE,
     CONF_ROOM_NAME,
     CONF_ROOMS,
+    DEFAULT_KD,
+    DEFAULT_KI,
+    DEFAULT_KP,
+    DEFAULT_SETPOINT,
     DOMAIN,
     UPDATE_INTERVAL_MINUTES,
 )
@@ -41,13 +48,15 @@ _LOGGER = logging.getLogger(__name__)
 
 @dataclass
 class RoomSensorData:
-    """Sensor readings for a single room."""
+    """Sensor readings and shadow-mode recommendations for a single room."""
 
     room_name: str
     T_room: float | None  # degC
     T_floor: float | None  # degC (optional sensor)
     valve_pos: float | None  # 0-100 %
     humidity: float | None  # % (optional)
+    recommended_valve: float | None = None  # 0-100 % (shadow mode)
+    predicted_temp: float | None = None  # degC (shadow mode)
 
 
 @dataclass
@@ -59,6 +68,8 @@ class PumpAheadCoordinatorData:
     weather_source: HAWeatherSource | None
     last_update_success: bool
     algorithm_mode: str  # "heating" / "cooling" / "auto"
+    algorithm_status: str = "running"  # "running" / "error" / "stale"
+    last_update_timestamp: str | None = None  # ISO 8601 timestamp
 
 
 # ---------------------------------------------------------------------------
@@ -90,10 +101,21 @@ class PumpAheadCoordinator(DataUpdateCoordinator[PumpAheadCoordinatorData]):
         if self._weather_entity:
             self._weather_source = HAWeatherSource(self._weather_entity, lat, lon)
 
+        # Shadow-mode PID controllers (one per room).
+        self._pid_controllers: dict[str, PIDController] = {}
+        for room_cfg in self._room_configs:
+            room_name: str = room_cfg[CONF_ROOM_NAME]
+            self._pid_controllers[room_name] = PIDController(
+                kp=DEFAULT_KP,
+                ki=DEFAULT_KI,
+                kd=DEFAULT_KD,
+                dt=UPDATE_INTERVAL_MINUTES * 60.0,
+            )
+
     # -- Update -------------------------------------------------------------
 
     async def _async_update_data(self) -> PumpAheadCoordinatorData:
-        """Fetch data from HA entities."""
+        """Fetch data from HA entities and run shadow-mode PID."""
         rooms: dict[str, RoomSensorData] = {}
         for room_cfg in self._room_configs:
             room_name: str = room_cfg[CONF_ROOM_NAME]
@@ -113,13 +135,51 @@ class PumpAheadCoordinator(DataUpdateCoordinator[PumpAheadCoordinatorData]):
             except Exception:  # noqa: BLE001
                 _LOGGER.exception("Weather update failed")
 
+        # Shadow-mode PID computation.
+        algorithm_status = self._run_shadow_pid(rooms)
+        now_iso = datetime.now(UTC).isoformat()
+
         return PumpAheadCoordinatorData(
             rooms=rooms,
             T_outdoor=T_outdoor,
             weather_source=self._weather_source,
             last_update_success=True,
             algorithm_mode=self._algorithm_mode,
+            algorithm_status=algorithm_status,
+            last_update_timestamp=now_iso,
         )
+
+    # -- Shadow-mode PID -----------------------------------------------------
+
+    def _run_shadow_pid(self, rooms: dict[str, RoomSensorData]) -> str:
+        """Run PID computation for all rooms and populate recommendations.
+
+        Returns the algorithm status: ``"running"``, ``"error"``, or
+        ``"stale"``.
+        """
+        # Check if all rooms have None T_room — stale.
+        all_stale = all(room.T_room is None for room in rooms.values())
+        if rooms and all_stale:
+            return "stale"
+
+        has_any_stale = any(room.T_room is None for room in rooms.values())
+        try:
+            for room_name, room_data in rooms.items():
+                if room_data.T_room is None:
+                    # Cannot compute for this room — leave recommendations None.
+                    continue
+                pid = self._pid_controllers.get(room_name)
+                if pid is None:
+                    continue
+                error = DEFAULT_SETPOINT - room_data.T_room
+                room_data.recommended_valve = pid.compute(error)
+                # Predicted temp: echo current value (MPC not yet available).
+                room_data.predicted_temp = room_data.T_room
+        except Exception:  # noqa: BLE001
+            _LOGGER.exception("Shadow-mode PID computation failed")
+            return "error"
+
+        return "stale" if has_any_stale else "running"
 
     # -- Helpers ------------------------------------------------------------
 
