@@ -201,19 +201,28 @@ class TestCoolingThrottleFactor:
         # gap = 20 - 10 = 10, margin=3, ramp=5
         # gap > margin + ramp (8) -> 1.0
         result = cooling_throttle_factor(
-            20.0, 10.0, margin=3.0, ramp_width=5.0,
+            20.0,
+            10.0,
+            margin=3.0,
+            ramp_width=5.0,
         )
         assert result == pytest.approx(1.0)
 
         # gap = 13 - 10 = 3 = margin -> 0.0
         result = cooling_throttle_factor(
-            13.0, 10.0, margin=3.0, ramp_width=5.0,
+            13.0,
+            10.0,
+            margin=3.0,
+            ramp_width=5.0,
         )
         assert result == pytest.approx(0.0)
 
         # gap = 15.5 - 10 = 5.5, (5.5 - 3) / 5 = 0.5
         result = cooling_throttle_factor(
-            15.5, 10.0, margin=3.0, ramp_width=5.0,
+            15.5,
+            10.0,
+            margin=3.0,
+            ramp_width=5.0,
         )
         assert result == pytest.approx(0.5)
 
@@ -236,7 +245,10 @@ class TestCoolingThrottleFactor:
         """margin=0 is valid; ramp starts at gap=0."""
         # gap = 11 - 10 = 1, margin=0, ramp=2 -> 0.5
         result = cooling_throttle_factor(
-            11.0, 10.0, margin=0.0, ramp_width=2.0,
+            11.0,
+            10.0,
+            margin=0.0,
+            ramp_width=2.0,
         )
         assert result == pytest.approx(0.5)
 

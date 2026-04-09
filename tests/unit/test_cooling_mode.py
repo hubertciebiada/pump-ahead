@@ -1080,9 +1080,7 @@ class TestGraduatedCoolingThrottle:
         Same high humidity conditions but in heating mode — valve should
         not be throttled.
         """
-        config = ControllerConfig(
-            kp=5.0, ki=0.0, setpoint=22.0, valve_floor_pct=0.0
-        )
+        config = ControllerConfig(kp=5.0, ki=0.0, setpoint=22.0, valve_floor_pct=0.0)
         ctrl = PumpAheadController(config, ["room"], mode="heating")
         meas = {
             "room": Measurements(
