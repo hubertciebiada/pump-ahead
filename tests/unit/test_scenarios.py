@@ -45,9 +45,9 @@ class TestScenarioConstruction:
         """SCENARIO_LIBRARY contains at least 8 single scenarios."""
         assert len(SCENARIO_LIBRARY) >= 8
 
-    def test_exactly_11_single_scenarios(self) -> None:
-        """SCENARIO_LIBRARY has exactly 11 entries."""
-        assert len(SCENARIO_LIBRARY) == 11
+    def test_exactly_12_single_scenarios(self) -> None:
+        """SCENARIO_LIBRARY has exactly 12 entries."""
+        assert len(SCENARIO_LIBRARY) == 12
 
     def test_exactly_2_parametric_sweeps(self) -> None:
         """PARAMETRIC_SWEEPS has exactly 2 entries."""
