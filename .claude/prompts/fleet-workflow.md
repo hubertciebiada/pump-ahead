@@ -1,4 +1,4 @@
-<!-- fleet-commander v0.0.19 -->
+<!-- fleet-commander v0.0.21 -->
 <!-- Fleet Commander workflow template. Installed by Fleet Commander into your project. -->
 <!-- Placeholders pump-ahead, pump-ahead, master, {{ISSUE_NUMBER}} are replaced during installation. -->
 
