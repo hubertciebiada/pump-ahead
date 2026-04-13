@@ -10,10 +10,10 @@ from pumpahead.ab_testing import (
 )
 from pumpahead.building_profiles import (
     BUILDING_PROFILES,
-    HUBERT_ROOMS,
+    MODERN_BUNGALOW_ROOMS,
     heavy_construction,
-    hubert_real,
     leaky_old_house,
+    modern_bungalow,
     thin_screed,
     well_insulated,
 )
@@ -235,7 +235,7 @@ __all__ = [
     "DisturbanceBuilder",
     "GTIModel",
     "EphemerisCalculator",
-    "HUBERT_ROOMS",
+    "MODERN_BUNGALOW_ROOMS",
     "HeatPumpMode",
     "HPModeMapper",
     "HPOperatingState",
@@ -316,7 +316,7 @@ __all__ = [
     "full_year_2025",
     "heavy_construction",
     "hot_july",
-    "hubert_real",
+    "modern_bungalow",
     "insulation_sweep",
     "leaky_old_house",
     "load_json",

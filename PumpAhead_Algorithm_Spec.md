@@ -698,10 +698,10 @@ class SimScenario:
 
 ```python
 BUILDING_PROFILES = {
-    "hubert_real": {
+    "modern_bungalow": {
         "R_env": 0.05, "C_slab": 3250, "C_air": 60,
         "screed_mm": 80, "insulation": "good",
-        "rooms": HUBERT_ROOMS,  # 8 pokoi z rzeczywistymi parametrami
+        "rooms": MODERN_BUNGALOW_ROOMS,  # 8 pokoi z rzeczywistymi parametrami
     },
     "well_insulated": {
         "R_env": 0.08, "C_slab": 3250, "C_air": 60,
@@ -751,60 +751,60 @@ class OpenMeteoHistorical(WeatherSource):
 
 | Scenariusz | Budynek | Pogoda | Czas | Co testuje |
 |---|---|---|---|---|
-| `steady_state_heating` | hubert_real | synth: T_out=0°C, GHI=0 | 48h | Stabilizacja ±0.3°C, split nigdy nie wchodzi |
-| `cold_snap` | hubert_real | synth: step T_out=0→−15°C | 5 dni | Split wchodzi i wychodzi, UFH przejmuje |
-| `cwu_interrupt` | hubert_real | synth: T_out=−5°C | 24h | HP off 45 min, split nie panikuje |
-| `january_real` | hubert_real | CSV: Lubcza styczeń 2026 | 31 dni | Pełny miesiąc zimowy |
+| `steady_state_heating` | modern_bungalow | synth: T_out=0°C, GHI=0 | 48h | Stabilizacja ±0.3°C, split nigdy nie wchodzi |
+| `cold_snap` | modern_bungalow | synth: step T_out=0→−15°C | 5 dni | Split wchodzi i wychodzi, UFH przejmuje |
+| `cwu_interrupt` | modern_bungalow | synth: T_out=−5°C | 24h | HP off 45 min, split nie panikuje |
+| `january_real` | modern_bungalow | CSV: Lubcza styczeń 2026 | 31 dni | Pełny miesiąc zimowy |
 
 **Cooling:**
 
 | Scenariusz | Budynek | Pogoda | Czas | Co testuje |
 |---|---|---|---|---|
-| `steady_state_cooling` | hubert_real | synth: T_out=32°C, GHI=0 | 48h | Stabilizacja, split nie grzeje |
-| `solar_overshoot_south` | hubert_real | synth: marzec słoneczny, okna S | 3 dni | UFH redukuje PRZED overshoot |
-| `hot_july` | hubert_real | CSV: Lubcza lipiec 2025 | 31 dni | Pełny miesiąc letni |
-| `dew_point_stress` | hubert_real | synth: T_out=30°C, RH=85% | 48h | T_floor nigdy < T_dew + 2°C |
+| `steady_state_cooling` | modern_bungalow | synth: T_out=32°C, GHI=0 | 48h | Stabilizacja, split nie grzeje |
+| `solar_overshoot_south` | modern_bungalow | synth: marzec słoneczny, okna S | 3 dni | UFH redukuje PRZED overshoot |
+| `hot_july` | modern_bungalow | CSV: Lubcza lipiec 2025 | 31 dni | Pełny miesiąc letni |
+| `dew_point_stress` | modern_bungalow | synth: T_out=30°C, RH=85% | 48h | T_floor nigdy < T_dew + 2°C |
 
 **Transition (wiosna/jesień):**
 
 | Scenariusz | Budynek | Pogoda | Czas | Co testuje |
 |---|---|---|---|---|
-| `spring_swing` | hubert_real | CSV: Lubcza marzec 2026 | 14 dni | Heat/cool switching w ciągu dnia |
-| `autumn_transition` | hubert_real | CSV: Lubcza październik 2025 | 14 dni | Płynne przejście heat→cool→heat |
+| `spring_swing` | modern_bungalow | CSV: Lubcza marzec 2026 | 14 dni | Heat/cool switching w ciągu dnia |
+| `autumn_transition` | modern_bungalow | CSV: Lubcza październik 2025 | 14 dni | Płynne przejście heat→cool→heat |
 
 **Full year:**
 
 | Scenariusz | Budynek | Pogoda | Czas | Co testuje |
 |---|---|---|---|---|
-| `full_year_2025` | hubert_real | historical: Lubcza 2025 | 365 dni | Cały cykl roczny, metryki agregowane |
+| `full_year_2025` | modern_bungalow | historical: Lubcza 2025 | 365 dni | Cały cykl roczny, metryki agregowane |
 | `full_year_extreme` | leaky_old_house | historical: Lubcza 2025 | 365 dni | Worst case: słaba izolacja, realna pogoda |
 
 **Edge cases:**
 
 | Scenariusz | Budynek | Pogoda | Czas | Co testuje |
 |---|---|---|---|---|
-| `sensor_dropout` | hubert_real | synth: T_out=−5°C | 24h | T_room = NaN przez 30 min → fallback |
-| `split_failure` | hubert_real | synth: cold snap | 5 dni | Split niedostępny → UFH sam |
-| `price_spike` | hubert_real | synth: T_out=−5°C | 48h | Cena 3× rano, 0.5× w nocy |
-| `all_rooms_simultaneous` | hubert_real | CSV: styczeń mroźny | 7 dni | 8 pokoi naraz, HP capacity sharing |
+| `sensor_dropout` | modern_bungalow | synth: T_out=−5°C | 24h | T_room = NaN przez 30 min → fallback |
+| `split_failure` | modern_bungalow | synth: cold snap | 5 dni | Split niedostępny → UFH sam |
+| `price_spike` | modern_bungalow | synth: T_out=−5°C | 48h | Cena 3× rano, 0.5× w nocy |
+| `all_rooms_simultaneous` | modern_bungalow | CSV: styczeń mroźny | 7 dni | 8 pokoi naraz, HP capacity sharing |
 
 **UFH-only (pokoje bez splita — kluczowe, bo to większość pomieszczeń):**
 
 | Scenariusz | Budynek | Pogoda | Czas | Co testuje |
 |---|---|---|---|---|
-| `ufh_only_steady` | hubert_real (no split) | synth: T_out=0°C | 48h | Stabilizacja samą podłogówką |
-| `ufh_only_cold_snap` | hubert_real (no split) | synth: step 0→−15°C | 5 dni | Jak głęboko spada T_room bez szybkiego fallbacku |
-| `ufh_only_solar_gain` | hubert_real (no split) | synth: marzec, okna S | 3 dni | Overshoot bez możliwości aktywnego chłodzenia splitami |
-| `ufh_only_cwu_interrupt` | hubert_real (no split) | synth: T_out=−5°C | 24h | HP na CWU → jedyne źródło offline, brak splita na ratunek |
-| `ufh_only_full_year` | hubert_real (no split) | historical: Lubcza 2025 | 365 dni | Roczna wydajność samej podłogówki — baseline |
-| `ufh_only_vs_dual` | hubert_real | historical: Lubcza 2025 | 365 dni | Porównanie: te same pokoje z i bez splita — ile zyskujemy |
+| `ufh_only_steady` | modern_bungalow (no split) | synth: T_out=0°C | 48h | Stabilizacja samą podłogówką |
+| `ufh_only_cold_snap` | modern_bungalow (no split) | synth: step 0→−15°C | 5 dni | Jak głęboko spada T_room bez szybkiego fallbacku |
+| `ufh_only_solar_gain` | modern_bungalow (no split) | synth: marzec, okna S | 3 dni | Overshoot bez możliwości aktywnego chłodzenia splitami |
+| `ufh_only_cwu_interrupt` | modern_bungalow (no split) | synth: T_out=−5°C | 24h | HP na CWU → jedyne źródło offline, brak splita na ratunek |
+| `ufh_only_full_year` | modern_bungalow (no split) | historical: Lubcza 2025 | 365 dni | Roczna wydajność samej podłogówki — baseline |
+| `ufh_only_vs_dual` | modern_bungalow | historical: Lubcza 2025 | 365 dni | Porównanie: te same pokoje z i bez splita — ile zyskujemy |
 
 **Parametric sweep (porównanie budynków):**
 
 | Scenariusz | Budynki | Pogoda | Co testuje |
 |---|---|---|---|
-| `insulation_sweep` | well_insulated, hubert_real, leaky_old_house | synth: T_out=−10°C | Jak R_env wpływa na split runtime |
-| `screed_sweep` | thin_screed, hubert_real, heavy_construction | synth: cold snap | Jak C_slab wpływa na τ i overshoot |
+| `insulation_sweep` | well_insulated, modern_bungalow, leaky_old_house | synth: T_out=−10°C | Jak R_env wpływa na split runtime |
+| `screed_sweep` | thin_screed, modern_bungalow, heavy_construction | synth: cold snap | Jak C_slab wpływa na τ i overshoot |
 
 #### Kryteria sukcesu (assertions w pytest)
 
@@ -877,8 +877,8 @@ weather = OpenMeteoHistorical(
 # Użycie w scenariuszu
 SCENARIOS["full_year_2025"] = SimScenario(
     name="full_year_2025",
-    rooms=HUBERT_ROOMS,
-    building_params=BUILDING_PROFILES["hubert_real"],
+    rooms=MODERN_BUNGALOW_ROOMS,
+    building_params=BUILDING_PROFILES["modern_bungalow"],
     weather_source=OpenMeteoHistorical(lat=50.69, lon=17.38,
                                         start=date(2025,1,1), 
                                         end=date(2025,12,31)),

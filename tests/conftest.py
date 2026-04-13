@@ -125,7 +125,7 @@ def solar_model() -> SolarGainModel:
 
 @pytest.fixture()
 def ephemeris_lubcza() -> EphemerisCalculator:
-    """EphemerisCalculator for Lubcza, Poland (Hubert's location)."""
+    """EphemerisCalculator for Lubcza, Poland (reference location)."""
     return EphemerisCalculator(latitude=50.69, longitude=17.38)
 
 

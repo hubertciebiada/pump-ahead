@@ -449,16 +449,16 @@ class TestScenarioCoolingConfiguration:
         """spring_transition scenario uses auto mode."""
         assert spring_transition().mode == "auto"
 
-    def test_dew_point_stress_uses_hubert_real_building(self) -> None:
-        """dew_point_stress uses hubert_real with 8 rooms (5 with splits)."""
+    def test_dew_point_stress_uses_modern_bungalow_building(self) -> None:
+        """dew_point_stress uses modern_bungalow_with_splits (13 rooms)."""
         scenario = dew_point_stress()
         rooms = scenario.building.rooms
-        assert len(rooms) == 8
+        assert len(rooms) == 13
 
         rooms_with_split = [r for r in rooms if r.has_split]
         rooms_without_split = [r for r in rooms if not r.has_split]
-        assert len(rooms_with_split) == 5
-        assert len(rooms_without_split) == 3
+        assert len(rooms_with_split) == 6
+        assert len(rooms_without_split) == 7
 
     def test_all_cooling_scenarios_have_cooling_power(self) -> None:
         """All rooms in cooling scenarios have ufh_cooling_max_power_w > 0."""

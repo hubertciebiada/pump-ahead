@@ -1,20 +1,21 @@
 """Predefined building profiles for simulation.
 
 Provides factory functions that return validated ``BuildingParams`` instances
-with physically realistic RC parameters.  Profiles range from the author's
-real house (``hubert_real``) to parametric variants for sweep studies
+with physically realistic RC parameters.  ``modern_bungalow`` is the
+calibrated 13-room reference house; the remaining profiles
 (``well_insulated``, ``leaky_old_house``, ``thin_screed``,
-``heavy_construction``).
+``heavy_construction``) are single-room parametric variants for sweep
+studies and sanity checks.
 
 All RC parameters follow project conventions:
     R in K/W, C in J/K, T in degC, Q in W.
 
 Usage::
 
-    from pumpahead.building_profiles import hubert_real, BUILDING_PROFILES
+    from pumpahead.building_profiles import modern_bungalow, BUILDING_PROFILES
 
-    building = hubert_real()
-    assert len(building.rooms) == 8
+    building = modern_bungalow()
+    assert len(building.rooms) == 13
 
     # Or via the lookup dict:
     factory = BUILDING_PROFILES["leaky_old_house"]
@@ -31,9 +32,10 @@ from pumpahead.solar import Orientation, WindowConfig
 
 __all__ = [
     "BUILDING_PROFILES",
-    "HUBERT_ROOMS",
+    "MODERN_BUNGALOW_ROOMS",
     "heavy_construction",
-    "hubert_real",
+    "modern_bungalow",
+    "modern_bungalow_with_splits",
     "leaky_old_house",
     "thin_screed",
     "well_insulated",
@@ -45,19 +47,23 @@ __all__ = [
 
 _REF_AREA = 20.0  # Reference room area [m^2] for scaling
 
+# Defaults calibrated to a modern, heavily insulated single-storey house
+# (30 cm mineral wool walls, 20 cm ceiling wool, 7 cm wet screed) so that a
+# ~155 m^2 building loses ~4.5 kW at design ΔT=40 K (T_in=20, T_out=-20).
+
 
 def _make_3r3c_params(
     *,
     area_m2: float,
     has_split: bool = False,
     C_air_ref: float = 60_000.0,
-    C_slab_ref: float = 3_250_000.0,
+    C_slab_ref: float = 2_900_000.0,
     C_wall_ref: float = 1_500_000.0,
     R_sf_ref: float = 0.01,
-    R_wi_ref: float = 0.02,
-    R_wo_ref: float = 0.03,
-    R_ve_ref: float = 0.03,
-    R_ins_ref: float = 0.01,
+    R_wi_ref: float = 0.04,
+    R_wo_ref: float = 0.15,
+    R_ve_ref: float = 0.20,
+    R_ins_ref: float = 0.05,
     f_conv: float = 0.6,
     f_rad: float = 0.4,
     T_ground: float = 10.0,
@@ -104,162 +110,311 @@ def _make_3r3c_params(
 
 
 # ---------------------------------------------------------------------------
-# hubert_real — author's real house (8 rooms, 13 UFH loops, up to 5 splits)
+# modern_bungalow — single-storey reference house (13 rooms, 13 UFH loops)
 # ---------------------------------------------------------------------------
+#
+# Calibrated against a real WT-2021-class single-storey house in southern
+# Poland: ~165 m² total (~158 m² heated), 30 cm mineral-wool walls, 20 cm
+# ceiling wool, 7 cm wet screed.  Heated by a 7 kW air-source heat pump
+# with a 9 kW resistive backup handled by the safety layer.  No splits.
+# 13 UFH loops via two distributors.  All rooms target 20 °C except the
+# bathroom at 24 °C (controller-level override).
+#
+# Reference design heat loss: Q = 4.55 kW at design T_out = -20 °C.
+# This profile is calibrated to that figure (within ~0.3 %).
 
-# Location: Lubcza, Poland
-_HUBERT_LAT = 50.69
-_HUBERT_LON = 17.38
+_BUNGALOW_LAT = 50.69
+_BUNGALOW_LON = 17.38
 
-# HP: Panasonic Aquarea 9 kW (hardware-agnostic — only watts stored)
-_HUBERT_HP_MAX_W = 9000.0
+# Real HP rated thermal output (the 9 kW resistive backup is modelled
+# separately in the safety layer, not aggregated here).
+_BUNGALOW_HP_MAX_W = 7000.0
 
-# Internal gains: occupancy + appliances (conservative estimate per room)
-_Q_INT_LIVING = 150.0  # W — living room (TV, lights, people)
-_Q_INT_KITCHEN = 200.0  # W — kitchen (fridge, cooking residual)
-_Q_INT_BEDROOM = 50.0  # W — sleeping occupants
-_Q_INT_OFFICE = 120.0  # W — computer + monitor
-_Q_INT_CHILD = 80.0  # W — child room
-_Q_INT_BATH = 30.0  # W — lights only
-_Q_INT_CLOSET = 0.0  # W — unoccupied
-_Q_INT_HALL = 20.0  # W — passage lights
+# Internal gains: 2 adults + 2 children = 4 occupants, ~80 W each, plus
+# appliances allocated to the room where they live.
+_Q_INT_SALON = 150.0
+_Q_INT_KITCHEN = 200.0
+_Q_INT_BEDROOM = 50.0
+_Q_INT_CHILD = 80.0
+_Q_INT_OFFICE = 120.0
+_Q_INT_BATH = 30.0
+_Q_INT_HALL = 20.0
+_Q_INT_CLOSET = 0.0
+_Q_INT_WC = 10.0
+_Q_INT_ENTRY = 10.0
 
-HUBERT_ROOMS: tuple[RoomConfig, ...] = (
-    # salon — 30 m^2, 2 loops, split, south + west windows
-    RoomConfig(
-        name="salon",
-        area_m2=30.0,
-        params=_make_3r3c_params(area_m2=30.0, has_split=True),
-        windows=(
-            WindowConfig(orientation=Orientation.SOUTH, area_m2=4.0, g_value=0.6),
-            WindowConfig(orientation=Orientation.WEST, area_m2=2.5, g_value=0.6),
-        ),
-        has_split=True,
-        split_power_w=3500.0,
-        ufh_max_power_w=6000.0,
-        ufh_cooling_max_power_w=3600.0,
-        ufh_loops=2,
-        q_int_w=_Q_INT_LIVING,
-    ),
-    # kuchnia — 15 m^2, 2 loops, split, east window
-    RoomConfig(
-        name="kuchnia",
-        area_m2=15.0,
-        params=_make_3r3c_params(area_m2=15.0, has_split=True),
-        windows=(WindowConfig(orientation=Orientation.EAST, area_m2=2.0, g_value=0.6),),
-        has_split=True,
-        split_power_w=2500.0,
-        ufh_max_power_w=3500.0,
-        ufh_cooling_max_power_w=2100.0,
-        ufh_loops=2,
-        q_int_w=_Q_INT_KITCHEN,
-    ),
-    # sypialnia — 18 m^2, 2 loops, split, south window
-    RoomConfig(
-        name="sypialnia",
-        area_m2=18.0,
-        params=_make_3r3c_params(area_m2=18.0, has_split=True),
-        windows=(
-            WindowConfig(orientation=Orientation.SOUTH, area_m2=2.5, g_value=0.6),
-        ),
-        has_split=True,
-        split_power_w=2500.0,
-        ufh_max_power_w=4000.0,
-        ufh_cooling_max_power_w=2400.0,
-        ufh_loops=2,
-        q_int_w=_Q_INT_BEDROOM,
-    ),
-    # gabinet — 12 m^2, 1 loop, split, north window
-    RoomConfig(
-        name="gabinet",
-        area_m2=12.0,
-        params=_make_3r3c_params(area_m2=12.0, has_split=True),
-        windows=(
-            WindowConfig(orientation=Orientation.NORTH, area_m2=1.5, g_value=0.6),
-        ),
-        has_split=True,
-        split_power_w=2500.0,
-        ufh_max_power_w=2800.0,
-        ufh_cooling_max_power_w=1680.0,
-        ufh_loops=1,
-        q_int_w=_Q_INT_OFFICE,
-    ),
-    # pokoj_dzieci — 14 m^2, 2 loops, split, east window
-    RoomConfig(
-        name="pokoj_dzieci",
-        area_m2=14.0,
-        params=_make_3r3c_params(area_m2=14.0, has_split=True),
-        windows=(WindowConfig(orientation=Orientation.EAST, area_m2=2.0, g_value=0.6),),
-        has_split=True,
-        split_power_w=2500.0,
-        ufh_max_power_w=3200.0,
-        ufh_cooling_max_power_w=1920.0,
-        ufh_loops=2,
-        q_int_w=_Q_INT_CHILD,
-    ),
-    # lazienka — 8 m^2, 1 loop, no split, north window (small)
-    RoomConfig(
-        name="lazienka",
-        area_m2=8.0,
-        params=_make_3r3c_params(area_m2=8.0, has_split=False),
-        windows=(
-            WindowConfig(orientation=Orientation.NORTH, area_m2=0.5, g_value=0.6),
-        ),
-        has_split=False,
-        split_power_w=0.0,
-        ufh_max_power_w=2000.0,
-        ufh_cooling_max_power_w=1200.0,
-        ufh_loops=1,
-        q_int_w=_Q_INT_BATH,
-    ),
-    # garderoba — 5 m^2, 1 loop, no split, no windows
+
+def _ufh_max(area_m2: float) -> float:
+    """UFH max thermal power [W] sized at ~100 W/m² (T_floor≈30 °C)."""
+    return 100.0 * area_m2
+
+
+MODERN_BUNGALOW_ROOMS: tuple[RoomConfig, ...] = (
+    # garderoba — 7.40 m^2, 1 loop, no windows
     RoomConfig(
         name="garderoba",
-        area_m2=5.0,
-        params=_make_3r3c_params(area_m2=5.0, has_split=False),
+        area_m2=7.40,
+        params=_make_3r3c_params(area_m2=7.40),
         windows=(),
-        has_split=False,
-        split_power_w=0.0,
-        ufh_max_power_w=1200.0,
-        ufh_cooling_max_power_w=720.0,
+        ufh_max_power_w=_ufh_max(7.40),
+        ufh_cooling_max_power_w=0.6 * _ufh_max(7.40),
         ufh_loops=1,
         q_int_w=_Q_INT_CLOSET,
     ),
-    # korytarz — 10 m^2, 2 loops, no split, no windows
+    # sypialnia — 12.68 m^2, 1 loop, south window
     RoomConfig(
-        name="korytarz",
-        area_m2=10.0,
-        params=_make_3r3c_params(area_m2=10.0, has_split=False),
+        name="sypialnia",
+        area_m2=12.68,
+        params=_make_3r3c_params(area_m2=12.68),
+        windows=(
+            WindowConfig(orientation=Orientation.SOUTH, area_m2=2.5, g_value=0.6),
+        ),
+        ufh_max_power_w=_ufh_max(12.68),
+        ufh_cooling_max_power_w=0.6 * _ufh_max(12.68),
+        ufh_loops=1,
+        q_int_w=_Q_INT_BEDROOM,
+    ),
+    # dlugi_korytarz — 12.12 m^2, 1 loop, no windows
+    RoomConfig(
+        name="dlugi_korytarz",
+        area_m2=12.12,
+        params=_make_3r3c_params(area_m2=12.12),
         windows=(),
-        has_split=False,
-        split_power_w=0.0,
-        ufh_max_power_w=2400.0,
-        ufh_cooling_max_power_w=1440.0,
-        ufh_loops=2,
+        ufh_max_power_w=_ufh_max(12.12),
+        ufh_cooling_max_power_w=0.6 * _ufh_max(12.12),
+        ufh_loops=1,
         q_int_w=_Q_INT_HALL,
     ),
+    # lazienka — 8.90 m^2, 1 loop, small north window, target 24 °C
+    # (controller setpoint override; structural model is the same)
+    RoomConfig(
+        name="lazienka",
+        area_m2=8.90,
+        params=_make_3r3c_params(area_m2=8.90),
+        windows=(
+            WindowConfig(orientation=Orientation.NORTH, area_m2=0.5, g_value=0.6),
+        ),
+        ufh_max_power_w=_ufh_max(8.90),
+        ufh_cooling_max_power_w=0.6 * _ufh_max(8.90),
+        ufh_loops=1,
+        q_int_w=_Q_INT_BATH,
+    ),
+    # pokoj_dziecka_1 — 14.33 m^2, 1 loop, east window
+    RoomConfig(
+        name="pokoj_dziecka_1",
+        area_m2=14.33,
+        params=_make_3r3c_params(area_m2=14.33),
+        windows=(WindowConfig(orientation=Orientation.EAST, area_m2=2.0, g_value=0.6),),
+        ufh_max_power_w=_ufh_max(14.33),
+        ufh_cooling_max_power_w=0.6 * _ufh_max(14.33),
+        ufh_loops=1,
+        q_int_w=_Q_INT_CHILD,
+    ),
+    # pokoj_dziecka_2 — 11.65 m^2, 1 loop, east window
+    RoomConfig(
+        name="pokoj_dziecka_2",
+        area_m2=11.65,
+        params=_make_3r3c_params(area_m2=11.65),
+        windows=(WindowConfig(orientation=Orientation.EAST, area_m2=2.0, g_value=0.6),),
+        ufh_max_power_w=_ufh_max(11.65),
+        ufh_cooling_max_power_w=0.6 * _ufh_max(11.65),
+        ufh_loops=1,
+        q_int_w=_Q_INT_CHILD,
+    ),
+    # korytarz_witryna — ~5 m^2, 1 loop, no windows
+    RoomConfig(
+        name="korytarz_witryna",
+        area_m2=5.0,
+        params=_make_3r3c_params(area_m2=5.0),
+        windows=(),
+        ufh_max_power_w=_ufh_max(5.0),
+        ufh_cooling_max_power_w=0.6 * _ufh_max(5.0),
+        ufh_loops=1,
+        q_int_w=_Q_INT_HALL,
+    ),
+    # wiatrolap — 5.05 m^2, 1 loop, north window (entry)
+    RoomConfig(
+        name="wiatrolap",
+        area_m2=5.05,
+        params=_make_3r3c_params(area_m2=5.05),
+        windows=(
+            WindowConfig(orientation=Orientation.NORTH, area_m2=1.0, g_value=0.6),
+        ),
+        ufh_max_power_w=_ufh_max(5.05),
+        ufh_cooling_max_power_w=0.6 * _ufh_max(5.05),
+        ufh_loops=1,
+        q_int_w=_Q_INT_ENTRY,
+    ),
+    # salon — 36.28 m^2, 1 loop (Obieg 1, 96 m of pipe), big S+W windows
+    RoomConfig(
+        name="salon",
+        area_m2=36.28,
+        params=_make_3r3c_params(area_m2=36.28),
+        windows=(
+            WindowConfig(orientation=Orientation.SOUTH, area_m2=5.0, g_value=0.6),
+            WindowConfig(orientation=Orientation.WEST, area_m2=3.0, g_value=0.6),
+        ),
+        ufh_max_power_w=_ufh_max(36.28),
+        ufh_cooling_max_power_w=0.6 * _ufh_max(36.28),
+        ufh_loops=1,
+        q_int_w=_Q_INT_SALON,
+    ),
+    # kuchnia_jadalnia — 13.59 m^2, 1 loop (Obieg 17), east window
+    RoomConfig(
+        name="kuchnia_jadalnia",
+        area_m2=13.59,
+        params=_make_3r3c_params(area_m2=13.59),
+        windows=(WindowConfig(orientation=Orientation.EAST, area_m2=2.0, g_value=0.6),),
+        ufh_max_power_w=_ufh_max(13.59),
+        ufh_cooling_max_power_w=0.6 * _ufh_max(13.59),
+        ufh_loops=1,
+        q_int_w=_Q_INT_KITCHEN,
+    ),
+    # gabinet_1 — 13.0 m^2, 1 loop, north window
+    RoomConfig(
+        name="gabinet_1",
+        area_m2=13.0,
+        params=_make_3r3c_params(area_m2=13.0),
+        windows=(
+            WindowConfig(orientation=Orientation.NORTH, area_m2=1.5, g_value=0.6),
+        ),
+        ufh_max_power_w=_ufh_max(13.0),
+        ufh_cooling_max_power_w=0.6 * _ufh_max(13.0),
+        ufh_loops=1,
+        q_int_w=_Q_INT_OFFICE,
+    ),
+    # gabinet_2 — 12.62 m^2, 1 loop, north window
+    RoomConfig(
+        name="gabinet_2",
+        area_m2=12.62,
+        params=_make_3r3c_params(area_m2=12.62),
+        windows=(
+            WindowConfig(orientation=Orientation.NORTH, area_m2=1.5, g_value=0.6),
+        ),
+        ufh_max_power_w=_ufh_max(12.62),
+        ufh_cooling_max_power_w=0.6 * _ufh_max(12.62),
+        ufh_loops=1,
+        q_int_w=_Q_INT_OFFICE,
+    ),
+    # toaleta — 5.49 m^2, 1 loop (Obieg 11, tiny 4.6 m loop), no windows
+    RoomConfig(
+        name="toaleta",
+        area_m2=5.49,
+        params=_make_3r3c_params(area_m2=5.49),
+        windows=(),
+        ufh_max_power_w=_ufh_max(5.49),
+        ufh_cooling_max_power_w=0.6 * _ufh_max(5.49),
+        ufh_loops=1,
+        q_int_w=_Q_INT_WC,
+    ),
 )
-"""All 8 rooms of Hubert's real house.
+"""All 13 heated rooms of the reference modern bungalow.
 
-Total UFH loops: 2+2+2+1+2+1+1+2 = 13.
-Rooms with split: salon, kuchnia, sypialnia, gabinet, pokoj_dzieci (5 of 8).
+Total UFH loops: 13 (one per room).  No splits.
+Total heated area: ~158 m² (vs ~165 m² total — 3 unheated utility rooms
+not modelled).
 """
 
 
-def hubert_real() -> BuildingParams:
-    """Hubert's real house — 8-room, 13-loop, 5-split building.
+def modern_bungalow() -> BuildingParams:
+    """Reference modern bungalow — 13 rooms, 13 UFH loops, no splits.
 
-    Located in Lubcza, Poland (lat=50.69, lon=17.38).  Heated by a 9 kW
-    air-source heat pump.  RC parameters use 80 mm screed, modern insulation.
+    Single-storey house calibrated to a real WT-2021-class building in
+    southern Poland (lat=50.69, lon=17.38).  Heated by a 7 kW ASHP with
+    9 kW resistive backup handled by the safety layer.  RC parameters
+    reflect 30 cm mineral-wool walls, 20 cm ceiling wool, 7 cm wet screed.
 
     Returns:
-        Validated ``BuildingParams`` with 8 rooms.
+        Validated ``BuildingParams`` with 13 rooms.
     """
     return BuildingParams(
-        rooms=HUBERT_ROOMS,
-        hp_max_power_w=_HUBERT_HP_MAX_W,
-        latitude=_HUBERT_LAT,
-        longitude=_HUBERT_LON,
+        rooms=MODERN_BUNGALOW_ROOMS,
+        hp_max_power_w=_BUNGALOW_HP_MAX_W,
+        latitude=_BUNGALOW_LAT,
+        longitude=_BUNGALOW_LON,
+    )
+
+
+# ---------------------------------------------------------------------------
+# modern_bungalow_with_splits — fictitious dual-source variant of modern_bungalow
+# ---------------------------------------------------------------------------
+#
+# The real house has no splits.  This profile is a parallel variant used
+# only by simulation tests that exercise split coordination logic
+# (Axiom #1 priority, anti-takeover, dew-point fallback to split, etc.).
+# Five rooms get hypothetical splits — same names as `modern_bungalow` so
+# tests can flip profiles without renaming.
+
+_SPLIT_ROOM_NAMES_WITH_SPLITS = frozenset(
+    {
+        "salon",
+        "sypialnia",
+        "pokoj_dziecka_1",
+        "pokoj_dziecka_2",
+        "gabinet_1",
+        "gabinet_2",
+    }
+)
+_SPLIT_POWER_BY_ROOM = {
+    "salon": 3500.0,
+    "sypialnia": 2500.0,
+    "pokoj_dziecka_1": 2500.0,
+    "pokoj_dziecka_2": 2500.0,
+    "gabinet_1": 2500.0,
+    "gabinet_2": 2500.0,
+}
+
+
+def _add_split(room: RoomConfig) -> RoomConfig:
+    """Return a copy of ``room`` with a hypothetical split installed."""
+    if room.name not in _SPLIT_ROOM_NAMES_WITH_SPLITS:
+        return room
+    p = room.params
+    params_with_split = RCParams(
+        C_air=p.C_air,
+        C_slab=p.C_slab,
+        C_wall=p.C_wall,
+        R_sf=p.R_sf,
+        R_wi=p.R_wi,
+        R_wo=p.R_wo,
+        R_ve=p.R_ve,
+        R_ins=p.R_ins,
+        f_conv=p.f_conv,
+        f_rad=p.f_rad,
+        T_ground=p.T_ground,
+        has_split=True,
+    )
+    return RoomConfig(
+        name=room.name,
+        area_m2=room.area_m2,
+        params=params_with_split,
+        windows=room.windows,
+        has_split=True,
+        split_power_w=_SPLIT_POWER_BY_ROOM[room.name],
+        ufh_max_power_w=room.ufh_max_power_w,
+        ufh_cooling_max_power_w=room.ufh_cooling_max_power_w,
+        ufh_loops=room.ufh_loops,
+        q_int_w=room.q_int_w,
+    )
+
+
+def modern_bungalow_with_splits() -> BuildingParams:
+    """Test-only variant of ``modern_bungalow`` with hypothetical splits.
+
+    Identical thermal envelope to ``modern_bungalow``, but six rooms (salon,
+    sypialnia, both children's rooms, both offices) gain a hypothetical
+    split unit.  Used exclusively by simulation scenarios that exercise
+    split coordination logic; not representative of the real house.
+
+    Returns:
+        Validated ``BuildingParams`` with 13 rooms (6 with splits).
+    """
+    rooms = tuple(_add_split(r) for r in MODERN_BUNGALOW_ROOMS)
+    return BuildingParams(
+        rooms=rooms,
+        hp_max_power_w=_BUNGALOW_HP_MAX_W,
+        latitude=_BUNGALOW_LAT,
+        longitude=_BUNGALOW_LON,
     )
 
 
@@ -467,13 +622,11 @@ def heavy_construction() -> BuildingParams:
 # ---------------------------------------------------------------------------
 
 BUILDING_PROFILES: dict[str, Callable[[], BuildingParams]] = {
-    "hubert_real": hubert_real,
+    "modern_bungalow": modern_bungalow,
+    "modern_bungalow_with_splits": modern_bungalow_with_splits,
     "well_insulated": well_insulated,
     "leaky_old_house": leaky_old_house,
     "thin_screed": thin_screed,
     "heavy_construction": heavy_construction,
 }
-"""Mapping of profile name to factory function.
-
-All five profiles construct valid ``BuildingParams`` instances.
-"""
+"""Mapping of profile name to factory function."""

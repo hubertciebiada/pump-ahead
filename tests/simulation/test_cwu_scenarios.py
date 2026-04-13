@@ -212,7 +212,7 @@ class TestCWUHeavyScenario:
         log_with, _ = run_scenario(scenario_with, None)
 
         # Run without pre-charge (zero lookahead)
-        from pumpahead.building_profiles import hubert_real
+        from pumpahead.building_profiles import modern_bungalow
         from pumpahead.weather import SyntheticWeather
 
         weather = SyntheticWeather.constant(
@@ -223,7 +223,7 @@ class TestCWUHeavyScenario:
         )
         scenario_without = SimScenario(
             name="cwu_heavy_no_precharge",
-            building=hubert_real(),
+            building=modern_bungalow(),
             weather=weather,
             controller=ControllerConfig(
                 setpoint=21.0,

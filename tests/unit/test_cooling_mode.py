@@ -14,7 +14,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from pumpahead.building_profiles import hubert_real
+from pumpahead.building_profiles import modern_bungalow
 from pumpahead.config import ControllerConfig, RoomConfig
 from pumpahead.controller import PumpAheadController
 from pumpahead.mode_controller import ModeController
@@ -310,17 +310,17 @@ class TestCoolingPowerAsymmetry:
                 ufh_cooling_max_power_w=-100.0,
             )
 
-    def test_hubert_rooms_have_cooling_power(self) -> None:
-        """All hubert_real rooms have ufh_cooling_max_power_w > 0."""
-        building = hubert_real()
+    def test_modern_bungalow_rooms_have_cooling_power(self) -> None:
+        """All modern_bungalow rooms have ufh_cooling_max_power_w > 0."""
+        building = modern_bungalow()
         for room in building.rooms:
             assert room.ufh_cooling_max_power_w > 0, (
                 f"{room.name}: ufh_cooling_max_power_w should be > 0"
             )
 
     def test_cooling_power_less_than_heating(self) -> None:
-        """All hubert_real rooms have cooling power < heating power."""
-        building = hubert_real()
+        """All modern_bungalow rooms have cooling power < heating power."""
+        building = modern_bungalow()
         for room in building.rooms:
             assert room.ufh_cooling_max_power_w < room.ufh_max_power_w, (
                 f"{room.name}: cooling ({room.ufh_cooling_max_power_w}) "
@@ -329,7 +329,7 @@ class TestCoolingPowerAsymmetry:
 
     def test_cooling_power_roughly_60_percent_of_heating(self) -> None:
         """Cooling power is approximately 60% of heating power."""
-        building = hubert_real()
+        building = modern_bungalow()
         for room in building.rooms:
             ratio = room.ufh_cooling_max_power_w / room.ufh_max_power_w
             assert 0.5 <= ratio <= 0.7, (

@@ -20,7 +20,7 @@ import math
 
 import pytest
 
-from pumpahead.building_profiles import BUILDING_PROFILES, hubert_real
+from pumpahead.building_profiles import BUILDING_PROFILES, modern_bungalow
 from pumpahead.config import RoomConfig, SimScenario
 from pumpahead.model import ModelOrder, RCModel, RCParams
 from pumpahead.scenarios import (
@@ -155,12 +155,12 @@ class TestScenarioToSimulatorWiring:
 
     @pytest.mark.unit
     def test_cold_snap_multi_room_wiring(self) -> None:
-        """cold_snap (hubert_real, 8 rooms) wires correctly to simulator."""
+        """cold_snap (modern_bungalow, 13 rooms) wires correctly to simulator."""
         scenario = cold_snap()
         sim = _build_simulator_from_scenario(scenario)
 
-        # Verify 8 rooms
-        assert len(sim.rooms) == 8
+        # Verify 13 rooms
+        assert len(sim.rooms) == 13
 
         # Verify room names match
         expected_names = {r.name for r in scenario.building.rooms}
@@ -234,9 +234,9 @@ class TestSplitConsistencyAcrossModules:
     """Verify split/MIMO consistency from RoomConfig -> RCModel -> SimulatedRoom."""
 
     @pytest.mark.unit
-    def test_hubert_real_split_rooms_produce_mimo_models(self) -> None:
+    def test_modern_bungalow_split_rooms_produce_mimo_models(self) -> None:
         """Rooms with has_split=True produce 2-input MIMO RCModels."""
-        building = hubert_real()
+        building = modern_bungalow()
         for room_cfg in building.rooms:
             model = RCModel(room_cfg.params, ModelOrder.THREE, dt=60.0)
             if room_cfg.has_split:
@@ -251,7 +251,7 @@ class TestSplitConsistencyAcrossModules:
     @pytest.mark.unit
     def test_split_power_flows_to_simulated_room(self) -> None:
         """SimulatedRoom.has_split reflects the RoomConfig.has_split flag."""
-        building = hubert_real()
+        building = modern_bungalow()
         for room_cfg in building.rooms:
             model = RCModel(room_cfg.params, ModelOrder.THREE, dt=60.0)
             sim_room = SimulatedRoom(
@@ -272,23 +272,23 @@ class TestSplitConsistencyAcrossModules:
                 )
 
     @pytest.mark.unit
-    def test_sweep_hubert_salon_has_no_split(self) -> None:
-        """Parametric sweep hubert_salon variants have no split (SISO)."""
+    def test_sweep_bungalow_salon_has_no_split(self) -> None:
+        """Parametric sweep bungalow_salon variants have no split (SISO)."""
         for sweep_fn in (insulation_sweep, screed_sweep):
             scenarios = sweep_fn()
-            salon_scenarios = [s for s in scenarios if "hubert_salon" in s.name]
+            salon_scenarios = [s for s in scenarios if "bungalow_salon" in s.name]
             assert len(salon_scenarios) == 1, (
-                f"Expected 1 hubert_salon scenario, got {len(salon_scenarios)}"
+                f"Expected 1 bungalow_salon scenario, got {len(salon_scenarios)}"
             )
             scenario = salon_scenarios[0]
             assert len(scenario.building.rooms) == 1
             room_cfg = scenario.building.rooms[0]
             assert not room_cfg.has_split, (
-                f"{scenario.name}: hubert_salon should have has_split=False"
+                f"{scenario.name}: bungalow_salon should have has_split=False"
             )
             model = RCModel(room_cfg.params, ModelOrder.THREE, dt=60.0)
             assert model.n_inputs == 1, (
-                f"{scenario.name}: hubert_salon RCModel should be SISO (n_inputs=1)"
+                f"{scenario.name}: bungalow_salon RCModel should be SISO (n_inputs=1)"
             )
 
 
@@ -314,12 +314,12 @@ class TestBuildingParamsSimulatorCompatibility:
 
     @pytest.mark.unit
     def test_building_hp_power_constrains_simulator(self) -> None:
-        """cold_snap simulator with hp_max_power_w=9000 runs without error."""
+        """cold_snap simulator with hp_max_power_w=7000 runs without error."""
         scenario = cold_snap()
-        assert scenario.building.hp_max_power_w == 9000.0
+        assert scenario.building.hp_max_power_w == 7000.0
         sim = _build_simulator_from_scenario(scenario)
 
-        # Run 10 steps with all 8 rooms at valve=100%
+        # Run 10 steps with all 13 rooms at valve=100%
         for _ in range(10):
             actions = {
                 r.name: Actions(valve_position=100.0) for r in scenario.building.rooms
@@ -331,7 +331,7 @@ class TestBuildingParamsSimulatorCompatibility:
 
     @pytest.mark.unit
     def test_window_configs_present_in_scenario_rooms(self) -> None:
-        """solar_overshoot (hubert_real) rooms have correct window configurations."""
+        """solar_overshoot rooms have correct window configurations."""
         scenario = solar_overshoot()
         rooms_by_name = {r.name: r for r in scenario.building.rooms}
 
@@ -418,16 +418,16 @@ class TestAcceptanceCriteriaVerification:
     """Re-verify all Epic #5 acceptance criteria."""
 
     @pytest.mark.unit
-    def test_hubert_real_has_8_rooms_with_realistic_params(self) -> None:
-        """hubert_real() has 8 rooms, 13 UFH loops, 5 splits, correct location."""
-        building = hubert_real()
-        assert len(building.rooms) == 8
+    def test_modern_bungalow_has_13_rooms_with_realistic_params(self) -> None:
+        """modern_bungalow() has 13 rooms, 13 UFH loops, no splits, correct location."""
+        building = modern_bungalow()
+        assert len(building.rooms) == 13
 
         total_loops = sum(r.ufh_loops for r in building.rooms)
         assert total_loops == 13
 
         split_rooms = [r for r in building.rooms if r.has_split]
-        assert len(split_rooms) == 5
+        assert len(split_rooms) == 0
 
         assert building.latitude == pytest.approx(50.69)
         assert building.longitude == pytest.approx(17.38)

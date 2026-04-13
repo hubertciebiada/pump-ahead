@@ -4,7 +4,7 @@ Tests cover dual-source steady-state, cold-snap, and priority-inversion-stress
 scenarios.  Each test exercises the split coordination logic through a full
 multi-room simulation using ``run_scenario``.
 
-All scenarios use ``hubert_real`` building (5 rooms with splits, 3 without).
+All scenarios use ``modern_bungalow`` building (5 rooms with splits, 3 without).
 """
 
 from __future__ import annotations
@@ -28,10 +28,17 @@ from pumpahead.scenarios import (
 from pumpahead.simulation_log import SimulationLog
 from pumpahead.simulator import SplitMode
 
-# Rooms with split units in hubert_real building
-_SPLIT_ROOMS = ["salon", "kuchnia", "sypialnia", "gabinet", "pokoj_dzieci"]
+# Rooms with split units in modern_bungalow_with_splits building
+_SPLIT_ROOMS = [
+    "salon",
+    "sypialnia",
+    "gabinet_1",
+    "gabinet_2",
+    "pokoj_dziecka_1",
+    "pokoj_dziecka_2",
+]
 # Rooms without split units
-_UFH_ONLY_ROOMS = ["lazienka", "garderoba", "korytarz"]
+_UFH_ONLY_ROOMS = ["lazienka", "garderoba", "dlugi_korytarz"]
 
 
 # ---------------------------------------------------------------------------

@@ -8,128 +8,120 @@ import pytest
 
 from pumpahead.building_profiles import (
     BUILDING_PROFILES,
-    HUBERT_ROOMS,
+    MODERN_BUNGALOW_ROOMS,
     heavy_construction,
-    hubert_real,
     leaky_old_house,
+    modern_bungalow,
     thin_screed,
     well_insulated,
 )
 from pumpahead.config import BuildingParams
 
 # ---------------------------------------------------------------------------
-# TestHubertReal — author's real house
+# TestModernBungalow — reference modern bungalow
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
-class TestHubertReal:
-    """Tests specific to the ``hubert_real`` profile."""
+class TestModernBungalow:
+    """Tests specific to the ``modern_bungalow`` profile."""
 
     def test_returns_building_params(self) -> None:
         """Factory returns a BuildingParams instance."""
-        building = hubert_real()
+        building = modern_bungalow()
         assert isinstance(building, BuildingParams)
 
-    def test_exactly_8_rooms(self) -> None:
-        """Hubert's house has exactly 8 rooms."""
-        building = hubert_real()
-        assert len(building.rooms) == 8
+    def test_exactly_13_rooms(self) -> None:
+        """Modern bungalow has exactly 13 heated rooms (one per UFH loop)."""
+        building = modern_bungalow()
+        assert len(building.rooms) == 13
 
     def test_room_names_are_unique(self) -> None:
         """All room names are unique."""
-        building = hubert_real()
+        building = modern_bungalow()
         names = [r.name for r in building.rooms]
         assert len(names) == len(set(names))
 
     def test_expected_room_names(self) -> None:
         """Room names match the known layout."""
-        building = hubert_real()
+        building = modern_bungalow()
         names = sorted(r.name for r in building.rooms)
         expected = sorted(
             [
                 "salon",
-                "kuchnia",
+                "kuchnia_jadalnia",
                 "sypialnia",
-                "gabinet",
-                "pokoj_dzieci",
+                "gabinet_1",
+                "gabinet_2",
+                "pokoj_dziecka_1",
+                "pokoj_dziecka_2",
                 "lazienka",
                 "garderoba",
-                "korytarz",
+                "dlugi_korytarz",
+                "korytarz_witryna",
+                "wiatrolap",
+                "toaleta",
             ]
         )
         assert names == expected
 
     def test_total_ufh_loops_is_13(self) -> None:
         """Total UFH loops across all rooms sum to 13."""
-        building = hubert_real()
+        building = modern_bungalow()
         total = sum(r.ufh_loops for r in building.rooms)
         assert total == 13
 
-    def test_at_least_5_rooms_with_split(self) -> None:
-        """At least 5 rooms have split/AC units."""
-        building = hubert_real()
-        split_count = sum(1 for r in building.rooms if r.has_split)
-        assert split_count >= 5
-
-    def test_exactly_5_rooms_with_split(self) -> None:
-        """Exactly 5 rooms have split/AC units."""
-        building = hubert_real()
-        split_rooms = [r.name for r in building.rooms if r.has_split]
-        assert len(split_rooms) == 5
-        assert set(split_rooms) == {
-            "salon",
-            "kuchnia",
-            "sypialnia",
-            "gabinet",
-            "pokoj_dzieci",
-        }
+    def test_no_splits(self) -> None:
+        """Real house has no split/AC units anywhere."""
+        building = modern_bungalow()
+        assert all(not r.has_split for r in building.rooms)
+        assert all(r.split_power_w == 0.0 for r in building.rooms)
 
     def test_location_lubcza_poland(self) -> None:
         """Coordinates match Lubcza, Poland."""
-        building = hubert_real()
+        building = modern_bungalow()
         assert building.latitude == pytest.approx(50.69)
         assert building.longitude == pytest.approx(17.38)
 
     def test_hp_power_positive(self) -> None:
         """Heat pump max power is positive."""
-        building = hubert_real()
+        building = modern_bungalow()
         assert building.hp_max_power_w > 0
 
     def test_deterministic(self) -> None:
         """Calling factory twice returns equal results."""
-        a = hubert_real()
-        b = hubert_real()
+        a = modern_bungalow()
+        b = modern_bungalow()
         assert a == b
 
-    def test_hubert_rooms_matches_factory(self) -> None:
-        """HUBERT_ROOMS constant matches hubert_real().rooms."""
-        building = hubert_real()
-        assert building.rooms == HUBERT_ROOMS
+    def test_modern_bungalow_rooms_matches_factory(self) -> None:
+        """MODERN_BUNGALOW_ROOMS constant matches modern_bungalow().rooms."""
+        building = modern_bungalow()
+        assert building.rooms == MODERN_BUNGALOW_ROOMS
 
     def test_validation_passes(self) -> None:
         """BuildingParams validation does not raise."""
         # If construction fails, this test fails with ValueError
-        building = hubert_real()
+        building = modern_bungalow()
         assert building is not None
 
     def test_garderoba_has_no_windows(self) -> None:
         """Garderoba (closet) has no windows."""
-        building = hubert_real()
+        building = modern_bungalow()
         garderoba = next(r for r in building.rooms if r.name == "garderoba")
         assert len(garderoba.windows) == 0
 
     def test_korytarz_has_no_windows(self) -> None:
-        """Korytarz (hallway) has no windows."""
-        building = hubert_real()
-        korytarz = next(r for r in building.rooms if r.name == "korytarz")
+        """Long hallway has no windows."""
+        building = modern_bungalow()
+        korytarz = next(r for r in building.rooms if r.name == "dlugi_korytarz")
         assert len(korytarz.windows) == 0
 
     def test_salon_has_south_and_west_windows(self) -> None:
         """Salon has south and west-facing windows."""
         from pumpahead.solar import Orientation
 
-        building = hubert_real()
+        building = modern_bungalow()
         salon = next(r for r in building.rooms if r.name == "salon")
         orientations = {w.orientation for w in salon.windows}
         assert Orientation.SOUTH in orientations
@@ -137,14 +129,14 @@ class TestHubertReal:
 
     def test_split_rooms_have_positive_split_power(self) -> None:
         """Rooms with splits have positive split power."""
-        building = hubert_real()
+        building = modern_bungalow()
         for room in building.rooms:
             if room.has_split:
                 assert room.split_power_w > 0, f"{room.name}: split_power_w <= 0"
 
     def test_no_split_rooms_have_zero_split_power(self) -> None:
         """Rooms without splits have zero split power."""
-        building = hubert_real()
+        building = modern_bungalow()
         for room in building.rooms:
             if not room.has_split:
                 assert room.split_power_w == 0.0, f"{room.name}: split_power_w != 0"
@@ -166,7 +158,7 @@ class TestAllProfiles:
     def test_expected_profile_names(self) -> None:
         """All required profile names are present."""
         expected = {
-            "hubert_real",
+            "modern_bungalow",
             "well_insulated",
             "leaky_old_house",
             "thin_screed",
@@ -305,22 +297,22 @@ class TestPhysicalSensibility:
                 )
 
     def test_c_air_scales_with_area(self) -> None:
-        """C_air roughly scales with room area in hubert_real.
+        """C_air roughly scales with room area in modern_bungalow.
 
         Larger rooms should have proportionally larger C_air.  We check
-        that salon (30 m^2) has higher C_air than garderoba (5 m^2).
+        that salon (~36 m^2) has higher C_air than garderoba (~7 m^2).
         """
-        building = hubert_real()
+        building = modern_bungalow()
         salon = next(r for r in building.rooms if r.name == "salon")
         garderoba = next(r for r in building.rooms if r.name == "garderoba")
         assert salon.params.C_air > garderoba.params.C_air
 
     def test_ufh_max_power_reasonable(self) -> None:
-        """UFH max power is in a reasonable range (500-10000 W)."""
+        """UFH max power is in a reasonable range (300-10000 W)."""
         for name, factory in BUILDING_PROFILES.items():
             building = factory()
             for room in building.rooms:
-                assert 500 <= room.ufh_max_power_w <= 10_000, (
+                assert 300 <= room.ufh_max_power_w <= 10_000, (
                     f"{name}/{room.name}: ufh_max_power_w={room.ufh_max_power_w}"
                 )
 
@@ -350,11 +342,11 @@ class TestExports:
 
         assert len(bp) >= 5
 
-    def test_hubert_rooms_importable_from_init(self) -> None:
-        """HUBERT_ROOMS is importable from pumpahead."""
-        from pumpahead import HUBERT_ROOMS as hr
+    def test_modern_bungalow_rooms_importable_from_init(self) -> None:
+        """MODERN_BUNGALOW_ROOMS is importable from pumpahead."""
+        from pumpahead import MODERN_BUNGALOW_ROOMS as hr
 
-        assert len(hr) == 8
+        assert len(hr) == 13
 
     def test_factory_functions_importable_from_init(self) -> None:
         """All factory functions are importable from pumpahead."""
@@ -362,10 +354,10 @@ class TestExports:
             heavy_construction as hc,
         )
         from pumpahead import (
-            hubert_real as hr,
+            leaky_old_house as lo,
         )
         from pumpahead import (
-            leaky_old_house as lo,
+            modern_bungalow as hr,
         )
         from pumpahead import (
             thin_screed as ts,
@@ -387,8 +379,8 @@ class TestExports:
 
         expected = [
             "BUILDING_PROFILES",
-            "HUBERT_ROOMS",
-            "hubert_real",
+            "MODERN_BUNGALOW_ROOMS",
+            "modern_bungalow",
             "well_insulated",
             "leaky_old_house",
             "thin_screed",

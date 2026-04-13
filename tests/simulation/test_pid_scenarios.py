@@ -151,7 +151,7 @@ class TestPIDColdSnap:
 
     Uses a single-room building with a step drop from 0C to -15C after
     24h.  The single-room setup avoids HP capacity starvation that occurs
-    with the 8-room hubert_real building (9 kW shared across 25 kW
+    with the 8-room modern_bungalow building (9 kW shared across 25 kW
     demand).
     """
 

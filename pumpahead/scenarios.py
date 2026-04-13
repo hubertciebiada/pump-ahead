@@ -32,8 +32,9 @@ from collections.abc import Callable
 
 from pumpahead.building_profiles import (
     heavy_construction,
-    hubert_real,
     leaky_old_house,
+    modern_bungalow,
+    modern_bungalow_with_splits,
     thin_screed,
     well_insulated,
 )
@@ -74,8 +75,8 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 
-def _hubert_single_room() -> BuildingParams:
-    """Extract the first room (salon) from hubert_real as a single-room building.
+def _modern_bungalow_single_room() -> BuildingParams:
+    """Extract the first room (salon) from modern_bungalow as a single-room building.
 
     The room is modified to have ``has_split=False`` and ``split_power_w=0.0``
     to keep parametric comparisons fair across single-room profiles.
@@ -83,8 +84,8 @@ def _hubert_single_room() -> BuildingParams:
     Returns:
         Validated ``BuildingParams`` with 1 room (salon, no split).
     """
-    building = hubert_real()
-    salon = building.rooms[0]
+    building = modern_bungalow()
+    salon = next(r for r in building.rooms if r.name == "salon")
     # Rebuild RCParams without split capability
     from pumpahead.model import RCParams
 
@@ -116,7 +117,7 @@ def _hubert_single_room() -> BuildingParams:
     )
     return BuildingParams(
         rooms=(salon_no_split,),
-        hp_max_power_w=9000.0,
+        hp_max_power_w=7000.0,
         latitude=50.69,
         longitude=17.38,
     )
@@ -160,11 +161,11 @@ def steady_state() -> SimScenario:
 def cold_snap() -> SimScenario:
     """Step drop from 0C to -15C after 24h.
 
-    Multi-room scenario using ``hubert_real`` building.  Tests split
+    Multi-room scenario using ``modern_bungalow`` building.  Tests split
     entry/exit logic and UFH takeover under severe cold.
 
     Returns:
-        ``SimScenario`` with ``hubert_real`` building, 5-day duration.
+        ``SimScenario`` with ``modern_bungalow`` building, 5-day duration.
     """
     weather = SyntheticWeather(
         t_out=ChannelProfile(
@@ -179,7 +180,7 @@ def cold_snap() -> SimScenario:
     )
     return SimScenario(
         name="cold_snap",
-        building=hubert_real(),
+        building=modern_bungalow(),
         weather=weather,
         controller=ControllerConfig(setpoint=21.0),
         duration_minutes=7200,
@@ -240,7 +241,7 @@ def solar_overshoot() -> SimScenario:
     in auto mode.
 
     Returns:
-        ``SimScenario`` with ``hubert_real`` building, 3-day duration.
+        ``SimScenario`` with ``modern_bungalow`` building, 3-day duration.
     """
     weather = SyntheticWeather(
         t_out=ChannelProfile(
@@ -260,7 +261,7 @@ def solar_overshoot() -> SimScenario:
     )
     return SimScenario(
         name="solar_overshoot",
-        building=hubert_real(),
+        building=modern_bungalow(),
         weather=weather,
         controller=ControllerConfig(setpoint=22.0),
         duration_minutes=4320,
@@ -281,7 +282,7 @@ def full_year_2025() -> SimScenario:
     controller across all seasonal transitions.
 
     Returns:
-        ``SimScenario`` with ``hubert_real`` building, 365-day duration.
+        ``SimScenario`` with ``modern_bungalow`` building, 365-day duration.
     """
     weather = SyntheticWeather(
         t_out=ChannelProfile(
@@ -301,7 +302,7 @@ def full_year_2025() -> SimScenario:
     )
     return SimScenario(
         name="full_year_2025",
-        building=hubert_real(),
+        building=modern_bungalow(),
         weather=weather,
         controller=ControllerConfig(setpoint=22.0),
         duration_minutes=525600,
@@ -393,7 +394,7 @@ def cwu_heavy() -> SimScenario:
     domestic hot water production.
 
     Returns:
-        ``SimScenario`` with ``hubert_real`` building, 24h duration.
+        ``SimScenario`` with ``modern_bungalow`` building, 24h duration.
     """
     weather = SyntheticWeather.constant(
         T_out=-5.0,
@@ -403,7 +404,7 @@ def cwu_heavy() -> SimScenario:
     )
     return SimScenario(
         name="cwu_heavy",
-        building=hubert_real(),
+        building=modern_bungalow(),
         weather=weather,
         controller=ControllerConfig(setpoint=21.0),
         duration_minutes=1440,
@@ -420,13 +421,13 @@ def cwu_heavy() -> SimScenario:
 def cwu_with_splits() -> SimScenario:
     """Heavy CWU schedule with split-equipped rooms at -5C.
 
-    Combines the ``hubert_real`` multi-room building (which has
+    Combines the ``modern_bungalow`` multi-room building (which has
     split-equipped rooms) with a heavy CWU schedule.  Primary test
     scenario for verifying anti-panic logic: splits should NOT
     activate during CWU cycles when T_room is close to setpoint.
 
     Returns:
-        ``SimScenario`` with ``hubert_real`` building, 24h duration,
+        ``SimScenario`` with ``modern_bungalow`` building, 24h duration,
         CWU_HEAVY schedule.
     """
     weather = SyntheticWeather.constant(
@@ -437,7 +438,7 @@ def cwu_with_splits() -> SimScenario:
     )
     return SimScenario(
         name="cwu_with_splits",
-        building=hubert_real(),
+        building=modern_bungalow_with_splits(),
         weather=weather,
         controller=ControllerConfig(
             kp=5.0,
@@ -466,13 +467,13 @@ def cwu_with_splits() -> SimScenario:
 def dual_source_steady_state() -> SimScenario:
     """Steady-state dual-source heating at constant T_out=0C.
 
-    Uses ``hubert_real`` building (5 rooms with splits, 3 without).
+    Uses ``modern_bungalow`` building (5 rooms with splits, 3 without).
     Constant outdoor temperature, no solar.  Tests that split runtime
     stays below 15% in the second half (after warmup) and UFH-only
     rooms are unaffected.
 
     Returns:
-        ``SimScenario`` with ``hubert_real`` building, 72h duration.
+        ``SimScenario`` with ``modern_bungalow`` building, 72h duration.
     """
     weather = SyntheticWeather.constant(
         T_out=0.0,
@@ -482,7 +483,7 @@ def dual_source_steady_state() -> SimScenario:
     )
     return SimScenario(
         name="dual_source_steady_state",
-        building=hubert_real(),
+        building=modern_bungalow_with_splits(),
         weather=weather,
         controller=ControllerConfig(
             kp=5.0,
@@ -504,11 +505,11 @@ def dual_source_steady_state() -> SimScenario:
 def dual_source_cold_snap() -> SimScenario:
     """Step drop from 0C to -15C at t=1440 for dual-source rooms.
 
-    Uses ``hubert_real`` building.  Tests split entry during cold snap
+    Uses ``modern_bungalow`` building.  Tests split entry during cold snap
     and UFH takeover afterward.
 
     Returns:
-        ``SimScenario`` with ``hubert_real`` building, 5-day duration.
+        ``SimScenario`` with ``modern_bungalow`` building, 5-day duration.
     """
     weather = SyntheticWeather(
         t_out=ChannelProfile(
@@ -523,7 +524,7 @@ def dual_source_cold_snap() -> SimScenario:
     )
     return SimScenario(
         name="dual_source_cold_snap",
-        building=hubert_real(),
+        building=modern_bungalow_with_splits(),
         weather=weather,
         controller=ControllerConfig(
             kp=5.0,
@@ -544,13 +545,13 @@ def dual_source_cold_snap() -> SimScenario:
 def priority_inversion_stress() -> SimScenario:
     """Extreme cold stress test for anti-takeover logic.
 
-    Uses ``hubert_real`` building with aggressive controller gains
+    Uses ``modern_bungalow`` building with aggressive controller gains
     and intentionally low valve floor.  Step T_out from 0C to -20C
     at t=720 min.  Tests that even under stress, priority inversion
     does not occur.
 
     Returns:
-        ``SimScenario`` with ``hubert_real`` building, 3-day duration.
+        ``SimScenario`` with ``modern_bungalow`` building, 3-day duration.
     """
     weather = SyntheticWeather(
         t_out=ChannelProfile(
@@ -565,7 +566,7 @@ def priority_inversion_stress() -> SimScenario:
     )
     return SimScenario(
         name="priority_inversion_stress",
-        building=hubert_real(),
+        building=modern_bungalow_with_splits(),
         weather=weather,
         controller=ControllerConfig(
             kp=10.0,
@@ -587,13 +588,13 @@ def priority_inversion_stress() -> SimScenario:
 def dual_source_cooling_steady() -> SimScenario:
     """Steady-state cooling with dual-source rooms at T_out=32C.
 
-    Uses ``hubert_real`` building (5 rooms with splits, 3 without).
+    Uses ``modern_bungalow`` building (5 rooms with splits, 3 without).
     Constant high outdoor temperature, moderate solar gains.  Tests
     that cooling mode produces negative Q_floor, splits cool correctly,
     and splits NEVER heat in cooling mode (Axiom #3).
 
     Returns:
-        ``SimScenario`` with ``hubert_real`` building, 7-day duration.
+        ``SimScenario`` with ``modern_bungalow`` building, 7-day duration.
     """
     weather = SyntheticWeather(
         t_out=ChannelProfile(
@@ -613,7 +614,7 @@ def dual_source_cooling_steady() -> SimScenario:
     )
     return SimScenario(
         name="dual_source_cooling_steady",
-        building=hubert_real(),
+        building=modern_bungalow_with_splits(),
         weather=weather,
         controller=ControllerConfig(
             kp=5.0,
@@ -644,10 +645,10 @@ def dew_point_stress() -> SimScenario:
     within 2-3C of the floor equilibrium.  The controller must
     throttle cooling to prevent floor overcooling.
 
-    Uses ``hubert_real`` building (5 rooms with splits, 3 without).
+    Uses ``modern_bungalow`` building (5 rooms with splits, 3 without).
 
     Returns:
-        ``SimScenario`` with ``hubert_real`` building, 48h duration,
+        ``SimScenario`` with ``modern_bungalow`` building, 48h duration,
         cooling mode.
     """
     weather = SyntheticWeather(
@@ -668,7 +669,7 @@ def dew_point_stress() -> SimScenario:
     )
     return SimScenario(
         name="dew_point_stress",
-        building=hubert_real(),
+        building=modern_bungalow_with_splits(),
         weather=weather,
         controller=ControllerConfig(setpoint=25.0, split_deadband=0.5),
         duration_minutes=2880,
@@ -691,7 +692,7 @@ def spring_transition() -> SimScenario:
     hold time is satisfied.
 
     Returns:
-        ``SimScenario`` with ``hubert_real`` building, 7-day duration.
+        ``SimScenario`` with ``modern_bungalow`` building, 7-day duration.
     """
     weather = SyntheticWeather(
         t_out=ChannelProfile(
@@ -711,7 +712,7 @@ def spring_transition() -> SimScenario:
     )
     return SimScenario(
         name="spring_transition",
-        building=hubert_real(),
+        building=modern_bungalow(),
         weather=weather,
         controller=ControllerConfig(
             kp=5.0,
@@ -739,7 +740,7 @@ def insulation_sweep() -> list[SimScenario]:
     Three scenarios with identical weather (constant T_out=-10C) and
     heating mode, but different buildings:
         1. ``well_insulated`` — modern passive-house-like
-        2. ``hubert_real`` salon (single room) — moderate insulation
+        2. ``modern_bungalow`` salon (single room) — moderate insulation
         3. ``leaky_old_house`` — poorly insulated pre-1970s
 
     Returns:
@@ -756,7 +757,7 @@ def insulation_sweep() -> list[SimScenario]:
 
     profiles: list[tuple[str, BuildingParams]] = [
         ("well_insulated", well_insulated()),
-        ("hubert_salon", _hubert_single_room()),
+        ("bungalow_salon", _modern_bungalow_single_room()),
         ("leaky_old_house", leaky_old_house()),
     ]
 
@@ -784,7 +785,7 @@ def screed_sweep() -> list[SimScenario]:
     Three scenarios with identical weather (step T_out from 0 to -15C
     at t=720 min) and heating mode, but different slab mass:
         1. ``thin_screed`` — ~30 mm dry screed
-        2. ``hubert_real`` salon (single room) — ~80 mm wet screed
+        2. ``modern_bungalow`` salon (single room) — ~80 mm wet screed
         3. ``heavy_construction`` — ~120 mm concrete screed
 
     Returns:
@@ -806,7 +807,7 @@ def screed_sweep() -> list[SimScenario]:
 
     profiles: list[tuple[str, BuildingParams]] = [
         ("thin_screed", thin_screed()),
-        ("hubert_salon", _hubert_single_room()),
+        ("bungalow_salon", _modern_bungalow_single_room()),
         ("heavy_construction", heavy_construction()),
     ]
 

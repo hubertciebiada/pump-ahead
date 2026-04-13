@@ -218,9 +218,9 @@ class TestSpecificScenarios:
         assert after.T_out == pytest.approx(-15.0)
 
     def test_cold_snap_multi_room(self) -> None:
-        """cold_snap uses hubert_real (8 rooms)."""
+        """cold_snap uses modern_bungalow (13 rooms)."""
         s = cold_snap()
-        assert len(s.building.rooms) == 8
+        assert len(s.building.rooms) == 13
 
     def test_cold_snap_duration_5_days(self) -> None:
         """cold_snap lasts 5 days (7200 minutes)."""
@@ -266,10 +266,10 @@ class TestSpecificScenarios:
         p360 = s.weather.get(360.0)
         assert pytest.approx(500.0) == p360.GHI
 
-    def test_solar_overshoot_hubert_building(self) -> None:
-        """solar_overshoot uses hubert_real (8 rooms)."""
+    def test_solar_overshoot_modern_bungalow_building(self) -> None:
+        """solar_overshoot uses modern_bungalow (13 rooms)."""
         s = solar_overshoot()
-        assert len(s.building.rooms) == 8
+        assert len(s.building.rooms) == 13
 
     # -- full_year_2025 -----------------------------------------------------
 
@@ -393,10 +393,10 @@ class TestSpecificScenarios:
         """dew_point_stress is registered in SCENARIO_LIBRARY."""
         assert "dew_point_stress" in SCENARIO_LIBRARY
 
-    def test_dew_point_stress_hubert_real_building(self) -> None:
-        """dew_point_stress uses hubert_real building (8 rooms)."""
+    def test_dew_point_stress_modern_bungalow_building(self) -> None:
+        """dew_point_stress uses modern_bungalow_with_splits building (13 rooms)."""
         s = dew_point_stress()
-        assert len(s.building.rooms) == 8
+        assert len(s.building.rooms) == 13
 
     def test_dew_point_stress_setpoint_25(self) -> None:
         """dew_point_stress setpoint is 25C."""
@@ -514,21 +514,21 @@ class TestParametricSweeps:
         for s in screed_sweep():
             assert s.mode == "heating"
 
-    def test_insulation_sweep_hubert_salon_no_split(self) -> None:
-        """Insulation sweep hubert_salon variant has no split."""
+    def test_insulation_sweep_bungalow_salon_no_split(self) -> None:
+        """Insulation sweep bungalow_salon variant has no split."""
         scenarios = insulation_sweep()
-        hubert = [s for s in scenarios if "hubert_salon" in s.name]
-        assert len(hubert) == 1
-        room = hubert[0].building.rooms[0]
+        bungalow_scenarios = [s for s in scenarios if "bungalow_salon" in s.name]
+        assert len(bungalow_scenarios) == 1
+        room = bungalow_scenarios[0].building.rooms[0]
         assert room.has_split is False
         assert room.split_power_w == 0.0
 
-    def test_screed_sweep_hubert_salon_no_split(self) -> None:
-        """Screed sweep hubert_salon variant has no split."""
+    def test_screed_sweep_bungalow_salon_no_split(self) -> None:
+        """Screed sweep bungalow_salon variant has no split."""
         scenarios = screed_sweep()
-        hubert = [s for s in scenarios if "hubert_salon" in s.name]
-        assert len(hubert) == 1
-        room = hubert[0].building.rooms[0]
+        bungalow_scenarios = [s for s in scenarios if "bungalow_salon" in s.name]
+        assert len(bungalow_scenarios) == 1
+        room = bungalow_scenarios[0].building.rooms[0]
         assert room.has_split is False
         assert room.split_power_w == 0.0
 

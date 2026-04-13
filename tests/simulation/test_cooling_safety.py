@@ -5,7 +5,7 @@ long-duration cooling operation (hot_july 7-day).  Scenarios exercise
 the safety override logic: valve closes when T_floor < T_dew + 2C,
 split takes over emergency cooling for equipped rooms.
 
-All scenarios use ``hubert_real`` building (5 rooms with splits,
+All scenarios use ``modern_bungalow`` building (5 rooms with splits,
 3 without) or ``well_insulated`` (hot_july).
 """
 
@@ -27,10 +27,17 @@ from pumpahead.scenarios import (
 )
 from pumpahead.simulation_log import SimulationLog
 
-# Rooms with split units in hubert_real building
-_SPLIT_ROOMS = ["salon", "kuchnia", "sypialnia", "gabinet", "pokoj_dzieci"]
+# Rooms with split units in modern_bungalow building
+_SPLIT_ROOMS = [
+    "salon",
+    "sypialnia",
+    "gabinet_1",
+    "gabinet_2",
+    "pokoj_dziecka_1",
+    "pokoj_dziecka_2",
+]
 # Rooms without split units
-_UFH_ONLY_ROOMS = ["lazienka", "garderoba", "korytarz"]
+_UFH_ONLY_ROOMS = ["lazienka", "garderoba", "dlugi_korytarz"]
 
 
 # ---------------------------------------------------------------------------
