@@ -505,11 +505,13 @@ def dual_source_steady_state() -> SimScenario:
 def dual_source_cold_snap() -> SimScenario:
     """Step drop from 0C to -15C at t=1440 for dual-source rooms.
 
-    Uses ``modern_bungalow`` building.  Tests split entry during cold snap
-    and UFH takeover afterward.
+    Uses ``modern_bungalow_with_splits`` with HP intentionally undersized
+    to ~3.5 kW so the heat pump cannot fully cover the design load on its
+    own and splits must contribute during the cold snap.  This exercises
+    the split-entry branch of the coordinator.
 
     Returns:
-        ``SimScenario`` with ``modern_bungalow`` building, 5-day duration.
+        ``SimScenario`` with undersized-HP building, 5-day duration.
     """
     weather = SyntheticWeather(
         t_out=ChannelProfile(
@@ -522,9 +524,16 @@ def dual_source_cold_snap() -> SimScenario:
         wind_speed=ChannelProfile(kind=ProfileKind.CONSTANT, baseline=2.0),
         humidity=ChannelProfile(kind=ProfileKind.CONSTANT, baseline=60.0),
     )
+    base = modern_bungalow_with_splits()
+    building = BuildingParams(
+        rooms=base.rooms,
+        hp_max_power_w=3500.0,
+        latitude=base.latitude,
+        longitude=base.longitude,
+    )
     return SimScenario(
         name="dual_source_cold_snap",
-        building=modern_bungalow_with_splits(),
+        building=building,
         weather=weather,
         controller=ControllerConfig(
             kp=5.0,
@@ -536,7 +545,7 @@ def dual_source_cold_snap() -> SimScenario:
         mode="heating",
         dt_seconds=60.0,
         description=(
-            "Step drop from 0C to -15C at t=1440 min. "
+            "Step drop from 0C to -15C at t=1440 min with undersized HP. "
             "Tests split entry during cold snap and UFH takeover."
         ),
     )
