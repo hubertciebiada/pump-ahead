@@ -190,6 +190,7 @@ class PumpAheadController:
         *,
         room_overrides: dict[str, ControllerConfig] | None = None,
         room_has_split: dict[str, bool] | None = None,
+        room_auxiliary_type: dict[str, str] | None = None,
         cwu_schedule: tuple[CWUCycle, ...] = (),
         mode: Literal["heating", "cooling", "auto"] = "heating",
     ) -> None:
@@ -205,6 +206,12 @@ class PumpAheadController:
                 When ``None`` (default), all rooms are treated as
                 UFH-only (backward compatible).  When provided, rooms
                 with ``True`` get a ``SplitCoordinator`` instance.
+            room_auxiliary_type: Optional per-room auxiliary type map.
+                Values must be ``"split"`` or ``"heater"``.  Rooms not
+                listed default to ``"split"``.  ``"heater"`` rooms are
+                short-circuited to ``SplitMode.OFF`` in cooling mode
+                so that a heating-only electric resistive heater never
+                opposes the HP mode (Axiom #3).
             cwu_schedule: CWU (DHW) interrupt schedule.  When non-empty,
                 a ``CWUCoordinator`` is created for anti-panic split
                 blocking and pre-charge valve boosting.
@@ -235,6 +242,21 @@ class PumpAheadController:
         self._room_configs: dict[str, ControllerConfig] = {}
         self._pids: dict[str, PIDController] = {}
         self._split_coordinators: dict[str, SplitCoordinator] = {}
+        self._auxiliary_type: dict[str, str] = dict(room_auxiliary_type or {})
+        unknown_aux = set(self._auxiliary_type.keys()) - set(names)
+        if unknown_aux:
+            msg = (
+                f"room_auxiliary_type contains unknown room names: "
+                f"{sorted(unknown_aux)}"
+            )
+            raise ValueError(msg)
+        for room_name, aux_value in self._auxiliary_type.items():
+            if aux_value not in ("split", "heater"):
+                msg = (
+                    f"room_auxiliary_type[{room_name!r}] must be "
+                    f"'split' or 'heater', got {aux_value!r}"
+                )
+                raise ValueError(msg)
         self._step_count: int = 0
         self._mode = mode
 
@@ -400,6 +422,24 @@ class PumpAheadController:
             # Split coordination (only for rooms with a coordinator)
             split_mode = SplitMode.OFF
             split_setpoint = 0.0
+
+            # Heating-only auxiliary (e.g. electric resistive heater):
+            # force OFF in cooling mode.  This guard must run BEFORE
+            # SplitCoordinator.decide() so the runtime window is not
+            # contaminated with spurious samples from a source that
+            # physically cannot cool (Axiom #3).
+            is_heater_room = self._auxiliary_type.get(name) == "heater"
+            if is_heater_room and is_cooling:
+                # Short-circuit: no split decision, no valve_floor_boost,
+                # no runtime sample.  Room is UFH-only in cooling mode
+                # (ufh_cooling_max_power_w=0.0 is enforced upstream by
+                # RoomConfig validation, so valve cooling is also zero).
+                actions[name] = Actions(
+                    valve_position=valve,
+                    split_mode=SplitMode.OFF,
+                    split_setpoint=0.0,
+                )
+                continue
 
             if name in self._split_coordinators:
                 # CWU anti-panic: block split when CWU is active and

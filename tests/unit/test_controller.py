@@ -904,3 +904,105 @@ class TestPumpAheadControllerCWU:
         # Split runtime should be 0 because split was always blocked
         diag = ctrl.get_diagnostics()
         assert diag["room_a"]["split_runtime_minutes"] == pytest.approx(0.0)
+
+
+# ---------------------------------------------------------------------------
+# PumpAheadController heating-only auxiliary (heater) tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestPumpAheadControllerHeaterAuxiliary:
+    """Tests for the ``room_auxiliary_type='heater'`` short-circuit."""
+
+    def test_heater_passive_in_cooling_mode(self) -> None:
+        """Heater room is SplitMode.OFF in cooling, split room cools normally."""
+        config = ControllerConfig(
+            kp=5.0, ki=0.0, setpoint=24.0, split_deadband=0.5
+        )
+        ctrl = PumpAheadController(
+            config,
+            ["heater_room", "split_room"],
+            room_has_split={"heater_room": True, "split_room": True},
+            room_auxiliary_type={
+                "heater_room": "heater",
+                "split_room": "split",
+            },
+        )
+        # Both rooms are hot (T_room > setpoint) in cooling mode.
+        # Cooling error = T_room - setpoint = 26 - 24 = 2 > 0.5 deadband.
+        meas = {
+            "heater_room": _make_measurements(
+                t_room=26.0, hp_mode=HeatPumpMode.COOLING
+            ),
+            "split_room": _make_measurements(
+                t_room=26.0, hp_mode=HeatPumpMode.COOLING
+            ),
+        }
+        actions = ctrl.step(meas)
+        # Heater room is passive — no split action.
+        assert actions["heater_room"].split_mode == SplitMode.OFF
+        assert actions["heater_room"].split_setpoint == 0.0
+        # Split room activates cooling normally.
+        assert actions["split_room"].split_mode == SplitMode.COOLING
+
+    def test_heater_activates_in_heating_mode(self) -> None:
+        """Heater room activates normally in heating mode (no short-circuit)."""
+        config = ControllerConfig(
+            kp=5.0, ki=0.0, setpoint=24.0, split_deadband=0.5
+        )
+        ctrl = PumpAheadController(
+            config,
+            ["heater_room"],
+            room_has_split={"heater_room": True},
+            room_auxiliary_type={"heater_room": "heater"},
+        )
+        # Heating mode, error = 24 - 22 = 2 > 0.5 deadband => heater activates.
+        meas = {
+            "heater_room": _make_measurements(
+                t_room=22.0, hp_mode=HeatPumpMode.HEATING
+            ),
+        }
+        actions = ctrl.step(meas)
+        assert actions["heater_room"].split_mode == SplitMode.HEATING
+
+    def test_heater_runtime_window_not_contaminated_in_cooling(self) -> None:
+        """Cooling-mode short-circuit does not accumulate split runtime."""
+        config = ControllerConfig(
+            kp=5.0, ki=0.0, setpoint=24.0, split_deadband=0.5
+        )
+        ctrl = PumpAheadController(
+            config,
+            ["heater_room"],
+            room_has_split={"heater_room": True},
+            room_auxiliary_type={"heater_room": "heater"},
+        )
+        for _ in range(30):
+            meas = {
+                "heater_room": _make_measurements(
+                    t_room=26.0, hp_mode=HeatPumpMode.COOLING
+                ),
+            }
+            ctrl.step(meas)
+        diag = ctrl.get_diagnostics()
+        assert diag["heater_room"]["split_runtime_minutes"] == pytest.approx(0.0)
+
+    def test_unknown_room_in_auxiliary_type_raises(self) -> None:
+        """room_auxiliary_type with unknown room name raises ValueError."""
+        config = ControllerConfig(kp=5.0, ki=0.0, setpoint=21.0)
+        with pytest.raises(ValueError, match="unknown room names"):
+            PumpAheadController(
+                config,
+                ["room_a"],
+                room_auxiliary_type={"ghost": "heater"},
+            )
+
+    def test_invalid_auxiliary_type_value_raises(self) -> None:
+        """Unsupported value in room_auxiliary_type raises ValueError."""
+        config = ControllerConfig(kp=5.0, ki=0.0, setpoint=21.0)
+        with pytest.raises(ValueError, match="must be 'split' or 'heater'"):
+            PumpAheadController(
+                config,
+                ["room_a"],
+                room_auxiliary_type={"room_a": "turbo"},
+            )

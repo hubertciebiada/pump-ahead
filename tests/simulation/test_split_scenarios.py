@@ -21,6 +21,8 @@ from pumpahead.metrics import (
     assert_no_priority_inversion,
 )
 from pumpahead.scenarios import (
+    bathroom_heater,
+    bathroom_heater_cooling,
     dual_source_cold_snap,
     dual_source_steady_state,
     priority_inversion_stress,
@@ -261,3 +263,165 @@ class TestPriorityInversionStress:
         scenario = priority_inversion_stress()
         log, _ = run_scenario(scenario, None)
         assert_no_opposing_action(log)
+
+
+# ---------------------------------------------------------------------------
+# Bathroom heater (heating-only auxiliary) tests
+# ---------------------------------------------------------------------------
+
+
+_LIVING_ROOMS_20C = [
+    "salon",
+    "kuchnia_jadalnia",
+    "sypialnia",
+    "pokoj_dziecka_1",
+]
+
+
+@pytest.mark.simulation
+class TestBathroomHeater:
+    """Tests for the ``bathroom_heater`` and ``bathroom_heater_cooling``
+    scenarios — heating-only electric heater in the bathroom.
+    """
+
+    def test_bathroom_reaches_24c(
+        self,
+        run_scenario: Callable[
+            [SimScenario, int | None], tuple[SimulationLog, SimMetrics]
+        ],
+    ) -> None:
+        """Bathroom tracks its 24 C override setpoint in the second 24h."""
+        scenario = bathroom_heater()
+        log, _ = run_scenario(scenario, None)
+
+        half = scenario.duration_minutes // 2
+        room_log = log.get_room("lazienka").time_range(
+            half, scenario.duration_minutes
+        )
+        room_cfg = next(r for r in scenario.building.rooms if r.name == "lazienka")
+        metrics = SimMetrics.from_log(
+            room_log,
+            setpoint=24.0,
+            comfort_band=0.7,
+            ufh_max_power_w=room_cfg.ufh_max_power_w,
+            split_power_w=room_cfg.split_power_w,
+        )
+        assert metrics.comfort_pct > 80.0, (
+            f"lazienka: comfort_pct={metrics.comfort_pct:.1f}% below 80% "
+            f"(band=0.7, setpoint=24.0)"
+        )
+
+    def test_living_area_reaches_20c(
+        self,
+        run_scenario: Callable[
+            [SimScenario, int | None], tuple[SimulationLog, SimMetrics]
+        ],
+    ) -> None:
+        """Living-area rooms track the 20 C scenario setpoint."""
+        scenario = bathroom_heater()
+        log, _ = run_scenario(scenario, None)
+
+        half = scenario.duration_minutes // 2
+        for room_name in _LIVING_ROOMS_20C:
+            room_log = log.get_room(room_name).time_range(
+                half, scenario.duration_minutes
+            )
+            room_cfg = next(r for r in scenario.building.rooms if r.name == room_name)
+            metrics = SimMetrics.from_log(
+                room_log,
+                setpoint=20.0,
+                comfort_band=1.0,
+                ufh_max_power_w=room_cfg.ufh_max_power_w,
+                split_power_w=room_cfg.split_power_w,
+            )
+            assert metrics.comfort_pct > 80.0, (
+                f"{room_name}: comfort_pct={metrics.comfort_pct:.1f}% "
+                f"below 80% (band=1.0, setpoint=20.0)"
+            )
+
+    def test_heater_activates_in_heating_mode(
+        self,
+        run_scenario: Callable[
+            [SimScenario, int | None], tuple[SimulationLog, SimMetrics]
+        ],
+    ) -> None:
+        """Heater activates (runtime > 0) but stays below 50% (Axiom #2)."""
+        scenario = bathroom_heater()
+        log, _ = run_scenario(scenario, None)
+
+        room_log = log.get_room("lazienka")
+        room_cfg = next(r for r in scenario.building.rooms if r.name == "lazienka")
+        metrics = SimMetrics.from_log(
+            room_log,
+            setpoint=24.0,
+            ufh_max_power_w=room_cfg.ufh_max_power_w,
+            split_power_w=room_cfg.split_power_w,
+        )
+        assert metrics.split_runtime_pct > 0.0, (
+            "heater never activated during heating — expected > 0% "
+            "runtime while tracking 24 C against 20 C house setpoint"
+        )
+        assert metrics.split_runtime_pct < 50.0, (
+            f"heater runtime {metrics.split_runtime_pct:.1f}% exceeds "
+            f"50% — priority inversion"
+        )
+
+    def test_bathroom_passive_in_cooling_mode(
+        self,
+        run_scenario: Callable[
+            [SimScenario, int | None], tuple[SimulationLog, SimMetrics]
+        ],
+    ) -> None:
+        """Bathroom heater is OFF at every step in cooling mode."""
+        scenario = bathroom_heater_cooling()
+        log, _ = run_scenario(scenario, None)
+
+        room_log = log.get_room("lazienka")
+        off_count = 0
+        total = 0
+        for rec in room_log:
+            total += 1
+            if rec.split_mode == SplitMode.OFF:
+                off_count += 1
+        assert off_count == total, (
+            f"lazienka heater activated in cooling mode: "
+            f"{total - off_count}/{total} records had split_mode != OFF"
+        )
+
+    def test_no_opposing_action_across_modes(
+        self,
+        run_scenario: Callable[
+            [SimScenario, int | None], tuple[SimulationLog, SimMetrics]
+        ],
+    ) -> None:
+        """Heater never opposes the HP mode (Axiom #3) in either scenario."""
+        heating_scenario = bathroom_heater()
+        heating_log, _ = run_scenario(heating_scenario, None)
+        assert_no_opposing_action(heating_log)
+
+        cooling_scenario = bathroom_heater_cooling()
+        cooling_log, _ = run_scenario(cooling_scenario, None)
+        assert_no_opposing_action(cooling_log)
+
+    def test_no_priority_inversion_bathroom_heater(
+        self,
+        run_scenario: Callable[
+            [SimScenario, int | None], tuple[SimulationLog, SimMetrics]
+        ],
+    ) -> None:
+        """Heater runtime below 50% (Axiom #2)."""
+        scenario = bathroom_heater()
+        log, _ = run_scenario(scenario, None)
+        room_log = log.get_room("lazienka")
+        assert_no_priority_inversion(room_log, max_split_pct=50.0)
+
+    def test_floor_temp_safe_bathroom_heater(
+        self,
+        run_scenario: Callable[
+            [SimScenario, int | None], tuple[SimulationLog, SimMetrics]
+        ],
+    ) -> None:
+        """Floor temperature stays within safe bounds (Axioms #4, #5)."""
+        scenario = bathroom_heater()
+        log, _ = run_scenario(scenario, None)
+        assert_floor_temp_safe(log)

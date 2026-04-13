@@ -35,6 +35,7 @@ __all__ = [
     "MODERN_BUNGALOW_ROOMS",
     "heavy_construction",
     "modern_bungalow",
+    "modern_bungalow_with_bathroom_heater",
     "modern_bungalow_with_splits",
     "leaky_old_house",
     "thin_screed",
@@ -419,6 +420,97 @@ def modern_bungalow_with_splits() -> BuildingParams:
 
 
 # ---------------------------------------------------------------------------
+# modern_bungalow_with_bathroom_heater — heating-only electric heater variant
+# ---------------------------------------------------------------------------
+#
+# The real bathroom (lazienka) has a 300 W electric towel rail / resistive
+# heater intended to cover peak heating demand when UFH alone is too slow
+# to track the 24 °C setpoint against the 20 °C house-wide target.  This
+# profile mirrors the real wiring: only ``lazienka`` is modified, gaining a
+# ``has_split=True`` auxiliary that is actually a heating-only source
+# (``auxiliary_type="heater"``, ``ufh_cooling_max_power_w=0.0``).  All other
+# rooms are identical to ``modern_bungalow``.
+
+
+_BATHROOM_HEATER_POWER_W = 300.0
+
+
+def _lazienka_with_heater(room: RoomConfig) -> RoomConfig:
+    """Return a copy of ``room`` with a 300 W heating-only heater.
+
+    Only the ``lazienka`` room is modified.  The new RoomConfig has
+    ``has_split=True`` (to reuse the SplitCoordinator pipeline),
+    ``split_power_w=300.0`` W, ``auxiliary_type="heater"`` and
+    ``ufh_cooling_max_power_w=0.0`` (heater rooms must not cool).
+    The underlying ``RCParams`` is rebuilt with ``has_split=True``.
+
+    Args:
+        room: Source room configuration.
+
+    Returns:
+        Modified ``RoomConfig`` when ``room.name == "lazienka"``,
+        otherwise returns the input unchanged.
+    """
+    if room.name != "lazienka":
+        return room
+    p = room.params
+    params_with_split = RCParams(
+        C_air=p.C_air,
+        C_slab=p.C_slab,
+        C_wall=p.C_wall,
+        R_sf=p.R_sf,
+        R_wi=p.R_wi,
+        R_wo=p.R_wo,
+        R_ve=p.R_ve,
+        R_ins=p.R_ins,
+        f_conv=p.f_conv,
+        f_rad=p.f_rad,
+        T_ground=p.T_ground,
+        has_split=True,
+    )
+    return RoomConfig(
+        name=room.name,
+        area_m2=room.area_m2,
+        params=params_with_split,
+        windows=room.windows,
+        has_split=True,
+        split_power_w=_BATHROOM_HEATER_POWER_W,
+        ufh_max_power_w=room.ufh_max_power_w,
+        ufh_cooling_max_power_w=0.0,
+        ufh_loops=room.ufh_loops,
+        q_int_w=room.q_int_w,
+        auxiliary_type="heater",
+    )
+
+
+def modern_bungalow_with_bathroom_heater() -> BuildingParams:
+    """Modern bungalow variant with a 300 W electric heater in the bathroom.
+
+    Identical thermal envelope to ``modern_bungalow``, except that
+    ``lazienka`` gains a heating-only electric resistive heater
+    (``auxiliary_type="heater"``, 300 W).  The heater reuses the
+    ``SplitCoordinator`` pipeline but the controller forces
+    ``SplitMode.OFF`` for heater rooms in cooling mode so the heater
+    never opposes the HP mode (Axiom #3).  Bathroom floor cooling is
+    disabled (``ufh_cooling_max_power_w=0.0``) consistent with the
+    real wiring.
+
+    All other 12 rooms are identical to ``modern_bungalow``.
+
+    Returns:
+        Validated ``BuildingParams`` with 13 rooms (lazienka with
+        heating-only heater, all others UFH-only).
+    """
+    rooms = tuple(_lazienka_with_heater(r) for r in MODERN_BUNGALOW_ROOMS)
+    return BuildingParams(
+        rooms=rooms,
+        hp_max_power_w=_BUNGALOW_HP_MAX_W,
+        latitude=_BUNGALOW_LAT,
+        longitude=_BUNGALOW_LON,
+    )
+
+
+# ---------------------------------------------------------------------------
 # well_insulated — modern passive-house-like single room
 # ---------------------------------------------------------------------------
 
@@ -624,6 +716,7 @@ def heavy_construction() -> BuildingParams:
 BUILDING_PROFILES: dict[str, Callable[[], BuildingParams]] = {
     "modern_bungalow": modern_bungalow,
     "modern_bungalow_with_splits": modern_bungalow_with_splits,
+    "modern_bungalow_with_bathroom_heater": modern_bungalow_with_bathroom_heater,
     "well_insulated": well_insulated,
     "leaky_old_house": leaky_old_house,
     "thin_screed": thin_screed,

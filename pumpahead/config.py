@@ -19,7 +19,7 @@ Units:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
 from pumpahead.model import RCParams
@@ -90,6 +90,16 @@ class RoomConfig:
             cooling capability).
         ufh_loops: Number of UFH loops (must be >= 1).
         q_int_w: Internal heat gains [W] (must be >= 0).
+        auxiliary_type: Type of the auxiliary heat source.  ``"split"``
+            (default) models a reversible split/AC unit that can heat
+            or cool depending on the HP mode.  ``"heater"`` models a
+            heating-only source (e.g. an electric resistive heater) and
+            is only active in heating mode — the controller forces
+            ``SplitMode.OFF`` in cooling mode regardless of error.
+            ``"heater"`` requires ``has_split=True`` (to reuse the
+            ``SplitCoordinator`` pipeline) and
+            ``ufh_cooling_max_power_w == 0.0`` (heater rooms must not
+            cool via the floor either).
     """
 
     name: str
@@ -102,6 +112,7 @@ class RoomConfig:
     ufh_cooling_max_power_w: float = 0.0
     ufh_loops: int = 1
     q_int_w: float = 0.0
+    auxiliary_type: Literal["split", "heater"] = "split"
 
     def __post_init__(self) -> None:
         """Validate room configuration.
@@ -147,6 +158,27 @@ class RoomConfig:
                 f"RCParams.has_split ({self.params.has_split})"
             )
             raise ValueError(msg)
+        allowed_aux = ("split", "heater")
+        if self.auxiliary_type not in allowed_aux:
+            msg = (
+                f"auxiliary_type must be one of {allowed_aux}, "
+                f"got '{self.auxiliary_type}'"
+            )
+            raise ValueError(msg)
+        if self.auxiliary_type == "heater":
+            if not self.has_split:
+                msg = (
+                    "auxiliary_type='heater' requires has_split=True "
+                    "(heater rooms reuse the split coordinator pipeline)"
+                )
+                raise ValueError(msg)
+            if self.ufh_cooling_max_power_w != 0.0:
+                msg = (
+                    f"auxiliary_type='heater' requires "
+                    f"ufh_cooling_max_power_w=0.0, "
+                    f"got {self.ufh_cooling_max_power_w}"
+                )
+                raise ValueError(msg)
 
 
 # ---------------------------------------------------------------------------
@@ -374,6 +406,10 @@ class SimScenario:
         cwu_schedule: CWU interrupt schedule entries.
         sensor_noise_std: Sensor noise standard deviation [K] (must be >= 0).
         description: Human-readable description for reporting (default "").
+        room_overrides: Optional per-room ``ControllerConfig`` overrides.
+            Keys must match room names in ``building.rooms``.  Rooms not
+            listed use the scenario-level ``controller`` configuration.
+            Empty dict by default.
     """
 
     name: str
@@ -386,6 +422,7 @@ class SimScenario:
     cwu_schedule: tuple[CWUCycle, ...] = ()
     sensor_noise_std: float = 0.0
     description: str = ""
+    room_overrides: dict[str, ControllerConfig] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         """Validate scenario parameters.
@@ -411,3 +448,20 @@ class SimScenario:
         if self.mode not in allowed_modes:
             msg = f"mode must be one of {allowed_modes}, got '{self.mode}'"
             raise ValueError(msg)
+        if self.room_overrides:
+            known = {r.name for r in self.building.rooms}
+            unknown = set(self.room_overrides.keys()) - known
+            if unknown:
+                msg = (
+                    f"room_overrides contains unknown room names: "
+                    f"{sorted(unknown)}"
+                )
+                raise ValueError(msg)
+            for room_name, override in self.room_overrides.items():
+                if not isinstance(override, ControllerConfig):
+                    msg = (
+                        f"room_overrides[{room_name!r}] must be a "
+                        f"ControllerConfig, got "
+                        f"{type(override).__name__}"
+                    )
+                    raise ValueError(msg)
