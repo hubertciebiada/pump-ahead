@@ -295,9 +295,7 @@ class TestBathroomHeater:
         log, _ = run_scenario(scenario, None)
 
         half = scenario.duration_minutes // 2
-        room_log = log.get_room("lazienka").time_range(
-            half, scenario.duration_minutes
-        )
+        room_log = log.get_room("lazienka").time_range(half, scenario.duration_minutes)
         room_cfg = next(r for r in scenario.building.rooms if r.name == "lazienka")
         metrics = SimMetrics.from_log(
             room_log,

@@ -288,9 +288,7 @@ class TestRoomConfig:
 
     def test_auxiliary_type_heater_with_cooling_raises(self) -> None:
         """``"heater"`` with nonzero cooling power raises ValueError."""
-        with pytest.raises(
-            ValueError, match="requires ufh_cooling_max_power_w=0.0"
-        ):
+        with pytest.raises(ValueError, match="requires ufh_cooling_max_power_w=0.0"):
             RoomConfig(
                 name="bad_room",
                 area_m2=20.0,
@@ -638,9 +636,7 @@ class TestSimScenario:
     def test_room_overrides_valid(self) -> None:
         """Valid room_overrides referencing an existing room is accepted."""
         override = ControllerConfig(setpoint=24.0)
-        scenario = self._make_scenario(
-            room_overrides={"living_room": override}
-        )
+        scenario = self._make_scenario(room_overrides={"living_room": override})
         assert scenario.room_overrides["living_room"].setpoint == 24.0
 
     def test_room_overrides_unknown_room_raises(self) -> None:

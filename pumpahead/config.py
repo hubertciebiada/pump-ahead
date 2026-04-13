@@ -452,10 +452,7 @@ class SimScenario:
             known = {r.name for r in self.building.rooms}
             unknown = set(self.room_overrides.keys()) - known
             if unknown:
-                msg = (
-                    f"room_overrides contains unknown room names: "
-                    f"{sorted(unknown)}"
-                )
+                msg = f"room_overrides contains unknown room names: {sorted(unknown)}"
                 raise ValueError(msg)
             for room_name, override in self.room_overrides.items():
                 if not isinstance(override, ControllerConfig):

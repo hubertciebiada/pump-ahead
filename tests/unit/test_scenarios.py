@@ -551,9 +551,7 @@ class TestParametricSweeps:
         assert heating.duration_minutes == 2880
         assert "lazienka" in heating.room_overrides
         assert heating.room_overrides["lazienka"].setpoint == 24.0
-        lazienka = next(
-            r for r in heating.building.rooms if r.name == "lazienka"
-        )
+        lazienka = next(r for r in heating.building.rooms if r.name == "lazienka")
         assert lazienka.auxiliary_type == "heater"
         assert lazienka.has_split is True
         assert lazienka.split_power_w == 300.0

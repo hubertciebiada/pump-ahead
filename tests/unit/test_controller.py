@@ -917,9 +917,7 @@ class TestPumpAheadControllerHeaterAuxiliary:
 
     def test_heater_passive_in_cooling_mode(self) -> None:
         """Heater room is SplitMode.OFF in cooling, split room cools normally."""
-        config = ControllerConfig(
-            kp=5.0, ki=0.0, setpoint=24.0, split_deadband=0.5
-        )
+        config = ControllerConfig(kp=5.0, ki=0.0, setpoint=24.0, split_deadband=0.5)
         ctrl = PumpAheadController(
             config,
             ["heater_room", "split_room"],
@@ -935,9 +933,7 @@ class TestPumpAheadControllerHeaterAuxiliary:
             "heater_room": _make_measurements(
                 t_room=26.0, hp_mode=HeatPumpMode.COOLING
             ),
-            "split_room": _make_measurements(
-                t_room=26.0, hp_mode=HeatPumpMode.COOLING
-            ),
+            "split_room": _make_measurements(t_room=26.0, hp_mode=HeatPumpMode.COOLING),
         }
         actions = ctrl.step(meas)
         # Heater room is passive — no split action.
@@ -948,9 +944,7 @@ class TestPumpAheadControllerHeaterAuxiliary:
 
     def test_heater_activates_in_heating_mode(self) -> None:
         """Heater room activates normally in heating mode (no short-circuit)."""
-        config = ControllerConfig(
-            kp=5.0, ki=0.0, setpoint=24.0, split_deadband=0.5
-        )
+        config = ControllerConfig(kp=5.0, ki=0.0, setpoint=24.0, split_deadband=0.5)
         ctrl = PumpAheadController(
             config,
             ["heater_room"],
@@ -968,9 +962,7 @@ class TestPumpAheadControllerHeaterAuxiliary:
 
     def test_heater_runtime_window_not_contaminated_in_cooling(self) -> None:
         """Cooling-mode short-circuit does not accumulate split runtime."""
-        config = ControllerConfig(
-            kp=5.0, ki=0.0, setpoint=24.0, split_deadband=0.5
-        )
+        config = ControllerConfig(kp=5.0, ki=0.0, setpoint=24.0, split_deadband=0.5)
         ctrl = PumpAheadController(
             config,
             ["heater_room"],
