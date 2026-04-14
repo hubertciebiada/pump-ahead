@@ -143,6 +143,9 @@ def climate_mocks() -> Any:  # noqa: C901
         async def async_config_entry_first_refresh(self) -> None:
             pass
 
+        def async_set_updated_data(self, data: Any) -> None:
+            self.data = data
+
     ha_helpers_update_coordinator.DataUpdateCoordinator = _FakeDataUpdateCoordinator  # type: ignore[attr-defined]
 
     class _FakeCoordinatorEntity:
@@ -852,6 +855,8 @@ class TestAsyncSetTemperature:
         )
         asyncio.run(entity.async_set_temperature(temperature=23.5))
         assert entity.target_temperature == 23.5
+        # Round-trip: coordinator dict must reflect the new setpoint.
+        assert coordinator.get_room_setpoint("Living Room") == 23.5
 
     @pytest.mark.unit
     def test_set_temperature_no_op_when_none(self, climate_mocks: Any) -> None:
@@ -865,6 +870,53 @@ class TestAsyncSetTemperature:
         )
         asyncio.run(entity.async_set_temperature())
         assert entity.target_temperature == 21.0  # unchanged default
+
+    @pytest.mark.unit
+    def test_set_temperature_propagates_to_coordinator_dict(
+        self, climate_mocks: Any
+    ) -> None:
+        """async_set_temperature must push into coordinator._room_setpoints."""
+        coordinator = _make_coordinator_with_data(climate_mocks)
+        entity = climate_mocks.PumpAheadClimateEntity(
+            coordinator=coordinator,
+            entry_id="test_entry",
+            room_name="Living Room",
+            has_split=False,
+        )
+        asyncio.run(entity.async_set_temperature(temperature=22.5))
+        assert coordinator._room_setpoints["Living Room"] == 22.5
+
+    @pytest.mark.unit
+    def test_target_temperature_reflects_coordinator_changes(
+        self, climate_mocks: Any
+    ) -> None:
+        """Entity target_temperature must reflect external coordinator updates."""
+        coordinator = _make_coordinator_with_data(climate_mocks)
+        entity = climate_mocks.PumpAheadClimateEntity(
+            coordinator=coordinator,
+            entry_id="test_entry",
+            room_name="Living Room",
+            has_split=False,
+        )
+        assert entity.target_temperature == 21.0
+        # Another actor (e.g. service call, future restore) writes to the
+        # coordinator directly.
+        coordinator.set_room_setpoint("Living Room", 19.5)
+        assert entity.target_temperature == 19.5
+
+    @pytest.mark.unit
+    def test_target_temperature_fallback_for_unknown_room(
+        self, climate_mocks: Any
+    ) -> None:
+        """Entity for an unknown room name must fall back to DEFAULT_SETPOINT."""
+        coordinator = _make_coordinator_with_data(climate_mocks)
+        entity = climate_mocks.PumpAheadClimateEntity(
+            coordinator=coordinator,
+            entry_id="test_entry",
+            room_name="Nonexistent Room",
+            has_split=False,
+        )
+        assert entity.target_temperature == 21.0
 
 
 # ---------------------------------------------------------------------------
