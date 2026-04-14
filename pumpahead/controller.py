@@ -258,6 +258,8 @@ class PumpAheadController:
                 )
                 raise ValueError(msg)
         self._step_count: int = 0
+        self._cwu_pre_charge_active: bool = False
+        self._cwu_split_blocked: bool = False
         self._mode = mode
 
         # Mode controller for auto-switching
@@ -500,6 +502,8 @@ class PumpAheadController:
         if self._mode_controller is not None:
             self._mode_controller.reset()
         self._step_count = 0
+        self._cwu_pre_charge_active = False
+        self._cwu_split_blocked = False
 
     def get_diagnostics(self) -> dict[str, dict[str, float]]:
         """Return per-room diagnostic information.
@@ -539,10 +543,8 @@ class PumpAheadController:
                 )
             if self._cwu_coordinator is not None:
                 diag["cwu_pre_charge_active"] = (
-                    1.0 if getattr(self, "_cwu_pre_charge_active", False) else 0.0
+                    1.0 if self._cwu_pre_charge_active else 0.0
                 )
-                diag["cwu_split_blocked"] = (
-                    1.0 if getattr(self, "_cwu_split_blocked", False) else 0.0
-                )
+                diag["cwu_split_blocked"] = 1.0 if self._cwu_split_blocked else 0.0
             result[name] = diag
         return result
