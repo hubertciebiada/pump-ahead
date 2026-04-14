@@ -16,6 +16,8 @@ when a constraint is violated:
     - ``assert_no_priority_inversion`` — split runtime below threshold
     - ``assert_no_opposing_action`` — no split opposing the HP mode
     - ``assert_energy_vs_baseline`` — energy not exceeding baseline
+    - ``assert_no_freezing`` — no room ever drops below a hard minimum
+    - ``assert_no_prolonged_cold`` — no room stays cold for too long
 
 Units follow the simulation convention:
     Temperatures: degC
@@ -31,7 +33,7 @@ from __future__ import annotations
 from dataclasses import dataclass, fields
 
 from pumpahead.dew_point import dew_point as _dew_point
-from pumpahead.simulation_log import SimulationLog
+from pumpahead.simulation_log import SimRecord, SimulationLog
 from pumpahead.simulator import HeatPumpMode, SplitMode
 
 # ---------------------------------------------------------------------------
@@ -550,3 +552,120 @@ def assert_energy_vs_baseline(
             f"(max allowed: {max_increase:.1%})"
         )
         raise AssertionError(msg)
+
+
+def assert_no_freezing(
+    log: SimulationLog,
+    *,
+    hard_min: float = 16.0,
+) -> None:
+    """Assert that no room ever drops below ``hard_min`` degC.
+
+    Hard-fail comfort assertion: a single record with
+    ``T_room < hard_min`` is enough to fail.  Multi-room aware -- every
+    record is checked regardless of ``room_name``, so an interleaved
+    multi-room log is handled correctly.
+
+    Empty logs pass silently (matches ``assert_floor_temp_safe``).
+
+    Args:
+        log: Simulation log to check.
+        hard_min: Hard minimum room temperature [degC].  Default 16.0.
+
+    Raises:
+        AssertionError: On the first record where
+            ``T_room < hard_min``.  The diagnostic message includes the
+            room name, simulation time, temperature, and threshold.
+    """
+    for rec in log:
+        if rec.T_room < hard_min:
+            room_label = rec.room_name if rec.room_name else "<unnamed>"
+            msg = (
+                f"assert_no_freezing: T_room={rec.T_room:.2f} degC "
+                f"< hard_min={hard_min:.2f} degC "
+                f"in room '{room_label}' at t={rec.t} min"
+            )
+            raise AssertionError(msg)
+
+
+def _raise_prolonged_cold(
+    room_name: str,
+    run_start_t: int,
+    duration: int,
+    min_temp: float,
+    threshold: float,
+    max_duration_minutes: int,
+) -> None:
+    """Raise ``AssertionError`` for a prolonged cold-run violation."""
+    room_label = room_name if room_name else "<unnamed>"
+    msg = (
+        f"assert_no_prolonged_cold: room '{room_label}' stayed below "
+        f"{threshold:.2f} degC for {duration} min "
+        f"(max allowed: {max_duration_minutes} min) "
+        f"starting at t={run_start_t} min, "
+        f"reaching min T_room={min_temp:.2f} degC"
+    )
+    raise AssertionError(msg)
+
+
+def assert_no_prolonged_cold(
+    log: SimulationLog,
+    *,
+    threshold: float = 18.0,
+    max_duration_minutes: int = 1440,
+) -> None:
+    """Assert no room stays below ``threshold`` for more than ``max_duration_minutes``.
+
+    A "cold run" is a maximal contiguous block of records (per room)
+    where ``T_room < threshold``.  The duration of a run is the
+    difference in ``rec.t`` between the last and first records of the
+    block.  A run resets the moment a record meets or exceeds the
+    threshold.
+
+    Multi-room aware: records are grouped by ``room_name`` and each
+    room's chronological sequence is scanned independently.  The check
+    raises on the first room/run that exceeds ``max_duration_minutes``.
+
+    Empty logs pass silently.
+
+    Args:
+        log: Simulation log to check.
+        threshold: Cold-run temperature ceiling [degC].  A record with
+            ``T_room < threshold`` extends the current cold run.
+            Default 18.0.
+        max_duration_minutes: Maximum allowed cold-run duration
+            [minutes].  Default 1440 (24 hours).
+
+    Raises:
+        AssertionError: On the first cold run whose duration strictly
+            exceeds ``max_duration_minutes``.  The diagnostic message
+            includes the room name, run start time, duration, and the
+            minimum temperature reached during the run.
+    """
+    by_room: dict[str, list[SimRecord]] = {}
+    for rec in log:
+        by_room.setdefault(rec.room_name, []).append(rec)
+
+    for room_name, records in by_room.items():
+        run_start_t: int | None = None
+        run_min_temp = float("inf")
+        for rec in records:
+            if rec.T_room < threshold:
+                if run_start_t is None:
+                    run_start_t = rec.t
+                    run_min_temp = rec.T_room
+                elif rec.T_room < run_min_temp:
+                    run_min_temp = rec.T_room
+                duration = rec.t - run_start_t
+                if duration > max_duration_minutes:
+                    _raise_prolonged_cold(
+                        room_name,
+                        run_start_t,
+                        duration,
+                        run_min_temp,
+                        threshold,
+                        max_duration_minutes,
+                    )
+            else:
+                run_start_t = None
+                run_min_temp = float("inf")

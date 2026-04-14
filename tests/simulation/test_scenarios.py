@@ -25,7 +25,9 @@ from pumpahead.config import SimScenario
 from pumpahead.metrics import (
     SimMetrics,
     assert_floor_temp_safe,
+    assert_no_freezing,
     assert_no_opposing_action,
+    assert_no_prolonged_cold,
 )
 from pumpahead.scenarios import PARAMETRIC_SWEEPS, SCENARIO_LIBRARY
 from pumpahead.simulation_log import SimulationLog
@@ -124,6 +126,36 @@ class TestScenarioSimulation:
         first_room = scenario.building.rooms[0].name
         assert_no_opposing_action(log.get_room(first_room))
 
+    @pytest.mark.parametrize("scenario_name", FAST_SCENARIOS)
+    def test_scenario_no_freezing_or_prolonged_cold(
+        self,
+        scenario_name: str,
+        run_scenario: Callable[
+            [SimScenario, int | None], tuple[SimulationLog, SimMetrics]
+        ],
+    ) -> None:
+        """No room ever freezes (T<16) or stays below 18 degC for >24h.
+
+        ``extreme_cold`` (leaky_old_house) is the control case — it is
+        expected to violate one of the assertions, so it is wrapped in
+        ``pytest.raises``.  Cooling-mode scenarios are skipped (the
+        assertions are heating-only by intent).
+        """
+        scenario = SCENARIO_LIBRARY[scenario_name]()
+        log, _metrics = run_scenario(scenario)
+
+        if scenario_name == "extreme_cold":
+            with pytest.raises(AssertionError):
+                assert_no_freezing(log)
+                assert_no_prolonged_cold(log)
+            return
+
+        if scenario.mode == "cooling":
+            return
+
+        assert_no_freezing(log)
+        assert_no_prolonged_cold(log)
+
     @pytest.mark.parametrize("scenario_name", FAST_SCENARIOS[:2])
     def test_scenario_deterministic(
         self,
@@ -181,6 +213,29 @@ class TestSlowScenarios:
         # Generate plot for the first room
         first_room = scenario.building.rooms[0].name
         save_scenario_plot(log, scenario_name, first_room, scenario.controller.setpoint)
+
+    @pytest.mark.parametrize("scenario_name", SLOW_SCENARIOS)
+    def test_slow_scenario_no_freezing_or_prolonged_cold(
+        self,
+        scenario_name: str,
+        run_scenario: Callable[
+            [SimScenario, int | None], tuple[SimulationLog, SimMetrics]
+        ],
+    ) -> None:
+        """No room ever freezes (T<16) or stays below 18 degC for >24h.
+
+        Slow tier is capped at 4320 minutes (3 days) for CI feasibility.
+        Cooling-mode scenarios (e.g. ``hot_july``) are skipped — these
+        assertions are heating-only by intent.
+        """
+        scenario = SCENARIO_LIBRARY[scenario_name]()
+        log, _metrics = run_scenario(scenario, max_steps=4320)
+
+        if scenario.mode == "cooling":
+            return
+
+        assert_no_freezing(log)
+        assert_no_prolonged_cold(log)
 
 
 # ---------------------------------------------------------------------------
