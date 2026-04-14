@@ -464,6 +464,7 @@ class PumpAheadController:
                         error=split_error,
                         setpoint=cfg.setpoint,
                         hp_mode=hp_mode,
+                        room_name=name,
                     )
                     split_mode = decision.split_mode
                     split_setpoint = decision.split_setpoint
