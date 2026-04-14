@@ -160,7 +160,11 @@ from pumpahead.solar_gti import (
     erbs_decomposition,
     extraterrestrial_horizontal,
 )
-from pumpahead.split_coordinator import SplitCoordinator, SplitDecision
+from pumpahead.split_coordinator import (
+    SafetyViolationError,
+    SplitCoordinator,
+    SplitDecision,
+)
 from pumpahead.visualization import (
     generate_plots,
     plot_dashboard,
@@ -279,6 +283,7 @@ __all__ = [
     "SafetyEvaluator",
     "SafetyRule",
     "SafetyRuleResult",
+    "SafetyViolationError",
     "SafetyYAMLConfig",
     "SensorNoise",
     "SensorSnapshot",

@@ -10,7 +10,11 @@ import pytest
 
 from pumpahead.config import ControllerConfig
 from pumpahead.simulator import HeatPumpMode, SplitMode
-from pumpahead.split_coordinator import SplitCoordinator, SplitDecision
+from pumpahead.split_coordinator import (
+    SafetyViolationError,
+    SplitCoordinator,
+    SplitDecision,
+)
 
 # ---------------------------------------------------------------------------
 # SplitDecision tests
@@ -326,3 +330,106 @@ class TestSplitCoordinatorReset:
         coordinator.reset()
         assert coordinator.split_runtime_minutes == 0
         assert coordinator.anti_takeover_active is False
+
+
+# ---------------------------------------------------------------------------
+# Axiom #3 safety violation tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestSafetyViolation:
+    """Axiom #3 safety enforcement via SafetyViolationError.
+
+    These tests exercise the private ``_check_axiom3`` helper directly
+    because the public ``decide()`` control flow currently makes the
+    violation path unreachable. The whole point of the explicit raise
+    is to fail loud if a future refactor introduces a regression, so
+    we test the safety helper in isolation to guarantee it raises.
+    """
+
+    def test_safety_violation_error_is_runtime_error(self) -> None:
+        """SafetyViolationError must inherit from RuntimeError.
+
+        Acceptance criteria require the safety check to raise a
+        RuntimeError (or subclass) so generic ``except RuntimeError``
+        catches still trap it.
+        """
+        assert issubclass(SafetyViolationError, RuntimeError)
+
+    def test_safety_violation_raised_when_split_cools_in_heating_mode(
+        self,
+    ) -> None:
+        """Split COOLING while HP HEATING raises SafetyViolationError."""
+        coordinator = SplitCoordinator(ControllerConfig())
+        with pytest.raises(SafetyViolationError, match=r"bedroom.*COOL.*HEATING"):
+            coordinator._check_axiom3(
+                HeatPumpMode.HEATING, SplitMode.COOLING, "bedroom"
+            )
+
+    def test_safety_violation_raised_when_split_heats_in_cooling_mode(
+        self,
+    ) -> None:
+        """Split HEATING while HP COOLING raises SafetyViolationError."""
+        coordinator = SplitCoordinator(ControllerConfig())
+        with pytest.raises(SafetyViolationError, match=r"bedroom.*HEAT.*COOLING"):
+            coordinator._check_axiom3(
+                HeatPumpMode.COOLING, SplitMode.HEATING, "bedroom"
+            )
+
+    def test_safety_violation_message_includes_room_name(self) -> None:
+        """Diagnostic message includes the room name for actionability."""
+        coordinator = SplitCoordinator(ControllerConfig())
+        with pytest.raises(SafetyViolationError) as exc_info:
+            coordinator._check_axiom3(
+                HeatPumpMode.HEATING, SplitMode.COOLING, "living_room"
+            )
+        message = str(exc_info.value)
+        assert "living_room" in message
+        assert "HEATING" in message
+        assert "COOLING" in message
+
+    def test_safety_violation_message_uses_unknown_when_room_name_none(
+        self,
+    ) -> None:
+        """When room_name is None, the diagnostic message uses '<unknown>'."""
+        coordinator = SplitCoordinator(ControllerConfig())
+        with pytest.raises(SafetyViolationError) as exc_info:
+            coordinator._check_axiom3(HeatPumpMode.COOLING, SplitMode.HEATING, None)
+        assert "<unknown>" in str(exc_info.value)
+
+    @pytest.mark.parametrize(
+        ("hp_mode", "split_mode"),
+        [
+            (HeatPumpMode.HEATING, SplitMode.HEATING),
+            (HeatPumpMode.COOLING, SplitMode.COOLING),
+            (HeatPumpMode.HEATING, SplitMode.OFF),
+            (HeatPumpMode.COOLING, SplitMode.OFF),
+            (HeatPumpMode.OFF, SplitMode.OFF),
+        ],
+    )
+    def test_safety_violation_no_raise_for_valid_combinations(
+        self,
+        hp_mode: HeatPumpMode,
+        split_mode: SplitMode,
+    ) -> None:
+        """Valid (non-opposing) mode combinations do not raise."""
+        coordinator = SplitCoordinator(ControllerConfig())
+        # Should return None without raising
+        coordinator._check_axiom3(hp_mode, split_mode, "bedroom")
+
+    def test_decide_accepts_room_name_kwarg(self) -> None:
+        """decide() accepts the new optional room_name keyword argument.
+
+        Backward compatibility: existing call sites without room_name
+        still work, and the new keyword can be passed through.
+        """
+        config = ControllerConfig(split_deadband=0.5)
+        coordinator = SplitCoordinator(config)
+        decision = coordinator.decide(
+            error=1.0,
+            setpoint=21.0,
+            hp_mode=HeatPumpMode.HEATING,
+            room_name="bedroom",
+        )
+        assert decision.split_mode == SplitMode.HEATING

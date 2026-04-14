@@ -32,6 +32,20 @@ from pumpahead.config import ControllerConfig
 from pumpahead.simulator import HeatPumpMode, SplitMode
 
 
+class SafetyViolationError(RuntimeError):
+    """Raised when a hard safety axiom would be violated.
+
+    Inherits from :class:`RuntimeError` so existing catch-alls still trap
+    it, but the dedicated type lets safety logic be distinguished from
+    generic runtime errors. Used by :class:`SplitCoordinator` to enforce
+    Axiom #3 (split never opposes HP mode).
+
+    Unlike ``assert`` statements, raising this error survives running
+    Python with the ``-O`` (optimize) flag, so the safety check cannot be
+    silently stripped from production deployments.
+    """
+
+
 @dataclass(frozen=True)
 class SplitDecision:
     """Immutable result of a split coordination decision.
@@ -119,6 +133,7 @@ class SplitCoordinator:
         error: float,
         setpoint: float,
         hp_mode: HeatPumpMode,
+        room_name: str | None = None,
     ) -> SplitDecision:
         """Decide split action based on error, setpoint, and HP mode.
 
@@ -139,9 +154,19 @@ class SplitCoordinator:
                 Positive means room is below setpoint.
             setpoint: Room setpoint temperature [degC].
             hp_mode: Current heat pump operating mode.
+            room_name: Optional room identifier used for diagnostic
+                messages when an Axiom #3 safety violation is detected.
+                When ``None`` the diagnostic message uses
+                ``'<unknown>'``.
 
         Returns:
             A frozen ``SplitDecision`` with the recommended action.
+
+        Raises:
+            SafetyViolationError: If the chosen split mode would
+                oppose the heat pump mode (Axiom #3 violation). This
+                check is enforced via an explicit ``raise`` rather
+                than ``assert`` so it survives ``python -O``.
         """
         cfg = self._config
 
@@ -183,13 +208,9 @@ class SplitCoordinator:
         if not should_activate:
             return SplitDecision(split_mode=SplitMode.OFF)
 
-        # Safety assertion: split mode must match HP mode direction
-        assert not (
-            hp_mode == HeatPumpMode.HEATING and split_mode == SplitMode.COOLING
-        ), "Split COOLING while HP HEATING — Axiom #3 violation"
-        assert not (
-            hp_mode == HeatPumpMode.COOLING and split_mode == SplitMode.HEATING
-        ), "Split HEATING while HP COOLING — Axiom #3 violation"
+        # Axiom #3: split mode must never oppose HP mode. Enforced via
+        # an explicit raise so the check is NOT stripped under python -O.
+        self._check_axiom3(hp_mode, split_mode, room_name)
 
         return SplitDecision(
             split_mode=split_mode,
@@ -199,3 +220,41 @@ class SplitCoordinator:
     def reset(self) -> None:
         """Clear the runtime sliding window."""
         self._runtime_window.clear()
+
+    # -- Internal helpers -----------------------------------------------------
+
+    def _check_axiom3(
+        self,
+        hp_mode: HeatPumpMode,
+        split_mode: SplitMode,
+        room_name: str | None,
+    ) -> None:
+        """Enforce Axiom #3 (split never opposes HP mode).
+
+        Args:
+            hp_mode: Current heat pump operating mode.
+            split_mode: Proposed split unit operating mode.
+            room_name: Optional room identifier used to make the
+                diagnostic message actionable. ``None`` is rendered
+                as ``'<unknown>'``.
+
+        Raises:
+            SafetyViolationError: If the split mode would oppose the
+                heat pump mode. Always raises explicitly (never via
+                ``assert``) so the check survives ``python -O``.
+        """
+        room_label = room_name if room_name is not None else "<unknown>"
+        if hp_mode == HeatPumpMode.HEATING and split_mode == SplitMode.COOLING:
+            msg = (
+                f"Axiom #3 violation in room {room_label!r}: split would COOL "
+                f"while heat pump is in HEATING mode "
+                f"(hp_mode={hp_mode.name}, split_mode={split_mode.name})"
+            )
+            raise SafetyViolationError(msg)
+        if hp_mode == HeatPumpMode.COOLING and split_mode == SplitMode.HEATING:
+            msg = (
+                f"Axiom #3 violation in room {room_label!r}: split would HEAT "
+                f"while heat pump is in COOLING mode "
+                f"(hp_mode={hp_mode.name}, split_mode={split_mode.name})"
+            )
+            raise SafetyViolationError(msg)
