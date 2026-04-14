@@ -151,6 +151,44 @@ class PumpAheadCoordinator(DataUpdateCoordinator[PumpAheadCoordinatorData]):
                 dt=UPDATE_INTERVAL_MINUTES * 60.0,
             )
 
+        # Per-room target temperatures (single source of truth).
+        # Climate entity writes via ``set_room_setpoint``; shadow PID and
+        # split coordinator read via ``get_room_setpoint`` / the value
+        # mirrored into ``RoomSensorData.setpoint`` on every update.
+        self._room_setpoints: dict[str, float] = {
+            room_cfg[CONF_ROOM_NAME]: DEFAULT_SETPOINT
+            for room_cfg in self._room_configs
+        }
+
+    # -- Per-room setpoint accessors ----------------------------------------
+
+    def get_room_setpoint(self, room_name: str) -> float:
+        """Return the current target temperature for a room.
+
+        Falls back to :data:`DEFAULT_SETPOINT` for unknown rooms so that a
+        missing or yet-to-be-registered climate entity still has a sane
+        value.
+        """
+        return self._room_setpoints.get(room_name, DEFAULT_SETPOINT)
+
+    def set_room_setpoint(self, room_name: str, value: float) -> None:
+        """Update the target temperature for a room.
+
+        Called by ``PumpAheadClimateEntity.async_set_temperature``.
+        Rebroadcasts the cached data to listeners so that downstream
+        entities see the new target immediately, before the next 5 min
+        coordinator refresh.
+        """
+        self._room_setpoints[room_name] = float(value)
+        if self.data is not None:
+            # Mirror the new setpoint into the cached RoomSensorData so
+            # readers that bypass the accessor (e.g. direct dict access
+            # in tests) also see the updated value.
+            room_data = self.data.rooms.get(room_name)
+            if room_data is not None:
+                room_data.setpoint = float(value)
+            self.async_set_updated_data(self.data)
+
     # -- Update -------------------------------------------------------------
 
     async def _async_update_data(self) -> PumpAheadCoordinatorData:
@@ -166,6 +204,7 @@ class PumpAheadCoordinator(DataUpdateCoordinator[PumpAheadCoordinatorData]):
                 valve_pos=self._read_float_state(room_cfg.get(CONF_ENTITY_VALVE)),
                 humidity=self._read_float_state(room_cfg.get(CONF_ENTITY_HUMIDITY)),
                 live_control_enabled=is_live,
+                setpoint=self._room_setpoints.get(room_name, DEFAULT_SETPOINT),
             )
 
         T_outdoor = self._read_float_state(self._outdoor_entity)
@@ -233,7 +272,7 @@ class PumpAheadCoordinator(DataUpdateCoordinator[PumpAheadCoordinatorData]):
                 pid = self._pid_controllers.get(room_name)
                 if pid is None:
                     continue
-                error = DEFAULT_SETPOINT - room_data.T_room
+                error = room_data.setpoint - room_data.T_room
                 room_data.recommended_valve = pid.compute(error)
                 # Predicted temp: echo current value (MPC not yet available).
                 room_data.predicted_temp = room_data.T_room

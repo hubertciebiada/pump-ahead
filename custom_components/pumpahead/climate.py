@@ -28,7 +28,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_HAS_SPLIT, CONF_ROOM_NAME, CONF_ROOMS, DEFAULT_SETPOINT
+from .const import CONF_HAS_SPLIT, CONF_ROOM_NAME, CONF_ROOMS
 from .coordinator import PumpAheadCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -116,7 +116,6 @@ class PumpAheadClimateEntity(CoordinatorEntity[PumpAheadCoordinator], ClimateEnt
         super().__init__(coordinator)
         self._room_name = room_name
         self._has_split = has_split
-        self._attr_target_temperature: float = DEFAULT_SETPOINT
         self._user_hvac_mode: HVACMode | None = None
 
         safe_room = room_name.lower().replace(" ", "_")
@@ -186,8 +185,15 @@ class PumpAheadClimateEntity(CoordinatorEntity[PumpAheadCoordinator], ClimateEnt
 
     @property
     def target_temperature(self) -> float:
-        """Return the target temperature."""
-        return self._attr_target_temperature
+        """Return the target temperature from the coordinator's per-room dict.
+
+        The coordinator owns the single source of truth for per-room
+        setpoints (see ``PumpAheadCoordinator.get_room_setpoint``).  This
+        ensures the shadow PID, split recommendations, and climate
+        entity all observe the same target value.
+        """
+        setpoint: float = self.coordinator.get_room_setpoint(self._room_name)
+        return setpoint
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -216,14 +222,20 @@ class PumpAheadClimateEntity(CoordinatorEntity[PumpAheadCoordinator], ClimateEnt
     async def async_set_temperature(self, **kwargs: Any) -> None:
         """Set the target temperature.
 
+        Pushes the new setpoint into the coordinator's per-room dict so
+        that the shadow PID and split coordinator pick it up on the
+        next computation, and writes the HA state immediately for UI
+        responsiveness.
+
         Args:
             **kwargs: Must include ``temperature`` key with the target
                 value in degrees Celsius.
         """
         temperature: float | None = kwargs.get("temperature")
-        if temperature is not None:
-            self._attr_target_temperature = temperature
-            self.async_write_ha_state()
+        if temperature is None:
+            return
+        self.coordinator.set_room_setpoint(self._room_name, temperature)
+        self.async_write_ha_state()
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """Set the HVAC mode.

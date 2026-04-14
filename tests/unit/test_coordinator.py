@@ -111,12 +111,16 @@ def coord_mocks() -> Any:  # noqa: C901
             self.name = kwargs.get("name", "")
             self.config_entry = kwargs.get("config_entry")
             self.update_interval = kwargs.get("update_interval")
+            self.data: Any = None
 
         def __class_getitem__(cls, _item: object) -> type:  # noqa: N804
             return cls
 
         async def async_config_entry_first_refresh(self) -> None:
             pass
+
+        def async_set_updated_data(self, data: Any) -> None:
+            self.data = data
 
     ha_helpers_update_coordinator.DataUpdateCoordinator = _FakeDataUpdateCoordinator  # type: ignore[attr-defined]
 
@@ -599,3 +603,165 @@ class TestWatchdogIntegration:
         coordinator = coord_mocks.PumpAheadCoordinator(hass, entry)
         assert hasattr(coordinator, "_watchdog")
         assert coordinator._watchdog is not None
+
+
+# ---------------------------------------------------------------------------
+# TestPerRoomSetpoint
+# ---------------------------------------------------------------------------
+
+
+class TestPerRoomSetpoint:
+    """Tests for the per-room setpoint accessor/mutator (issue #131)."""
+
+    @pytest.mark.unit
+    def test_default_setpoint_is_default_constant(self, coord_mocks: Any) -> None:
+        """Newly constructed coordinator must seed every room with DEFAULT_SETPOINT."""
+        from custom_components.pumpahead.const import DEFAULT_SETPOINT
+
+        hass, entry = _make_hass_and_entry(coord_mocks)
+        coordinator = coord_mocks.PumpAheadCoordinator(hass, entry)
+        assert coordinator.get_room_setpoint("Living Room") == DEFAULT_SETPOINT
+
+    @pytest.mark.unit
+    def test_get_setpoint_unknown_room_returns_default(self, coord_mocks: Any) -> None:
+        """Unknown room names must fall back to DEFAULT_SETPOINT."""
+        from custom_components.pumpahead.const import DEFAULT_SETPOINT
+
+        hass, entry = _make_hass_and_entry(coord_mocks)
+        coordinator = coord_mocks.PumpAheadCoordinator(hass, entry)
+        assert coordinator.get_room_setpoint("nonexistent room") == DEFAULT_SETPOINT
+
+    @pytest.mark.unit
+    def test_set_room_setpoint_updates_value(self, coord_mocks: Any) -> None:
+        """set_room_setpoint must update the stored value for known rooms."""
+        hass, entry = _make_hass_and_entry(coord_mocks)
+        coordinator = coord_mocks.PumpAheadCoordinator(hass, entry)
+        coordinator.set_room_setpoint("Living Room", 24.5)
+        assert coordinator.get_room_setpoint("Living Room") == 24.5
+
+    @pytest.mark.unit
+    def test_set_room_setpoint_casts_to_float(self, coord_mocks: Any) -> None:
+        """set_room_setpoint must coerce integer inputs to float."""
+        hass, entry = _make_hass_and_entry(coord_mocks)
+        coordinator = coord_mocks.PumpAheadCoordinator(hass, entry)
+        coordinator.set_room_setpoint("Living Room", 22)
+        stored = coordinator.get_room_setpoint("Living Room")
+        assert stored == 22.0
+        assert isinstance(stored, float)
+
+    @pytest.mark.unit
+    def test_room_sensor_data_setpoint_field_populated(self, coord_mocks: Any) -> None:
+        """RoomSensorData in the coordinator result must mirror the dict."""
+        from custom_components.pumpahead.const import DEFAULT_SETPOINT
+
+        hass, entry = _make_hass_and_entry(coord_mocks)
+        coordinator = coord_mocks.PumpAheadCoordinator(hass, entry)
+        coordinator._weather_source = None
+        data = asyncio.run(coordinator._async_update_data())
+        assert data.rooms["Living Room"].setpoint == DEFAULT_SETPOINT
+
+        coordinator.set_room_setpoint("Living Room", 23.0)
+        data = asyncio.run(coordinator._async_update_data())
+        assert data.rooms["Living Room"].setpoint == 23.0
+
+    @pytest.mark.unit
+    def test_shadow_pid_uses_per_room_setpoint(self, coord_mocks: Any) -> None:
+        """Shadow PID must use the per-room setpoint when computing error."""
+        hass, entry = _make_hass_and_entry(coord_mocks)
+        coordinator = coord_mocks.PumpAheadCoordinator(hass, entry)
+        coordinator._weather_source = None
+
+        # Patch the PID controller so we can assert on the error input.
+        captured: list[float] = []
+
+        class _RecordingPID:
+            def compute(self, error: float) -> float:
+                captured.append(error)
+                return 50.0
+
+        coordinator._pid_controllers["Living Room"] = _RecordingPID()  # type: ignore[assignment]
+
+        coordinator.set_room_setpoint("Living Room", 25.0)
+        asyncio.run(coordinator._async_update_data())
+        # Sensor fixture returns 21.5 for Living Room -> error = 25.0 - 21.5.
+        assert captured == [pytest.approx(25.0 - 21.5)]
+
+    @pytest.mark.unit
+    def test_setpoint_change_then_update_recomputes_error(
+        self, coord_mocks: Any
+    ) -> None:
+        """Changing setpoint between updates must change the PID error.
+
+        Regression test for issue #131 — previously the shadow PID used
+        the hardcoded DEFAULT_SETPOINT and ignored user setpoint changes.
+        """
+        hass, entry = _make_hass_and_entry(coord_mocks)
+        coordinator = coord_mocks.PumpAheadCoordinator(hass, entry)
+        coordinator._weather_source = None
+
+        captured: list[float] = []
+
+        class _RecordingPID:
+            def compute(self, error: float) -> float:
+                captured.append(error)
+                return 50.0
+
+        coordinator._pid_controllers["Living Room"] = _RecordingPID()  # type: ignore[assignment]
+
+        # First cycle: default setpoint 21.0, T_room 21.5 -> error ~ -0.5.
+        asyncio.run(coordinator._async_update_data())
+        first_error = captured[-1]
+
+        # User changes setpoint 21 -> 25.
+        coordinator.set_room_setpoint("Living Room", 25.0)
+        asyncio.run(coordinator._async_update_data())
+        second_error = captured[-1]
+
+        assert first_error != second_error
+        assert second_error == pytest.approx(25.0 - 21.5)
+
+    @pytest.mark.unit
+    def test_split_recommendation_uses_per_room_setpoint(
+        self, coord_mocks: Any
+    ) -> None:
+        """_compute_split_recommendations must consume the per-room setpoint.
+
+        With setpoint=24 and T_room=21.5 the split should turn on in
+        heating mode; after dropping the setpoint to 20.2 the split
+        should recommend "off" (error 20.2 - 21.5 = -1.3 in heating
+        mode is negative, so no heating call per axiom 3).
+        """
+        data = dict(_ENTRY_DATA)
+        data["rooms"] = [
+            {
+                "room_name": "Living Room",
+                "entity_temp_room": "sensor.temp_living",
+                "entity_valve": "number.valve_living",
+                "has_split": True,
+            },
+        ]
+        hass, entry = _make_hass_and_entry(coord_mocks, entry_data=data)
+        coordinator = coord_mocks.PumpAheadCoordinator(hass, entry)
+        coordinator._weather_source = None
+
+        coordinator.set_room_setpoint("Living Room", 24.0)
+        result = asyncio.run(coordinator._async_update_data())
+        assert result.rooms["Living Room"].split_recommended_mode == "heating"
+        assert result.rooms["Living Room"].split_recommended_setpoint == 24.0
+
+        coordinator.set_room_setpoint("Living Room", 20.2)
+        result = asyncio.run(coordinator._async_update_data())
+        # In heating mode with negative error, split should NOT heat (axiom 3).
+        assert result.rooms["Living Room"].split_recommended_mode == "off"
+
+    @pytest.mark.unit
+    def test_set_room_setpoint_before_first_refresh_is_safe(
+        self, coord_mocks: Any
+    ) -> None:
+        """set_room_setpoint before first refresh must not raise."""
+        hass, entry = _make_hass_and_entry(coord_mocks)
+        coordinator = coord_mocks.PumpAheadCoordinator(hass, entry)
+        # coordinator.data starts as None -- must be a no-op broadcast.
+        assert coordinator.data is None
+        coordinator.set_room_setpoint("Living Room", 23.0)
+        assert coordinator.get_room_setpoint("Living Room") == 23.0
