@@ -863,6 +863,60 @@ class TestPumpAheadControllerCWU:
         assert "cwu_pre_charge_active" not in diag["room_a"]
         assert "cwu_split_blocked" not in diag["room_a"]
 
+    def test_cwu_diagnostics_before_first_step(self) -> None:
+        """get_diagnostics() works correctly before any step() call.
+
+        Regression test for #134: CWU diagnostic flags must be
+        initialized in __init__ so get_diagnostics() does not rely
+        on a getattr fallback that masks uninitialized state.
+        """
+        config = ControllerConfig(kp=5.0, ki=0.0, setpoint=21.0)
+        ctrl = PumpAheadController(
+            config,
+            ["room_a"],
+            cwu_schedule=CWU_HEAVY,
+        )
+        # NO step() call — diagnostics must work immediately
+        diag = ctrl.get_diagnostics()
+        assert "cwu_pre_charge_active" in diag["room_a"]
+        assert "cwu_split_blocked" in diag["room_a"]
+        assert diag["room_a"]["cwu_pre_charge_active"] == pytest.approx(0.0)
+        assert diag["room_a"]["cwu_split_blocked"] == pytest.approx(0.0)
+
+    def test_cwu_diagnostics_reset_clears_flags(self) -> None:
+        """reset() restores CWU diagnostic flags to 0.0.
+
+        Regression test for #134: after running steps that may have
+        set the flags, reset() must clear them so the next call to
+        get_diagnostics() reflects a no-op state instead of stale
+        data from before the reset.
+        """
+        config = ControllerConfig(
+            kp=0.0,
+            ki=0.0,
+            setpoint=21.0,
+            valve_floor_pct=10.0,
+            cwu_pre_charge_lookahead_minutes=30,
+            cwu_pre_charge_valve_boost_pct=15.0,
+        )
+        # CWU starts at t=60 (single-shot, 45 min) — same setup as
+        # test_pre_charge_boosts_valve so pre-charge flag is exercised.
+        schedule = (CWUCycle(start_minute=60, duration_minutes=45, interval_minutes=0),)
+        ctrl = PumpAheadController(
+            config,
+            ["room_a"],
+            cwu_schedule=schedule,
+        )
+        # Step into the pre-charge window so _cwu_pre_charge_active = True.
+        for _ in range(36):
+            meas = {"room_a": _make_measurements(t_room=20.0, is_cwu_active=False)}
+            ctrl.step(meas)
+
+        ctrl.reset()
+        diag = ctrl.get_diagnostics()
+        assert diag["room_a"]["cwu_pre_charge_active"] == pytest.approx(0.0)
+        assert diag["room_a"]["cwu_split_blocked"] == pytest.approx(0.0)
+
     def test_reset_clears_step_count(self) -> None:
         """Reset clears step count for pre-charge timing."""
         config = ControllerConfig(kp=5.0, ki=0.0, setpoint=21.0)
