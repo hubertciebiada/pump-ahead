@@ -34,6 +34,7 @@ from pumpahead.building_profiles import (
     heavy_construction,
     leaky_old_house,
     modern_bungalow,
+    modern_bungalow_with_bathroom_heater,
     modern_bungalow_with_splits,
     thin_screed,
     well_insulated,
@@ -50,6 +51,8 @@ from pumpahead.weather import ChannelProfile, ProfileKind, SyntheticWeather
 __all__ = [
     "PARAMETRIC_SWEEPS",
     "SCENARIO_LIBRARY",
+    "bathroom_heater",
+    "bathroom_heater_cooling",
     "cold_snap",
     "cwu_heavy",
     "cwu_with_splits",
@@ -739,6 +742,129 @@ def spring_transition() -> SimScenario:
 
 
 # ---------------------------------------------------------------------------
+# Bathroom heater (heating-only auxiliary) scenarios
+# ---------------------------------------------------------------------------
+
+
+def bathroom_heater() -> SimScenario:
+    """Bathroom with a 300 W electric heater tracking 24 °C in heating mode.
+
+    Uses ``modern_bungalow_with_bathroom_heater`` — identical envelope to
+    ``modern_bungalow`` but ``lazienka`` gains a heating-only 300 W
+    resistive heater (``auxiliary_type="heater"``).  The rest of the house
+    targets 20 °C while ``lazienka`` gets a per-room override setpoint of
+    24 °C.  Tests:
+
+    * The bathroom reaches its 24 °C setpoint within a comfort band of
+      0.7 °C in the second 24 h.
+    * The heater activates (``split_runtime > 0``) but stays well below
+      the anti-takeover threshold.
+    * No priority inversion, no opposing action, floor temperature safe.
+
+    Returns:
+        ``SimScenario`` with ``modern_bungalow_with_bathroom_heater``
+        building, 48 h heating duration at T_out=-5 °C.
+    """
+    weather = SyntheticWeather.constant(
+        T_out=-5.0,
+        GHI=0.0,
+        wind_speed=1.0,
+        humidity=60.0,
+    )
+    base_controller = ControllerConfig(
+        kp=5.0,
+        ki=0.01,
+        setpoint=20.0,
+        split_deadband=0.5,
+    )
+    bathroom_override = ControllerConfig(
+        kp=5.0,
+        ki=0.01,
+        setpoint=24.0,
+        split_deadband=0.5,
+    )
+    return SimScenario(
+        name="bathroom_heater",
+        building=modern_bungalow_with_bathroom_heater(),
+        weather=weather,
+        controller=base_controller,
+        duration_minutes=2880,
+        mode="heating",
+        dt_seconds=60.0,
+        room_overrides={"lazienka": bathroom_override},
+        description=(
+            "Bathroom with 300 W electric heater tracking 24 C at "
+            "T_out=-5 C. Other rooms at 20 C.  Tests heater activation "
+            "in heating mode and Axiom #3 compliance."
+        ),
+    )
+
+
+def bathroom_heater_cooling() -> SimScenario:
+    """Bathroom heater must be passive in cooling mode.
+
+    Same building as ``bathroom_heater`` but with a hot sinusoidal
+    outdoor profile (T_out baseline 30 °C, amplitude 5 °C, 24 h period)
+    and the system in cooling mode.  The bathroom keeps its 24 °C
+    override setpoint (below the 25 °C house-wide target) so an
+    unconstrained coordinator would try to cool it — but the heater
+    has no cooling capability, so the controller must force
+    ``SplitMode.OFF`` and UFH cooling is disabled
+    (``ufh_cooling_max_power_w=0.0``).  Tests:
+
+    * ``split_mode`` is ``OFF`` at every step for ``lazienka``.
+    * ``assert_no_opposing_action`` passes (heater never cools).
+
+    Returns:
+        ``SimScenario`` with ``modern_bungalow_with_bathroom_heater``
+        building, 48 h cooling duration.
+    """
+    weather = SyntheticWeather(
+        t_out=ChannelProfile(
+            kind=ProfileKind.SINUSOIDAL,
+            baseline=30.0,
+            amplitude=5.0,
+            period_minutes=1440.0,
+        ),
+        ghi=ChannelProfile(
+            kind=ProfileKind.SINUSOIDAL,
+            baseline=300.0,
+            amplitude=300.0,
+            period_minutes=1440.0,
+        ),
+        wind_speed=ChannelProfile(kind=ProfileKind.CONSTANT, baseline=1.0),
+        humidity=ChannelProfile(kind=ProfileKind.CONSTANT, baseline=50.0),
+    )
+    base_controller = ControllerConfig(
+        kp=5.0,
+        ki=0.01,
+        setpoint=25.0,
+        split_deadband=0.5,
+    )
+    bathroom_override = ControllerConfig(
+        kp=5.0,
+        ki=0.01,
+        setpoint=24.0,
+        split_deadband=0.5,
+    )
+    return SimScenario(
+        name="bathroom_heater_cooling",
+        building=modern_bungalow_with_bathroom_heater(),
+        weather=weather,
+        controller=base_controller,
+        duration_minutes=2880,
+        mode="cooling",
+        dt_seconds=60.0,
+        room_overrides={"lazienka": bathroom_override},
+        description=(
+            "Bathroom heater in cooling mode (T_out~30 C).  Tests that "
+            "the controller forces SplitMode.OFF for heater rooms "
+            "regardless of error (Axiom #3)."
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
 # Parametric sweep functions
 # ---------------------------------------------------------------------------
 
@@ -858,6 +984,8 @@ SCENARIO_LIBRARY: dict[str, Callable[[], SimScenario]] = {
     "dual_source_cooling_steady": dual_source_cooling_steady,
     "spring_transition": spring_transition,
     "dew_point_stress": dew_point_stress,
+    "bathroom_heater": bathroom_heater,
+    "bathroom_heater_cooling": bathroom_heater_cooling,
 }
 """Mapping of scenario name to factory function (single scenarios)."""
 

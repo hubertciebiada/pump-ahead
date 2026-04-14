@@ -19,6 +19,8 @@ from pumpahead.config import (
 from pumpahead.scenarios import (
     PARAMETRIC_SWEEPS,
     SCENARIO_LIBRARY,
+    bathroom_heater,
+    bathroom_heater_cooling,
     cold_snap,
     cwu_heavy,
     dew_point_stress,
@@ -46,9 +48,9 @@ class TestScenarioConstruction:
         """SCENARIO_LIBRARY contains at least 8 single scenarios."""
         assert len(SCENARIO_LIBRARY) >= 8
 
-    def test_exactly_15_single_scenarios(self) -> None:
-        """SCENARIO_LIBRARY has exactly 15 entries."""
-        assert len(SCENARIO_LIBRARY) == 15
+    def test_exactly_17_single_scenarios(self) -> None:
+        """SCENARIO_LIBRARY has exactly 17 entries."""
+        assert len(SCENARIO_LIBRARY) == 17
 
     def test_exactly_2_parametric_sweeps(self) -> None:
         """PARAMETRIC_SWEEPS has exactly 2 entries."""
@@ -538,6 +540,26 @@ class TestParametricSweeps:
         for gen in PARAMETRIC_SWEEPS.values():
             total += len(gen())
         assert total >= 10
+
+    def test_bathroom_heater_registered(self) -> None:
+        """bathroom_heater and bathroom_heater_cooling are in the library."""
+        assert "bathroom_heater" in SCENARIO_LIBRARY
+        assert "bathroom_heater_cooling" in SCENARIO_LIBRARY
+        heating = bathroom_heater()
+        assert heating.name == "bathroom_heater"
+        assert heating.mode == "heating"
+        assert heating.duration_minutes == 2880
+        assert "lazienka" in heating.room_overrides
+        assert heating.room_overrides["lazienka"].setpoint == 24.0
+        lazienka = next(r for r in heating.building.rooms if r.name == "lazienka")
+        assert lazienka.auxiliary_type == "heater"
+        assert lazienka.has_split is True
+        assert lazienka.split_power_w == 300.0
+        assert lazienka.ufh_cooling_max_power_w == 0.0
+
+        cooling = bathroom_heater_cooling()
+        assert cooling.mode == "cooling"
+        assert "lazienka" in cooling.room_overrides
 
 
 # ---------------------------------------------------------------------------

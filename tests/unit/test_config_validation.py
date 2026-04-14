@@ -245,6 +245,60 @@ class TestRoomConfig:
         room = _make_room(q_int_w=150.0)
         assert room.q_int_w == 150.0
 
+    def test_auxiliary_type_default_is_split(self) -> None:
+        """Default auxiliary_type is ``"split"``."""
+        room = _make_room()
+        assert room.auxiliary_type == "split"
+
+    def test_auxiliary_type_heater_valid(self) -> None:
+        """``"heater"`` is accepted when has_split=True and cooling=0.0."""
+        room = RoomConfig(
+            name="lazienka",
+            area_m2=9.0,
+            params=_mimo_params(),
+            has_split=True,
+            split_power_w=300.0,
+            ufh_cooling_max_power_w=0.0,
+            auxiliary_type="heater",
+        )
+        assert room.auxiliary_type == "heater"
+        assert room.has_split is True
+        assert room.ufh_cooling_max_power_w == 0.0
+
+    def test_auxiliary_type_invalid_value_raises(self) -> None:
+        """Unknown auxiliary_type string raises ValueError."""
+        with pytest.raises(ValueError, match="auxiliary_type must be one of"):
+            RoomConfig(
+                name="bad_room",
+                area_m2=20.0,
+                params=_siso_params(),
+                auxiliary_type="turbo",  # type: ignore[arg-type]
+            )
+
+    def test_auxiliary_type_heater_without_split_raises(self) -> None:
+        """``"heater"`` without has_split=True raises ValueError."""
+        with pytest.raises(ValueError, match="requires has_split=True"):
+            RoomConfig(
+                name="bad_room",
+                area_m2=20.0,
+                params=_siso_params(),
+                has_split=False,
+                auxiliary_type="heater",
+            )
+
+    def test_auxiliary_type_heater_with_cooling_raises(self) -> None:
+        """``"heater"`` with nonzero cooling power raises ValueError."""
+        with pytest.raises(ValueError, match="requires ufh_cooling_max_power_w=0.0"):
+            RoomConfig(
+                name="bad_room",
+                area_m2=20.0,
+                params=_mimo_params(),
+                has_split=True,
+                split_power_w=300.0,
+                ufh_cooling_max_power_w=1000.0,
+                auxiliary_type="heater",
+            )
+
 
 # ===========================================================================
 # TestBuildingParams
@@ -573,3 +627,22 @@ class TestSimScenario:
         """Custom sensor_noise_std is accepted."""
         scenario = self._make_scenario(sensor_noise_std=0.5)
         assert scenario.sensor_noise_std == 0.5
+
+    def test_room_overrides_default_empty(self) -> None:
+        """Default room_overrides is an empty dict."""
+        scenario = self._make_scenario()
+        assert scenario.room_overrides == {}
+
+    def test_room_overrides_valid(self) -> None:
+        """Valid room_overrides referencing an existing room is accepted."""
+        override = ControllerConfig(setpoint=24.0)
+        scenario = self._make_scenario(room_overrides={"living_room": override})
+        assert scenario.room_overrides["living_room"].setpoint == 24.0
+
+    def test_room_overrides_unknown_room_raises(self) -> None:
+        """Unknown room name in room_overrides raises ValueError."""
+        override = ControllerConfig(setpoint=24.0)
+        with pytest.raises(
+            ValueError, match="room_overrides contains unknown room names"
+        ):
+            self._make_scenario(room_overrides={"ghost_room": override})

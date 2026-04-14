@@ -174,10 +174,15 @@ def run_scenario() -> Callable[
         # Build PumpAheadController from scenario configuration
         room_names = [r.name for r in scenario.building.rooms]
         room_has_split = {r.name: r.has_split for r in scenario.building.rooms}
+        room_auxiliary_type = {
+            r.name: r.auxiliary_type for r in scenario.building.rooms
+        }
         controller = PumpAheadController(
             scenario.controller,
             room_names,
+            room_overrides=dict(scenario.room_overrides),
             room_has_split=room_has_split,
+            room_auxiliary_type=room_auxiliary_type,
             cwu_schedule=tuple(scenario.cwu_schedule),
             mode=scenario.mode,
         )
