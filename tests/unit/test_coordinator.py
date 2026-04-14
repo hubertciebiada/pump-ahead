@@ -623,9 +623,7 @@ class TestPerRoomSetpoint:
         assert coordinator.get_room_setpoint("Living Room") == DEFAULT_SETPOINT
 
     @pytest.mark.unit
-    def test_get_setpoint_unknown_room_returns_default(
-        self, coord_mocks: Any
-    ) -> None:
+    def test_get_setpoint_unknown_room_returns_default(self, coord_mocks: Any) -> None:
         """Unknown room names must fall back to DEFAULT_SETPOINT."""
         from custom_components.pumpahead.const import DEFAULT_SETPOINT
 
@@ -652,9 +650,7 @@ class TestPerRoomSetpoint:
         assert isinstance(stored, float)
 
     @pytest.mark.unit
-    def test_room_sensor_data_setpoint_field_populated(
-        self, coord_mocks: Any
-    ) -> None:
+    def test_room_sensor_data_setpoint_field_populated(self, coord_mocks: Any) -> None:
         """RoomSensorData in the coordinator result must mirror the dict."""
         from custom_components.pumpahead.const import DEFAULT_SETPOINT
 
