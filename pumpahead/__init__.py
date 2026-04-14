@@ -85,8 +85,10 @@ from pumpahead.metrics import (
     assert_comfort,
     assert_energy_vs_baseline,
     assert_floor_temp_safe,
+    assert_no_freezing,
     assert_no_opposing_action,
     assert_no_priority_inversion,
+    assert_no_prolonged_cold,
 )
 from pumpahead.mode_controller import ModeController
 from pumpahead.model import ModelOrder, RCModel, RCParams
@@ -203,8 +205,10 @@ __all__ = [
     "assert_comfort",
     "assert_energy_vs_baseline",
     "assert_floor_temp_safe",
+    "assert_no_freezing",
     "assert_no_opposing_action",
     "assert_no_priority_inversion",
+    "assert_no_prolonged_cold",
     "BuildingParams",
     "BuildingSimulator",
     "COP_MAX",

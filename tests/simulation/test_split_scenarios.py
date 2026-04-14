@@ -17,8 +17,10 @@ from pumpahead.config import SimScenario
 from pumpahead.metrics import (
     SimMetrics,
     assert_floor_temp_safe,
+    assert_no_freezing,
     assert_no_opposing_action,
     assert_no_priority_inversion,
+    assert_no_prolonged_cold,
 )
 from pumpahead.scenarios import (
     bathroom_heater,
@@ -218,6 +220,29 @@ class TestDualSourceColdSnap:
         scenario = dual_source_cold_snap()
         log, _ = run_scenario(scenario, None)
         assert_floor_temp_safe(log)
+
+    def test_no_freezing_or_prolonged_cold(
+        self,
+        run_scenario: Callable[
+            [SimScenario, int | None], tuple[SimulationLog, SimMetrics]
+        ],
+    ) -> None:
+        """No split-equipped room ever freezes or stays below 18 degC for >24h.
+
+        ``dual_source_cold_snap`` intentionally undersizes the HP to
+        ~3.5 kW so that splits are forced to contribute.  The hard-fail
+        comfort assertions are scoped to the split-equipped rooms — they
+        are the rooms where the dual-source coordinator is expected to
+        rescue comfort during the cold snap.  UFH-only rooms (garderoba,
+        lazienka, dlugi_korytarz) intentionally absorb the capacity
+        deficit and are excluded from this check.
+        """
+        scenario = dual_source_cold_snap()
+        log, _ = run_scenario(scenario, None)
+        for room_name in _SPLIT_ROOMS:
+            room_log = log.get_room(room_name)
+            assert_no_freezing(room_log)
+            assert_no_prolonged_cold(room_log)
 
 
 # ---------------------------------------------------------------------------

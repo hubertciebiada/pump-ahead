@@ -8,8 +8,10 @@ from pumpahead.metrics import (
     assert_comfort,
     assert_energy_vs_baseline,
     assert_floor_temp_safe,
+    assert_no_freezing,
     assert_no_opposing_action,
     assert_no_priority_inversion,
+    assert_no_prolonged_cold,
 )
 from pumpahead.simulation_log import SimRecord, SimulationLog
 from pumpahead.simulator import Actions, HeatPumpMode, Measurements, SplitMode
@@ -661,3 +663,206 @@ class TestAssertEnergyVsBaseline:
         baseline = _make_log(baseline_records)
         test = _make_log(test_records)
         self._assert_energy(test, baseline)  # should not raise
+
+
+# ---------------------------------------------------------------------------
+# TestAssertNoFreezing
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestAssertNoFreezing:
+    """Tests for assert_no_freezing."""
+
+    def test_passes_when_all_above_min(self) -> None:
+        """All records above hard_min pass without raising."""
+        log = _make_log(
+            [_make_record(t=i, T_room=20.0, room_name="salon") for i in range(10)]
+        )
+        assert_no_freezing(log)  # should not raise
+
+    def test_passes_at_exact_threshold(self) -> None:
+        """Records exactly at hard_min pass (check is strict <)."""
+        log = _make_log(
+            [_make_record(t=i, T_room=16.0, room_name="salon") for i in range(10)]
+        )
+        assert_no_freezing(log)  # should not raise
+
+    def test_raises_on_freezing_room(self) -> None:
+        """Single freezing record raises with full diagnostics."""
+        log = _make_log(
+            [
+                _make_record(t=42, T_room=15.5, room_name="salon"),
+            ]
+        )
+        with pytest.raises(AssertionError) as exc_info:
+            assert_no_freezing(log)
+        message = str(exc_info.value)
+        assert "salon" in message
+        assert "t=42" in message
+        assert "15.50" in message
+
+    def test_raises_on_first_violation_only(self) -> None:
+        """Raises on the first violating record, not later ones."""
+        records = [
+            _make_record(t=0, T_room=20.0, room_name="salon"),
+            _make_record(t=1, T_room=20.0, room_name="salon"),
+            _make_record(t=2, T_room=20.0, room_name="salon"),
+            _make_record(t=3, T_room=15.0, room_name="salon"),  # first violation
+            _make_record(t=4, T_room=20.0, room_name="salon"),
+            _make_record(t=5, T_room=20.0, room_name="salon"),
+            _make_record(t=6, T_room=20.0, room_name="salon"),
+            _make_record(t=7, T_room=14.0, room_name="salon"),  # later violation
+        ]
+        log = _make_log(records)
+        with pytest.raises(AssertionError, match="t=3"):
+            assert_no_freezing(log)
+
+    def test_multi_room_detects_correct_room(self) -> None:
+        """Interleaved multi-room log detects the correct freezing room."""
+        records = [
+            _make_record(t=0, T_room=20.0, room_name="salon"),
+            _make_record(t=0, T_room=20.0, room_name="sypialnia"),
+            _make_record(t=1, T_room=20.0, room_name="salon"),
+            _make_record(t=1, T_room=14.0, room_name="sypialnia"),  # violation
+            _make_record(t=2, T_room=20.0, room_name="salon"),
+            _make_record(t=2, T_room=20.0, room_name="sypialnia"),
+        ]
+        log = _make_log(records)
+        with pytest.raises(AssertionError) as exc_info:
+            assert_no_freezing(log)
+        message = str(exc_info.value)
+        assert "sypialnia" in message
+        assert "salon" not in message
+
+    def test_empty_log_passes(self) -> None:
+        """Empty log passes silently."""
+        log = SimulationLog()
+        assert_no_freezing(log)  # should not raise
+
+    def test_custom_hard_min(self) -> None:
+        """Custom hard_min=10.0 accepts T=12.0 but rejects T=9.0."""
+        ok_log = _make_log(
+            [_make_record(t=i, T_room=12.0, room_name="salon") for i in range(5)]
+        )
+        assert_no_freezing(ok_log, hard_min=10.0)  # should not raise
+
+        bad_log = _make_log([_make_record(t=0, T_room=9.0, room_name="salon")])
+        with pytest.raises(AssertionError, match="hard_min=10.00"):
+            assert_no_freezing(bad_log, hard_min=10.0)
+
+    def test_unnamed_room_renders_placeholder(self) -> None:
+        """Records with empty room_name render as '<unnamed>' in diagnostics."""
+        log = _make_log([_make_record(t=0, T_room=15.0, room_name="")])
+        with pytest.raises(AssertionError, match="<unnamed>"):
+            assert_no_freezing(log)
+
+
+# ---------------------------------------------------------------------------
+# TestAssertNoProlongedCold
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestAssertNoProlongedCold:
+    """Tests for assert_no_prolonged_cold."""
+
+    def test_passes_when_above_threshold(self) -> None:
+        """All records above threshold pass without raising."""
+        log = _make_log(
+            [_make_record(t=i, T_room=21.0, room_name="salon") for i in range(100)]
+        )
+        assert_no_prolonged_cold(log)  # should not raise
+
+    def test_passes_short_dip(self) -> None:
+        """Cold dip shorter than max duration does not raise."""
+        # 60-minute dip, well under default 1440-minute max
+        records = [_make_record(t=i, T_room=17.0, room_name="salon") for i in range(60)]
+        records.append(_make_record(t=60, T_room=20.0, room_name="salon"))
+        log = _make_log(records)
+        assert_no_prolonged_cold(log)  # should not raise
+
+    def test_raises_on_prolonged_cold_run(self) -> None:
+        """Cold run longer than 1440 min raises with full diagnostics."""
+        # Cold run: t=0..1500, 1501 minutes total span -> duration 1500 > 1440
+        records = [
+            _make_record(t=i, T_room=17.0, room_name="kitchen") for i in range(0, 1501)
+        ]
+        log = _make_log(records)
+        with pytest.raises(AssertionError) as exc_info:
+            assert_no_prolonged_cold(log)
+        message = str(exc_info.value)
+        assert "kitchen" in message
+        assert "starting at t=0" in message
+        assert "17.00" in message
+
+    def test_run_resets_on_warm_record(self) -> None:
+        """Two short cold runs separated by a warm record do not raise."""
+        # First cold run 0..600 (601 min, duration 600), warm at 700, second cold
+        # run 701..1300 (duration 599). Neither exceeds 1440.
+        records = []
+        for t in range(0, 601):
+            records.append(_make_record(t=t, T_room=17.0, room_name="salon"))
+        records.append(_make_record(t=700, T_room=20.0, room_name="salon"))
+        for t in range(701, 1301):
+            records.append(_make_record(t=t, T_room=17.0, room_name="salon"))
+        log = _make_log(records)
+        assert_no_prolonged_cold(log)  # should not raise
+
+    def test_multi_room_independent_runs(self) -> None:
+        """Cold run in one room raises while another stays warm."""
+        records: list[SimRecord] = []
+        for t in range(0, 1501):
+            records.append(_make_record(t=t, T_room=21.0, room_name="salon"))
+            records.append(_make_record(t=t, T_room=17.0, room_name="sypialnia"))
+        log = _make_log(records)
+        with pytest.raises(AssertionError) as exc_info:
+            assert_no_prolonged_cold(log)
+        message = str(exc_info.value)
+        assert "sypialnia" in message
+
+    def test_empty_log_passes(self) -> None:
+        """Empty log passes silently."""
+        log = SimulationLog()
+        assert_no_prolonged_cold(log)  # should not raise
+
+    def test_exact_threshold_passes(self) -> None:
+        """Cold run of exactly max_duration_minutes does NOT raise (strict >)."""
+        # t=0..1440 inclusive -> duration = 1440, equal to max. Strict > => pass.
+        records = [
+            _make_record(t=t, T_room=17.0, room_name="salon") for t in range(0, 1441)
+        ]
+        log = _make_log(records)
+        assert_no_prolonged_cold(log)  # should not raise
+
+    def test_custom_threshold_and_duration(self) -> None:
+        """Custom threshold=19.0 with max_duration_minutes=60 catches a short dip."""
+        # Cold run: t=0..100, duration=100 > 60
+        records = [
+            _make_record(t=t, T_room=18.5, room_name="salon") for t in range(0, 101)
+        ]
+        log = _make_log(records)
+        with pytest.raises(AssertionError, match="60 min"):
+            assert_no_prolonged_cold(
+                log,
+                threshold=19.0,
+                max_duration_minutes=60,
+            )
+
+    def test_min_temp_reported_correctly(self) -> None:
+        """Diagnostic message reports the minimum temperature in the run."""
+        # Cold run from t=0..1500 with min temp 14.5
+        records: list[SimRecord] = []
+        for t in range(0, 1501):
+            T = 17.0 if t != 750 else 14.5
+            records.append(_make_record(t=t, T_room=T, room_name="salon"))
+        log = _make_log(records)
+        with pytest.raises(AssertionError, match="14.50"):
+            assert_no_prolonged_cold(log)
+
+    def test_unnamed_room_renders_placeholder(self) -> None:
+        """Records with empty room_name render as '<unnamed>' in diagnostics."""
+        records = [_make_record(t=t, T_room=17.0, room_name="") for t in range(0, 1501)]
+        log = _make_log(records)
+        with pytest.raises(AssertionError, match="<unnamed>"):
+            assert_no_prolonged_cold(log)
