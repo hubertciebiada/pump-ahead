@@ -81,7 +81,7 @@ class TestDualSourceSteadyState:
             metrics = SimMetrics.from_log(
                 room_log,
                 setpoint=scenario.controller.setpoint,
-                ufh_max_power_w=room_cfg.ufh_max_power_w,
+                ufh_nominal_power_w=room_cfg.nominal_ufh_power_heating_w,
                 split_power_w=room_cfg.split_power_w,
             )
             assert metrics.split_runtime_pct < 50.0, (
@@ -115,7 +115,7 @@ class TestDualSourceSteadyState:
                 room_log,
                 setpoint=scenario.controller.setpoint,
                 comfort_band=2.0,
-                ufh_max_power_w=room_cfg.ufh_max_power_w,
+                ufh_nominal_power_w=room_cfg.nominal_ufh_power_heating_w,
                 split_power_w=room_cfg.split_power_w,
             )
             assert metrics.comfort_pct > 80.0, (
@@ -154,7 +154,7 @@ class TestDualSourceSteadyState:
             metrics = SimMetrics.from_log(
                 room_log,
                 setpoint=scenario.controller.setpoint,
-                ufh_max_power_w=room_cfg.ufh_max_power_w,
+                ufh_nominal_power_w=room_cfg.nominal_ufh_power_heating_w,
                 split_power_w=room_cfg.split_power_w,
             )
             assert metrics.split_runtime_pct == pytest.approx(0.0), (
@@ -270,7 +270,7 @@ class TestPriorityInversionStress:
             metrics = SimMetrics.from_log(
                 room_log,
                 setpoint=scenario.controller.setpoint,
-                ufh_max_power_w=room_cfg.ufh_max_power_w,
+                ufh_nominal_power_w=room_cfg.nominal_ufh_power_heating_w,
                 split_power_w=room_cfg.split_power_w,
             )
             assert metrics.split_runtime_pct < 50.0, (
@@ -326,7 +326,7 @@ class TestBathroomHeater:
             room_log,
             setpoint=24.0,
             comfort_band=0.7,
-            ufh_max_power_w=room_cfg.ufh_max_power_w,
+            ufh_nominal_power_w=room_cfg.nominal_ufh_power_heating_w,
             split_power_w=room_cfg.split_power_w,
         )
         assert metrics.comfort_pct > 80.0, (
@@ -354,7 +354,7 @@ class TestBathroomHeater:
                 room_log,
                 setpoint=20.0,
                 comfort_band=1.0,
-                ufh_max_power_w=room_cfg.ufh_max_power_w,
+                ufh_nominal_power_w=room_cfg.nominal_ufh_power_heating_w,
                 split_power_w=room_cfg.split_power_w,
             )
             assert metrics.comfort_pct > 80.0, (
@@ -377,7 +377,7 @@ class TestBathroomHeater:
         metrics = SimMetrics.from_log(
             room_log,
             setpoint=24.0,
-            ufh_max_power_w=room_cfg.ufh_max_power_w,
+            ufh_nominal_power_w=room_cfg.nominal_ufh_power_heating_w,
             split_power_w=room_cfg.split_power_w,
         )
         assert metrics.split_runtime_pct > 0.0, (

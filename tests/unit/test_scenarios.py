@@ -555,7 +555,6 @@ class TestParametricSweeps:
         assert lazienka.auxiliary_type == "heater"
         assert lazienka.has_split is True
         assert lazienka.split_power_w == 300.0
-        assert lazienka.ufh_cooling_max_power_w == 0.0
 
         cooling = bathroom_heater_cooling()
         assert cooling.mode == "cooling"

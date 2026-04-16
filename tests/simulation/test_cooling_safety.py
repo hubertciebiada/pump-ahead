@@ -82,7 +82,7 @@ class TestDewPointStress:
             metrics = SimMetrics.from_log(
                 room_log,
                 setpoint=scenario.controller.setpoint,
-                ufh_max_power_w=room_cfg.ufh_max_power_w,
+                ufh_nominal_power_w=room_cfg.nominal_ufh_power_heating_w,
                 split_power_w=room_cfg.split_power_w,
                 dt_minutes=1,
             )
@@ -146,7 +146,7 @@ class TestDewPointStress:
             metrics = SimMetrics.from_log(
                 room_log,
                 setpoint=scenario.controller.setpoint,
-                ufh_max_power_w=room_cfg.ufh_max_power_w,
+                ufh_nominal_power_w=room_cfg.nominal_ufh_power_heating_w,
                 split_power_w=room_cfg.split_power_w,
                 dt_minutes=1,
             )
@@ -302,7 +302,7 @@ class TestCoolingSafetyComfort:
                 room_log,
                 setpoint=scenario.controller.setpoint,
                 comfort_band=6.0,
-                ufh_max_power_w=room_cfg.ufh_max_power_w,
+                ufh_nominal_power_w=room_cfg.nominal_ufh_power_heating_w,
                 split_power_w=room_cfg.split_power_w,
                 dt_minutes=1,
             )

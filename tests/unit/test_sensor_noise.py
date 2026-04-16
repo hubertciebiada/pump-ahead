@@ -18,6 +18,7 @@ from pumpahead.simulator import (
     BuildingSimulator,
     HeatPumpMode,
 )
+from pumpahead.ufh_loop import LoopGeometry
 from pumpahead.weather import SyntheticWeather
 
 # ---------------------------------------------------------------------------
@@ -25,10 +26,21 @@ from pumpahead.weather import SyntheticWeather
 # ---------------------------------------------------------------------------
 
 
+def _standard_geometry(area_m2: float = 20.0) -> LoopGeometry:
+    """Return a standard UFH loop geometry used throughout the tests."""
+    return LoopGeometry(
+        effective_pipe_length_m=130.0,
+        pipe_spacing_m=0.15,
+        pipe_diameter_outer_mm=16.0,
+        pipe_wall_thickness_mm=2.0,
+        area_m2=area_m2,
+    )
+
+
 @pytest.fixture()
 def siso_room(model_3r3c: RCModel) -> SimulatedRoom:
-    """SISO simulated room with 5000 W UFH capacity."""
-    return SimulatedRoom("noise_test", model_3r3c, ufh_max_power_w=5000.0)
+    """SISO simulated room with standard UFH loop geometry."""
+    return SimulatedRoom("noise_test", model_3r3c, loop_geometry=_standard_geometry())
 
 
 @pytest.fixture()
@@ -185,13 +197,17 @@ class TestSensorNoiseIntegration:
 
         # Simulator WITH noise
         model_noisy = RCModel(params, order, dt=60.0)
-        room_noisy = SimulatedRoom("noisy", model_noisy, ufh_max_power_w=5000.0)
+        room_noisy = SimulatedRoom(
+            "noisy", model_noisy, loop_geometry=_standard_geometry()
+        )
         noise = SensorNoise(std=1.0, seed=42)
         sim_noisy = BuildingSimulator(room_noisy, constant_weather, sensor_noise=noise)
 
         # Simulator WITHOUT noise
         model_clean = RCModel(params, order, dt=60.0)
-        room_clean = SimulatedRoom("clean", model_clean, ufh_max_power_w=5000.0)
+        room_clean = SimulatedRoom(
+            "clean", model_clean, loop_geometry=_standard_geometry()
+        )
         sim_clean = BuildingSimulator(room_clean, constant_weather)
 
         # Run both with identical actions
@@ -227,7 +243,7 @@ class TestSensorNoiseIntegration:
 
         for _ in range(2):
             model = RCModel(params_3r3c, ModelOrder.THREE, dt=60.0)
-            room = SimulatedRoom("det", model, ufh_max_power_w=5000.0)
+            room = SimulatedRoom("det", model, loop_geometry=_standard_geometry())
             noise = SensorNoise(std=0.3, seed=42)
             sim = BuildingSimulator(room, constant_weather, sensor_noise=noise)
 

@@ -60,15 +60,10 @@ def _build_simulator_from_scenario(scenario: SimScenario) -> BuildingSimulator:
     rooms: list[SimulatedRoom] = []
     for room_cfg in scenario.building.rooms:
         model = RCModel(room_cfg.params, ModelOrder.THREE, dt=scenario.dt_seconds)
-        try:
-            geometry = LoopGeometry.from_room_config(room_cfg)
-        except ValueError:
-            geometry = None
+        geometry = LoopGeometry.from_room_config(room_cfg)
         sim_room = SimulatedRoom(
             room_cfg.name,
             model,
-            ufh_max_power_w=room_cfg.ufh_max_power_w,
-            ufh_cooling_max_power_w=room_cfg.ufh_cooling_max_power_w,
             split_power_w=room_cfg.split_power_w,
             q_int_w=room_cfg.q_int_w,
             loop_geometry=geometry,
@@ -262,13 +257,13 @@ class TestSplitConsistencyAcrossModules:
         building = modern_bungalow()
         for room_cfg in building.rooms:
             model = RCModel(room_cfg.params, ModelOrder.THREE, dt=60.0)
+            geometry = LoopGeometry.from_room_config(room_cfg)
             sim_room = SimulatedRoom(
                 room_cfg.name,
                 model,
-                ufh_max_power_w=room_cfg.ufh_max_power_w,
-                ufh_cooling_max_power_w=room_cfg.ufh_cooling_max_power_w,
                 split_power_w=room_cfg.split_power_w,
                 q_int_w=room_cfg.q_int_w,
+                loop_geometry=geometry,
             )
             if room_cfg.has_split:
                 assert sim_room.has_split, (

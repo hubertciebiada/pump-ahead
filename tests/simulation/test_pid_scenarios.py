@@ -33,7 +33,20 @@ from pumpahead.scenarios import SCENARIO_LIBRARY
 from pumpahead.simulated_room import SimulatedRoom
 from pumpahead.simulation_log import SimulationLog
 from pumpahead.simulator import BuildingSimulator, HeatPumpMode
+from pumpahead.ufh_loop import LoopGeometry
 from pumpahead.weather import ChannelProfile, ProfileKind, SyntheticWeather
+
+
+def _standard_geometry(area_m2: float = 20.0) -> LoopGeometry:
+    """Return a standard UFH loop geometry used throughout the tests."""
+    return LoopGeometry(
+        effective_pipe_length_m=130.0,
+        pipe_spacing_m=0.15,
+        pipe_diameter_outer_mm=16.0,
+        pipe_wall_thickness_mm=2.0,
+        area_m2=area_m2,
+    )
+
 
 # ---------------------------------------------------------------------------
 # Shared helpers
@@ -66,9 +79,7 @@ _TUNED_CONFIG = ControllerConfig(
 """Tuned PID gains validated via gain sweep during implementation."""
 
 
-def _make_single_room_building(
-    ufh_max_power_w: float = 5000.0,
-) -> BuildingParams:
+def _make_single_room_building() -> BuildingParams:
     """Create a single-room building with SISO parameters."""
     room = RoomConfig(
         name="test_room",
@@ -76,7 +87,7 @@ def _make_single_room_building(
         params=_SISO_PARAMS,
         has_split=False,
         split_power_w=0.0,
-        ufh_max_power_w=ufh_max_power_w,
+        pipe_spacing_m=0.20,
     )
     return BuildingParams(
         rooms=(room,),
@@ -269,7 +280,7 @@ class TestPIDAntiWindup:
         )
 
         model = RCModel(_SISO_PARAMS, ModelOrder.THREE, dt=60.0)
-        room = SimulatedRoom("test_room", model, ufh_max_power_w=5000.0)
+        room = SimulatedRoom("test_room", model, loop_geometry=_standard_geometry())
         sim = BuildingSimulator([room], weather, hp_mode=HeatPumpMode.HEATING)
 
         config = ControllerConfig(
@@ -319,7 +330,7 @@ class TestPIDValveFloor:
         )
 
         model = RCModel(_SISO_PARAMS, ModelOrder.THREE, dt=60.0)
-        room = SimulatedRoom("test_room", model, ufh_max_power_w=5000.0)
+        room = SimulatedRoom("test_room", model, loop_geometry=_standard_geometry())
         sim = BuildingSimulator([room], weather, hp_mode=HeatPumpMode.HEATING)
 
         valve_floor = 12.0
@@ -373,7 +384,9 @@ class TestPIDMultiRoom:
         rooms: list[SimulatedRoom] = []
         for i in range(8):
             model = RCModel(_SISO_PARAMS, ModelOrder.THREE, dt=60.0)
-            rooms.append(SimulatedRoom(f"room_{i}", model, ufh_max_power_w=5000.0))
+            rooms.append(
+                SimulatedRoom(f"room_{i}", model, loop_geometry=_standard_geometry())
+            )
 
         sim = BuildingSimulator(
             rooms,

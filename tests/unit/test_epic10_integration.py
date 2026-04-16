@@ -42,7 +42,20 @@ from pumpahead.optimizer import (
 )
 from pumpahead.scenarios import cold_snap, steady_state
 from pumpahead.simulation_log import SimulationLog
+from pumpahead.ufh_loop import LoopGeometry
 from pumpahead.weather import SyntheticWeather
+
+
+def _standard_geometry(area_m2: float = 20.0) -> LoopGeometry:
+    """Return a standard UFH loop geometry used throughout the tests."""
+    return LoopGeometry(
+        effective_pipe_length_m=130.0,
+        pipe_spacing_m=0.15,
+        pipe_diameter_outer_mm=16.0,
+        pipe_wall_thickness_mm=2.0,
+        area_m2=area_m2,
+    )
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -273,9 +286,9 @@ class TestControllerToSimulatorPipeline:
         room = SimulatedRoom(
             "test_room",
             sim_model,
-            ufh_max_power_w=3000.0,
             split_power_w=0.0,
             q_int_w=50.0,
+            loop_geometry=_standard_geometry(),
         )
         weather = SyntheticWeather.constant(T_out=0.0)
         sim = BuildingSimulator(
@@ -329,7 +342,7 @@ class TestControllerToSimulatorPipeline:
         metrics = SimMetrics.from_log(
             room_log,
             setpoint=21.0,
-            ufh_max_power_w=3000.0,
+            ufh_nominal_power_w=3000.0,
             split_power_w=0.0,
             dt_minutes=1,
         )

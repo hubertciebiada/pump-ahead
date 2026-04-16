@@ -308,12 +308,13 @@ class TestPhysicalSensibility:
         assert salon.params.C_air > garderoba.params.C_air
 
     def test_ufh_max_power_reasonable(self) -> None:
-        """UFH max power is in a reasonable range (300-10000 W)."""
+        """Nominal UFH heating power is in a reasonable range (300-10000 W)."""
         for name, factory in BUILDING_PROFILES.items():
             building = factory()
             for room in building.rooms:
-                assert 300 <= room.ufh_max_power_w <= 10_000, (
-                    f"{name}/{room.name}: ufh_max_power_w={room.ufh_max_power_w}"
+                nominal = room.nominal_ufh_power_heating_w
+                assert 300 <= nominal <= 10_000, (
+                    f"{name}/{room.name}: nominal_ufh_power_heating_w={nominal}"
                 )
 
     def test_heavy_construction_higher_c_wall(self) -> None:

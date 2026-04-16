@@ -1,15 +1,15 @@
 """Unit tests for the physical UFH power distribution in BuildingSimulator.
 
 Covers ``BuildingSimulator._distribute_hp_power`` after the rewrite for
-issue #143 — now driven by ``pumpahead.ufh_loop.loop_power`` with a
-weather-compensation-derived ``T_supply`` instead of the legacy
-``valve * ufh_max_power_w`` proportional law.
+issue #143 and the clean-break field removal in issue #144 — now driven
+exclusively by ``pumpahead.ufh_loop.loop_power`` with a
+weather-compensation-derived ``T_supply``.  The legacy proportional
+fallback shim was deleted by #144, so every room must carry
+``loop_geometry``.
 
-Three test classes:
+Two test classes:
 
 * ``TestPhysicalDistribution`` — rooms with explicit ``loop_geometry``.
-* ``TestFallbackShim`` — rooms without geometry (legacy path still
-  works; shim will be removed by issue #144).
 * ``TestDiagnostics`` — ``last_step_info`` surface exposes ``T_supply``
   and per-room ``Q_floor`` correctly.
 """
@@ -67,17 +67,15 @@ def _standard_geometry(area_m2: float = 20.0) -> LoopGeometry:
 def _make_room(
     name: str,
     *,
-    ufh_max_power_w: float = 5000.0,
-    ufh_cooling_max_power_w: float = 3000.0,
     loop_geometry: LoopGeometry | None = None,
 ) -> SimulatedRoom:
     """Create a ``SimulatedRoom`` suitable for distributor tests."""
     model = RCModel(_standard_params(), ModelOrder.THREE, dt=60.0)
+    if loop_geometry is None:
+        loop_geometry = _standard_geometry()
     return SimulatedRoom(
         name,
         model,
-        ufh_max_power_w=ufh_max_power_w,
-        ufh_cooling_max_power_w=ufh_cooling_max_power_w,
         loop_geometry=loop_geometry,
     )
 
@@ -440,113 +438,27 @@ class TestPhysicalDistribution:
 
 
 # ---------------------------------------------------------------------------
-# TestFallbackShim — rooms WITHOUT geometry (legacy path)
+# TestGeometryRequired — every room must carry loop_geometry (#144)
 # ---------------------------------------------------------------------------
 
 
-class TestFallbackShim:
-    """Tests for the legacy valve * ufh_max_power_w shim path."""
+class TestGeometryRequired:
+    """Issue #144 removes the legacy shim — geometry is now mandatory."""
 
     @pytest.mark.unit
-    def test_legacy_heating_without_geometry(
+    def test_missing_geometry_raises(
         self,
         cold_weather: SyntheticWeather,
     ) -> None:
-        """Heating without geometry -> valve * ufh_max_power_w."""
-        # No loop_geometry -> shim path.
-        rooms = [
-            _make_room("r0", ufh_max_power_w=4000.0, loop_geometry=None),
-            _make_room("r1", ufh_max_power_w=4000.0, loop_geometry=None),
-        ]
-        sim = BuildingSimulator(
-            rooms,
-            cold_weather,
-            hp_mode=HeatPumpMode.HEATING,
-            hp_max_power_w=20_000.0,
-        )
-
-        allocated = sim._distribute_hp_power(
-            {
-                "r0": Actions(valve_position=50.0),
-                "r1": Actions(valve_position=100.0),
-            },
-        )
-
-        assert allocated["r0"] == pytest.approx(0.5 * 4000.0)
-        assert allocated["r1"] == pytest.approx(1.0 * 4000.0)
-
-    @pytest.mark.unit
-    def test_legacy_cooling_without_geometry(
-        self,
-        hot_weather: SyntheticWeather,
-    ) -> None:
-        """Cooling without geometry -> negative valve * ufh_cooling_max_power_w."""
-        rooms = [
-            _make_room(
-                "r0",
-                ufh_cooling_max_power_w=2000.0,
-                loop_geometry=None,
-            ),
-            _make_room(
-                "r1",
-                ufh_cooling_max_power_w=2000.0,
-                loop_geometry=None,
-            ),
-        ]
-        sim = BuildingSimulator(
-            rooms,
-            hot_weather,
-            hp_mode=HeatPumpMode.COOLING,
-            hp_max_power_w=20_000.0,
-        )
-
-        allocated = sim._distribute_hp_power(
-            {
-                "r0": Actions(valve_position=50.0),
-                "r1": Actions(valve_position=100.0),
-            },
-        )
-
-        assert allocated["r0"] == pytest.approx(-0.5 * 2000.0)
-        assert allocated["r1"] == pytest.approx(-1.0 * 2000.0)
-
-    @pytest.mark.unit
-    def test_mixed_rooms_with_and_without_geometry(
-        self,
-        cold_weather: SyntheticWeather,
-    ) -> None:
-        """Simulator accepts a mix of physical and legacy rooms."""
-        geometry = _standard_geometry()
-        room_physical = _make_room(
-            "physical",
-            loop_geometry=geometry,
-        )
-        _set_room_slab(room_physical, t_slab=22.0)
-        room_legacy = _make_room(
-            "legacy",
-            ufh_max_power_w=3000.0,
-            loop_geometry=None,
-        )
-
-        sim = BuildingSimulator(
-            [room_physical, room_legacy],
-            cold_weather,
-            hp_mode=HeatPumpMode.HEATING,
-            hp_max_power_w=100_000.0,  # unconstrained
-        )
-
-        allocated = sim._distribute_hp_power(
-            {
-                "physical": Actions(valve_position=100.0),
-                "legacy": Actions(valve_position=50.0),
-            },
-        )
-
-        # Legacy room: exact shim result.
-        assert allocated["legacy"] == pytest.approx(0.5 * 3000.0)
-        # Physical room: positive, finite, not tied to ufh_max_power_w.
-        assert allocated["physical"] > 0.0
-        assert np.isfinite(allocated["physical"])
+        """BuildingSimulator refuses rooms without loop_geometry."""
+        model = RCModel(_standard_params(), ModelOrder.THREE, dt=60.0)
+        room_no_geom = SimulatedRoom("r0", model, loop_geometry=None)
+        with pytest.raises(ValueError, match="loop_geometry"):
+            BuildingSimulator(
+                [room_no_geom],
+                cold_weather,
+                hp_mode=HeatPumpMode.HEATING,
+            )
 
 
 # ---------------------------------------------------------------------------

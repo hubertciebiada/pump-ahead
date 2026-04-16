@@ -15,27 +15,39 @@ from pumpahead.simulator import (
     Measurements,
     SplitMode,
 )
-from pumpahead.weather import SyntheticWeather, WeatherPoint
+from pumpahead.ufh_loop import LoopGeometry
+from pumpahead.weather import SyntheticWeather
 
 # ---------------------------------------------------------------------------
 # Local fixtures
 # ---------------------------------------------------------------------------
 
 
+def _standard_geometry(area_m2: float = 20.0) -> LoopGeometry:
+    """Return a standard UFH loop geometry used throughout the tests."""
+    return LoopGeometry(
+        effective_pipe_length_m=130.0,
+        pipe_spacing_m=0.15,
+        pipe_diameter_outer_mm=16.0,
+        pipe_wall_thickness_mm=2.0,
+        area_m2=area_m2,
+    )
+
+
 @pytest.fixture()
 def simulated_room(model_3r3c: RCModel) -> SimulatedRoom:
-    """SISO simulated room with 5000 W UFH capacity."""
-    return SimulatedRoom("test_room", model_3r3c, ufh_max_power_w=5000.0)
+    """SISO simulated room with standard UFH loop geometry."""
+    return SimulatedRoom("test_room", model_3r3c, loop_geometry=_standard_geometry())
 
 
 @pytest.fixture()
 def simulated_room_mimo(model_3r3c_mimo: RCModel) -> SimulatedRoom:
-    """MIMO simulated room with 5000 W UFH and 2500 W split."""
+    """MIMO simulated room with 2500 W split and standard UFH loop."""
     return SimulatedRoom(
         "test_room_mimo",
         model_3r3c_mimo,
-        ufh_max_power_w=5000.0,
         split_power_w=2500.0,
+        loop_geometry=_standard_geometry(),
     )
 
 
@@ -77,11 +89,15 @@ class TestSimulatedRoom:
         assert simulated_room.T_slab == 22.0
 
     @pytest.mark.unit
-    def test_step_propagates_temperature(self, simulated_room: SimulatedRoom) -> None:
+    def test_step_propagates_temperature(
+        self,
+        simulated_room: SimulatedRoom,
+        constant_weather: SyntheticWeather,
+    ) -> None:
         """Stepping with cold weather and no heating cools the room."""
-        wp = WeatherPoint(T_out=-5.0, GHI=0.0, wind_speed=0.0, humidity=50.0)
+        sim = BuildingSimulator(simulated_room, constant_weather)
         initial_t_air = simulated_room.T_air
-        simulated_room.step(wp, q_sol_w=0.0)
+        sim.step(Actions(valve_position=0.0))
         # Room should cool: T_out=-5 < T_initial=20
         assert simulated_room.T_air < initial_t_air
 
@@ -98,13 +114,16 @@ class TestSimulatedRoom:
         assert simulated_room.valve_position == 0.0
 
     @pytest.mark.unit
-    def test_valve_drives_slab_heating(self, simulated_room: SimulatedRoom) -> None:
-        """100 % valve heats the slab over 100 steps."""
-        simulated_room.apply_actions(valve_position=100.0)
-        wp = WeatherPoint(T_out=-5.0, GHI=0.0, wind_speed=0.0, humidity=50.0)
+    def test_valve_drives_slab_heating(
+        self,
+        simulated_room: SimulatedRoom,
+        constant_weather: SyntheticWeather,
+    ) -> None:
+        """100 % valve heats the slab over 100 steps via the simulator."""
+        sim = BuildingSimulator(simulated_room, constant_weather)
         initial_t_slab = simulated_room.T_slab
         for _ in range(100):
-            simulated_room.step(wp, q_sol_w=0.0)
+            sim.step(Actions(valve_position=100.0))
         assert simulated_room.T_slab > initial_t_slab
 
     @pytest.mark.unit
@@ -112,26 +131,30 @@ class TestSimulatedRoom:
         self,
         model_3r3c: RCModel,
         simulated_room: SimulatedRoom,
+        constant_weather: SyntheticWeather,
     ) -> None:
-        """With valve=0, room output matches RCModel with u=[0]."""
-        wp = WeatherPoint(T_out=-5.0, GHI=0.0, wind_speed=0.0, humidity=50.0)
-
-        # Direct model step
+        """With valve=0, Q_floor=0 so the state matches RCModel.step(u=[0])."""
+        # Direct model step — reference expected state with u=[0].
         x0 = model_3r3c.reset()
         u = np.array([0.0])
+        wp = constant_weather.get(0.0)
         d = np.array([wp.T_out, 0.0, 0.0])
         x_expected = model_3r3c.step(x0, u, d)
 
-        # SimulatedRoom step
-        simulated_room.apply_actions(valve_position=0.0)
-        simulated_room.step(wp, q_sol_w=0.0)
+        # BuildingSimulator step with valve=0 -> Q_floor=0 via loop_power.
+        sim = BuildingSimulator(simulated_room, constant_weather)
+        sim.step(Actions(valve_position=0.0))
 
         np.testing.assert_array_equal(simulated_room.state, x_expected)
 
     @pytest.mark.unit
-    def test_mimo_split_heating(self, simulated_room_mimo: SimulatedRoom) -> None:
+    def test_mimo_split_heating(
+        self,
+        simulated_room_mimo: SimulatedRoom,
+        constant_weather: SyntheticWeather,
+    ) -> None:
         """MIMO room with split heating warms T_air faster than without."""
-        # Room without split
+        # Reference SISO room without split — same geometry.
         params_siso = RCParams(
             C_air=60_000,
             C_slab=3_250_000,
@@ -147,42 +170,58 @@ class TestSimulatedRoom:
             has_split=False,
         )
         model_siso = RCModel(params_siso, ModelOrder.THREE, dt=60.0)
-        room_siso = SimulatedRoom("siso", model_siso, ufh_max_power_w=5000.0)
+        room_siso = SimulatedRoom(
+            "siso", model_siso, loop_geometry=_standard_geometry()
+        )
+        sim_siso = BuildingSimulator(room_siso, constant_weather)
+        sim_mimo = BuildingSimulator(
+            simulated_room_mimo, constant_weather, split_power_w=2500.0
+        )
 
-        wp = WeatherPoint(T_out=-5.0, GHI=0.0, wind_speed=0.0, humidity=50.0)
-
-        # Both rooms: same valve, but MIMO also has split
-        room_siso.apply_actions(valve_position=50.0)
-        simulated_room_mimo.apply_actions(valve_position=50.0, split_power_w=2500.0)
-
+        # Both rooms: same valve, MIMO also has split heating on.
         for _ in range(50):
-            room_siso.step(wp, q_sol_w=0.0)
-            simulated_room_mimo.step(wp, q_sol_w=0.0)
+            sim_siso.step(Actions(valve_position=50.0))
+            sim_mimo.step(
+                Actions(
+                    valve_position=50.0,
+                    split_mode=SplitMode.HEATING,
+                    split_setpoint=21.0,
+                )
+            )
 
-        # MIMO room with split should be warmer
+        # MIMO room with split should be warmer.
         assert simulated_room_mimo.T_air > room_siso.T_air
 
     @pytest.mark.unit
     def test_siso_ignores_split_power(
         self,
-        model_3r3c: RCModel,
         simulated_room: SimulatedRoom,
+        constant_weather: SyntheticWeather,
     ) -> None:
         """SISO room silently ignores split power (Q_conv=0)."""
-        wp = WeatherPoint(T_out=-5.0, GHI=0.0, wind_speed=0.0, humidity=50.0)
+        # Build a second identical SISO room that NEVER asks for a split.
+        model_ref = RCModel(
+            simulated_room._model.params,  # noqa: SLF001 — same params
+            ModelOrder.THREE,
+            dt=60.0,
+        )
+        room_ref = SimulatedRoom("ref", model_ref, loop_geometry=_standard_geometry())
 
-        # Apply split power to SISO room -- should be ignored
-        simulated_room.apply_actions(valve_position=50.0, split_power_w=2000.0)
+        sim_a = BuildingSimulator(simulated_room, constant_weather)
+        sim_b = BuildingSimulator(room_ref, constant_weather)
 
-        # Direct model step with no split
-        x0 = model_3r3c.reset()
-        q_floor = 50.0 / 100.0 * 5000.0
-        u = np.array([q_floor])
-        d = np.array([wp.T_out, 0.0, 0.0])
-        x_expected = model_3r3c.step(x0, u, d)
+        # sim_a requests split heating (should be ignored — no has_split).
+        # sim_b requests no split.
+        sim_a.step(
+            Actions(
+                valve_position=50.0,
+                split_mode=SplitMode.HEATING,
+                split_setpoint=21.0,
+            )
+        )
+        sim_b.step(Actions(valve_position=50.0))
 
-        simulated_room.step(wp, q_sol_w=0.0)
-        np.testing.assert_array_equal(simulated_room.state, x_expected)
+        np.testing.assert_array_equal(simulated_room.state, room_ref.state)
 
     @pytest.mark.unit
     def test_state_copy_independence(self, simulated_room: SimulatedRoom) -> None:
@@ -294,7 +333,7 @@ class TestBuildingSimulatorSingleRoom:
         constant_weather: SyntheticWeather,
     ) -> None:
         """Simulator output matches direct RCModel.step() exactly."""
-        room = SimulatedRoom("test", model_3r3c, ufh_max_power_w=5000.0)
+        room = SimulatedRoom("test", model_3r3c, loop_geometry=_standard_geometry())
         sim = BuildingSimulator(room, constant_weather)
 
         # Direct model step
@@ -317,7 +356,7 @@ class TestBuildingSimulatorSingleRoom:
         constant_weather: SyntheticWeather,
     ) -> None:
         """1440 steps complete in under 100 ms wall-clock time."""
-        room = SimulatedRoom("perf", model_3r3c, ufh_max_power_w=5000.0)
+        room = SimulatedRoom("perf", model_3r3c, loop_geometry=_standard_geometry())
         sim = BuildingSimulator(room, constant_weather)
         actions = Actions(valve_position=50.0)
 
@@ -340,7 +379,7 @@ class TestBuildingSimulatorSingleRoom:
 
         for _ in range(2):
             model = RCModel(params_3r3c, ModelOrder.THREE, dt=60.0)
-            room = SimulatedRoom("det", model, ufh_max_power_w=5000.0)
+            room = SimulatedRoom("det", model, loop_geometry=_standard_geometry())
             sim = BuildingSimulator(room, constant_weather)
             run_results: list[Measurements] = []
             for step in range(1440):
@@ -366,7 +405,7 @@ class TestBuildingSimulatorSingleRoom:
             amplitude=15.0,
             step_time_minutes=60.0,
         )
-        room = SimulatedRoom("wx", model_3r3c, ufh_max_power_w=5000.0)
+        room = SimulatedRoom("wx", model_3r3c, loop_geometry=_standard_geometry())
         sim = BuildingSimulator(room, weather)
 
         # Before the step (t=0..59 => T_out=-10)
@@ -405,7 +444,7 @@ class TestBuildingSimulatorSingleRoom:
     ) -> None:
         """With T_out=-15 and no heating, T_air drops from 20 degC."""
         weather = SyntheticWeather.constant(T_out=-15.0, GHI=0.0)
-        room = SimulatedRoom("cold", model_3r3c, ufh_max_power_w=5000.0)
+        room = SimulatedRoom("cold", model_3r3c, loop_geometry=_standard_geometry())
         sim = BuildingSimulator(room, weather)
 
         initial_t_air = room.T_air
@@ -421,7 +460,7 @@ class TestBuildingSimulatorSingleRoom:
     ) -> None:
         """After many steps with constant inputs, T_air converges."""
         weather = SyntheticWeather.constant(T_out=0.0, GHI=0.0)
-        room = SimulatedRoom("steady", model_3r3c, ufh_max_power_w=5000.0)
+        room = SimulatedRoom("steady", model_3r3c, loop_geometry=_standard_geometry())
         sim = BuildingSimulator(room, weather)
 
         actions = Actions(valve_position=50.0)

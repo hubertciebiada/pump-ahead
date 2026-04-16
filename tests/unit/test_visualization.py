@@ -373,7 +373,7 @@ class TestPlotEnergy:
         """Function returns a matplotlib Figure."""
         import matplotlib.figure
 
-        fig = plot_energy(sample_log, ufh_max_power_w=5000.0)
+        fig = plot_energy(sample_log, ufh_nominal_power_w=5000.0)
         assert isinstance(fig, matplotlib.figure.Figure)
         import matplotlib.pyplot as plt
 
@@ -385,7 +385,7 @@ class TestPlotEnergy:
         save_path = tmp_path / "energy.png"
         fig = plot_energy(
             sample_log,
-            ufh_max_power_w=5000.0,
+            ufh_nominal_power_w=5000.0,
             split_power_w=2500.0,
             save_path=save_path,
         )
@@ -398,7 +398,7 @@ class TestPlotEnergy:
     def test_empty_log_rejected(self, empty_log: SimulationLog) -> None:
         """Empty log raises ValueError."""
         with pytest.raises(ValueError, match="must not be empty"):
-            plot_energy(empty_log, ufh_max_power_w=5000.0)
+            plot_energy(empty_log, ufh_nominal_power_w=5000.0)
 
 
 # ---------------------------------------------------------------------------
@@ -465,7 +465,7 @@ class TestGeneratePlots:
             tmp_path,
             scenario_name="test",
             setpoint=21.0,
-            ufh_max_power_w=5000.0,
+            ufh_nominal_power_w=5000.0,
             split_power_w=2500.0,
         )
         # 1 room temp + valves + splits + weather + energy + dashboard = 6
@@ -498,7 +498,7 @@ class TestGeneratePlots:
             tmp_path,
             scenario_name="multi",
             setpoint=21.0,
-            ufh_max_power_w=5000.0,
+            ufh_nominal_power_w=5000.0,
             split_power_w=2500.0,
         )
         names = [p.name for p in paths]
@@ -538,7 +538,7 @@ class TestGeneratePlots:
             tmp_path,
             scenario_name="cold_snap",
             setpoint=21.0,
-            ufh_max_power_w=5000.0,
+            ufh_nominal_power_w=5000.0,
             split_power_w=2500.0,
         )
         names = [p.name for p in paths]

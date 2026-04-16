@@ -127,7 +127,7 @@ class TestEpic05Integration:
         m = SimMetrics.from_log(
             log,
             setpoint=21.0,
-            ufh_max_power_w=5000.0,
+            ufh_nominal_power_w=5000.0,
             split_power_w=2500.0,
         )
 
@@ -276,13 +276,13 @@ class TestEpic05Integration:
         m_good = SimMetrics.from_log(
             _make_log(good_records),
             setpoint=21.0,
-            ufh_max_power_w=5000.0,
+            ufh_nominal_power_w=5000.0,
             split_power_w=2500.0,
         )
         m_bad = SimMetrics.from_log(
             _make_log(bad_records),
             setpoint=21.0,
-            ufh_max_power_w=5000.0,
+            ufh_nominal_power_w=5000.0,
             split_power_w=2500.0,
         )
 
@@ -323,7 +323,7 @@ class TestEpic05Integration:
             test_log_same,
             baseline_log,
             setpoint=21.0,
-            ufh_max_power_w=5000.0,
+            ufh_nominal_power_w=5000.0,
             split_power_w=2500.0,
         )
 
@@ -338,7 +338,7 @@ class TestEpic05Integration:
                 excess_log,
                 baseline_log,
                 setpoint=21.0,
-                ufh_max_power_w=5000.0,
+                ufh_nominal_power_w=5000.0,
                 split_power_w=2500.0,
             )
 

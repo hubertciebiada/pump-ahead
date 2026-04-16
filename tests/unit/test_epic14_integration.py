@@ -461,23 +461,26 @@ class TestScenarioCoolingConfiguration:
         assert len(rooms_without_split) == 7
 
     def test_all_cooling_scenarios_have_cooling_power(self) -> None:
-        """All rooms in cooling scenarios have ufh_cooling_max_power_w > 0."""
+        """All rooms in cooling scenarios have nominal_ufh_power_cooling_w > 0."""
         scenarios = [dew_point_stress(), hot_july(), dual_source_cooling_steady()]
         for scenario in scenarios:
             for room in scenario.building.rooms:
-                assert room.ufh_cooling_max_power_w > 0, (
+                cooling = room.nominal_ufh_power_cooling_w
+                assert cooling > 0, (
                     f"Room '{room.name}' in scenario '{scenario.name}' "
-                    f"has ufh_cooling_max_power_w={room.ufh_cooling_max_power_w}"
+                    f"has nominal_ufh_power_cooling_w={cooling}"
                 )
 
     def test_cooling_power_asymmetry_in_scenarios(self) -> None:
         """Cooling power is less than heating power (asymmetric heat transfer)."""
         scenario = dew_point_stress()
         for room in scenario.building.rooms:
-            assert room.ufh_cooling_max_power_w < room.ufh_max_power_w, (
+            heating = room.nominal_ufh_power_heating_w
+            cooling = room.nominal_ufh_power_cooling_w
+            assert cooling < heating, (
                 f"Room '{room.name}': cooling power "
-                f"({room.ufh_cooling_max_power_w} W) should be less than "
-                f"heating power ({room.ufh_max_power_w} W)"
+                f"({cooling} W) should be less than "
+                f"heating power ({heating} W)"
             )
 
 
