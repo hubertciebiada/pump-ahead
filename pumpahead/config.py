@@ -28,6 +28,10 @@ from pumpahead.solar import WindowConfig
 if TYPE_CHECKING:
     from pumpahead.weather import WeatherSource
 
+# Pipe bend/manifold safety factor for estimating total pipe length from
+# straight-run geometry (area / spacing).  Industry convention: ~10 % extra.
+_PIPE_BEND_SAFETY_FACTOR: float = 1.1
+
 
 @dataclass(frozen=True)
 class CWUCycle:
@@ -89,6 +93,15 @@ class RoomConfig:
             asymmetric floor heat transfer.  Defaults to 0.0 (no floor
             cooling capability).
         ufh_loops: Number of UFH loops (must be >= 1).
+        pipe_length_m: Total measured pipe length [m] (must be > 0 when
+            set).  Mutually exclusive with ``pipe_spacing_m``: provide
+            exactly one or neither (both ``None`` = legacy mode).
+        pipe_spacing_m: Centre-to-centre pipe spacing [m] (must be > 0
+            when set).  Mutually exclusive with ``pipe_length_m``.
+        pipe_diameter_outer_mm: Outer pipe diameter [mm] (must be > 0,
+            default 16.0 for standard PEX).
+        pipe_wall_thickness_mm: Pipe wall thickness [mm] (must be > 0
+            and < ``pipe_diameter_outer_mm / 2``, default 2.0).
         q_int_w: Internal heat gains [W] (must be >= 0).
         auxiliary_type: Type of the auxiliary heat source.  ``"split"``
             (default) models a reversible split/AC unit that can heat
@@ -111,6 +124,10 @@ class RoomConfig:
     ufh_max_power_w: float = 5000.0
     ufh_cooling_max_power_w: float = 0.0
     ufh_loops: int = 1
+    pipe_length_m: float | None = None
+    pipe_spacing_m: float | None = None
+    pipe_diameter_outer_mm: float = 16.0
+    pipe_wall_thickness_mm: float = 2.0
     q_int_w: float = 0.0
     auxiliary_type: Literal["split", "heater"] = "split"
 
@@ -152,6 +169,35 @@ class RoomConfig:
         if self.q_int_w < 0:
             msg = f"q_int_w must be >= 0, got {self.q_int_w}"
             raise ValueError(msg)
+        # -- Pipe geometry validation ----------------------------------------
+        if self.pipe_diameter_outer_mm <= 0:
+            msg = (
+                f"pipe_diameter_outer_mm must be > 0, got {self.pipe_diameter_outer_mm}"
+            )
+            raise ValueError(msg)
+        if self.pipe_wall_thickness_mm <= 0:
+            msg = (
+                f"pipe_wall_thickness_mm must be > 0, got {self.pipe_wall_thickness_mm}"
+            )
+            raise ValueError(msg)
+        if self.pipe_wall_thickness_mm >= self.pipe_diameter_outer_mm / 2:
+            msg = (
+                f"pipe_wall_thickness_mm ({self.pipe_wall_thickness_mm}) must be "
+                f"< pipe_diameter_outer_mm / 2 ({self.pipe_diameter_outer_mm / 2})"
+            )
+            raise ValueError(msg)
+        if self.pipe_length_m is not None and self.pipe_length_m <= 0:
+            msg = f"pipe_length_m must be > 0, got {self.pipe_length_m}"
+            raise ValueError(msg)
+        if self.pipe_spacing_m is not None and self.pipe_spacing_m <= 0:
+            msg = f"pipe_spacing_m must be > 0, got {self.pipe_spacing_m}"
+            raise ValueError(msg)
+        if self.pipe_length_m is not None and self.pipe_spacing_m is not None:
+            msg = (
+                f"RoomConfig '{self.name}': exactly one of pipe_length_m "
+                f"or pipe_spacing_m must be provided, got both"
+            )
+            raise ValueError(msg)
         if self.has_split != self.params.has_split:
             msg = (
                 f"RoomConfig.has_split ({self.has_split}) must match "
@@ -179,6 +225,27 @@ class RoomConfig:
                     f"got {self.ufh_cooling_max_power_w}"
                 )
                 raise ValueError(msg)
+
+    @property
+    def effective_pipe_length_m(self) -> float:
+        """Estimate total pipe length from geometry.
+
+        Returns:
+            ``pipe_length_m`` when set directly, otherwise
+            ``area_m2 / pipe_spacing_m * _PIPE_BEND_SAFETY_FACTOR``.
+
+        Raises:
+            ValueError: If neither ``pipe_length_m`` nor ``pipe_spacing_m``
+                is configured.
+        """
+        if self.pipe_length_m is not None:
+            return self.pipe_length_m
+        if self.pipe_spacing_m is not None:
+            return self.area_m2 / self.pipe_spacing_m * _PIPE_BEND_SAFETY_FACTOR
+        raise ValueError(
+            f"RoomConfig '{self.name}': pipe geometry not configured — "
+            f"set pipe_length_m or pipe_spacing_m"
+        )
 
 
 # ---------------------------------------------------------------------------
