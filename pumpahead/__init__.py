@@ -191,6 +191,7 @@ from pumpahead.weather import (
     WeatherRangeError,
     WeatherSource,
 )
+from pumpahead.weather_comp import CoolingCompCurve, WeatherCompCurve
 
 __version__ = "0.1.0"
 
@@ -216,6 +217,7 @@ __all__ = [
     "COPCalculator",
     "COPMode",
     "COPSample",
+    "CoolingCompCurve",
     "ControllerAdapter",
     "ChannelProfile",
     "ControllerConfig",
@@ -308,6 +310,7 @@ __all__ = [
     "WatchdogMonitor",
     "WatchdogState",
     "WatchdogStatus",
+    "WeatherCompCurve",
     "WeatherSource",
     "WindowConfig",
     "__version__",
