@@ -21,6 +21,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from pumpahead.model import RCModel
+from pumpahead.ufh_loop import LoopGeometry
 from pumpahead.weather import WeatherPoint
 
 
@@ -48,6 +49,7 @@ class SimulatedRoom:
         ufh_cooling_max_power_w: float = 0.0,
         split_power_w: float = 0.0,
         q_int_w: float = 0.0,
+        loop_geometry: LoopGeometry | None = None,
     ) -> None:
         """Initialize the simulated room.
 
@@ -60,6 +62,13 @@ class SimulatedRoom:
                 floor heat transfer.  Zero if no floor cooling.
             split_power_w: Maximum split/AC power [W].  Zero if no split.
             q_int_w: Constant internal heat gains [W] (occupancy, appliances).
+            loop_geometry: Optional ``LoopGeometry`` describing the UFH
+                loop's pipe and floor area.  When provided, the
+                ``BuildingSimulator`` uses the physical EN 1264 model
+                (``pumpahead.ufh_loop.loop_power``) to compute per-room
+                floor power.  When ``None`` (default), the legacy
+                ``valve * ufh_max_power_w`` shim is used — this shim
+                will be removed by issue #144.
         """
         self._name = name
         self._model = model
@@ -67,6 +76,7 @@ class SimulatedRoom:
         self._ufh_cooling_max_power_w = ufh_cooling_max_power_w
         self._split_power_w = split_power_w
         self._q_int_w = q_int_w
+        self._loop_geometry = loop_geometry
 
         # Thermal state: all nodes at 20 degC
         self._x: NDArray[np.float64] = model.reset()
@@ -116,6 +126,11 @@ class SimulatedRoom:
     def ufh_cooling_max_power_w(self) -> float:
         """Return the maximum UFH cooling power at 100 % valve [W]."""
         return self._ufh_cooling_max_power_w
+
+    @property
+    def loop_geometry(self) -> LoopGeometry | None:
+        """Return the UFH loop geometry, or ``None`` if not configured."""
+        return self._loop_geometry
 
     # -- State manipulation --------------------------------------------------
 

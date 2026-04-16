@@ -25,11 +25,14 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, replace
 from enum import Enum
+from typing import Literal
 
 from pumpahead.config import CWUCycle
 from pumpahead.sensor_noise import SensorNoise
 from pumpahead.simulated_room import SimulatedRoom
+from pumpahead.ufh_loop import loop_power
 from pumpahead.weather import WeatherSource
+from pumpahead.weather_comp import CoolingCompCurve, WeatherCompCurve
 
 # ---------------------------------------------------------------------------
 # Enumerations
@@ -50,6 +53,20 @@ class SplitMode(Enum):
     OFF = "off"
     HEATING = "heating"
     COOLING = "cooling"
+
+
+# ---------------------------------------------------------------------------
+# Fallback supply temperatures — used only when no weather-compensation
+# curve is supplied.  The chosen values sit inside the default clamp range
+# of ``WeatherCompCurve`` (>=20 C) and ``CoolingCompCurve`` (>=7 C) so
+# they stay representative of a real HP operating point.
+# ---------------------------------------------------------------------------
+
+_FALLBACK_T_SUPPLY_HEATING_C: float = 35.0
+"""Fallback supply temperature used when no WeatherCompCurve is provided."""
+
+_FALLBACK_T_SUPPLY_COOLING_C: float = 18.0
+"""Fallback supply temperature used when no CoolingCompCurve is provided."""
 
 
 # ---------------------------------------------------------------------------
@@ -143,6 +160,9 @@ class BuildingSimulator:
         hp_max_power_w: float | None = None,
         cwu_schedule: list[CWUCycle] | None = None,
         sensor_noise: SensorNoise | None = None,
+        *,
+        weather_comp: WeatherCompCurve | None = None,
+        cooling_comp: CoolingCompCurve | None = None,
     ) -> None:
         """Initialize the simulator.
 
@@ -158,6 +178,15 @@ class BuildingSimulator:
             sensor_noise: Optional sensor noise source.  When provided,
                 Gaussian noise is added to T_room and T_slab in returned
                 ``Measurements``.  Does not affect physical state.
+            weather_comp: Optional heating weather-compensation curve.
+                When provided, ``T_supply`` used by the physical UFH
+                model is derived from ``weather_comp.t_supply(T_out)``
+                during heating steps.  ``None`` (default) falls back to
+                ``_FALLBACK_T_SUPPLY_HEATING_C``.
+            cooling_comp: Optional cooling weather-compensation curve.
+                Used only when ``hp_mode == HeatPumpMode.COOLING``.
+                ``None`` (default) falls back to
+                ``_FALLBACK_T_SUPPLY_COOLING_C``.
 
         Raises:
             ValueError: If the room list is empty or contains duplicate
@@ -183,8 +212,14 @@ class BuildingSimulator:
         )
         self._cwu_schedule: list[CWUCycle] = cwu_schedule or []
         self._sensor_noise = sensor_noise
+        self._weather_comp = weather_comp
+        self._cooling_comp = cooling_comp
         self._time_minutes: int = 0
         self._dt_minutes: int = 1
+
+        # Diagnostics populated by ``_distribute_hp_power``.
+        self._last_t_supply_c: float | None = None
+        self._last_q_floor_w: dict[str, float] = {}
 
     # -- Properties ----------------------------------------------------------
 
@@ -212,6 +247,32 @@ class BuildingSimulator:
     def is_cwu_active(self) -> bool:
         """Return whether a CWU cycle is active at the current time."""
         return self._check_cwu_active()
+
+    @property
+    def last_step_info(self) -> dict[str, object]:
+        """Return diagnostics from the most recent ``_distribute_hp_power`` call.
+
+        The returned dictionary contains three keys:
+
+        * ``t_supply_c`` — supply temperature [degC] used in the last
+          distribution step, or ``None`` before any step and when the
+          heat pump was in ``HeatPumpMode.OFF``.
+        * ``q_floor_w`` — per-room allocated floor power [W].  Positive
+          in heating, negative in cooling.  Empty dictionary before any
+          distribution has been performed.
+        * ``hp_mode`` — the current :class:`HeatPumpMode`.
+
+        The ``q_floor_w`` dictionary is a defensive copy — mutating it
+        does not affect subsequent diagnostics.
+
+        Returns:
+            Dictionary with diagnostic state from the last step.
+        """
+        return {
+            "t_supply_c": self._last_t_supply_c,
+            "q_floor_w": dict(self._last_q_floor_w),
+            "hp_mode": self._hp_mode,
+        }
 
     def set_hp_mode(self, mode: HeatPumpMode) -> None:
         """Update the heat pump operating mode.
@@ -456,49 +517,113 @@ class BuildingSimulator:
 
     # -- Private helpers -----------------------------------------------------
 
+    def _compute_t_supply(self, t_out: float) -> float:
+        """Compute supply temperature for the current HP mode.
+
+        Uses the weather-compensation curve when available, otherwise
+        falls back to the module-level constant for the current mode.
+
+        Args:
+            t_out: Current outdoor temperature [degC].
+
+        Returns:
+            Supply temperature [degC].  Returns ``0.0`` when the HP is
+            OFF — callers should not use the value in that case.
+        """
+        if self._hp_mode == HeatPumpMode.HEATING:
+            if self._weather_comp is not None:
+                return self._weather_comp.t_supply(t_out)
+            return _FALLBACK_T_SUPPLY_HEATING_C
+        if self._hp_mode == HeatPumpMode.COOLING:
+            if self._cooling_comp is not None:
+                return self._cooling_comp.t_supply(t_out)
+            return _FALLBACK_T_SUPPLY_COOLING_C
+        # HP OFF — callers short-circuit and should not use this value.
+        return 0.0
+
     def _distribute_hp_power(
         self,
         actions: dict[str, Actions],
     ) -> dict[str, float]:
         """Compute per-room floor power respecting HP capacity.
 
-        In HEATING mode:
-        1. For each room compute demand = (valve / 100) * ufh_max_power_w.
-        2. If total demand <= hp_max_power_w, each room gets its full demand.
-        3. Otherwise, scale down proportionally.
+        Algorithm:
 
-        In COOLING mode:
-        1. For each room compute demand = (valve / 100) * ufh_cooling_max_power_w.
-        2. Scale proportionally if total demand exceeds HP capacity.
-        3. Return negative values (cold water in the slab).
+        1. When the HP is OFF, every room receives zero floor power and
+           diagnostics are reset.
+        2. Otherwise, the supply temperature ``T_supply`` is derived
+           once (per call) from the appropriate weather-compensation
+           curve — ``WeatherCompCurve`` in heating or
+           ``CoolingCompCurve`` in cooling — falling back to
+           ``_FALLBACK_T_SUPPLY_HEATING_C`` / ``_FALLBACK_T_SUPPLY_COOLING_C``
+           when no curve is configured.
+        3. For each room:
+
+           * If the room has a ``loop_geometry`` the *physical* UFH
+             model is used: ``Q_max = loop_power(T_supply, T_slab,
+             geometry, mode)`` — this already carries the mode-correct
+             sign (positive in heating, negative in cooling) and
+             returns ``0.0`` when the gradient is wrong (Axiom #3).
+           * Otherwise a backward-compat shim is applied:
+             ``Q_max = ufh_max_power_w`` in heating or
+             ``-ufh_cooling_max_power_w`` in cooling.  Issue #144
+             removes the shim once every building profile has pipe
+             geometry.
+
+           Per-room demand is ``valve_fraction * Q_max``.
+        4. The absolute total demand is compared against
+           ``hp_max_power_w``.  When the HP cannot cover it all, every
+           room's allocation is scaled uniformly by ``hp_max_power_w /
+           total_abs`` — signs (heating vs cooling) are preserved.
+        5. Diagnostics are stored in ``self._last_t_supply_c`` and
+           ``self._last_q_floor_w`` so :attr:`last_step_info` exposes
+           them for inspection.
 
         Returns:
             Dictionary of allocated floor power [W] keyed by room name.
-            Positive in heating mode, negative in cooling mode.
+            Positive in heating mode, negative in cooling mode, zero
+            when the HP is OFF or the valve is closed.
         """
-        is_cooling = self._hp_mode == HeatPumpMode.COOLING
+        # HP OFF — short-circuit before computing T_supply.
+        if self._hp_mode == HeatPumpMode.OFF:
+            result = {r.name: 0.0 for r in self._rooms}
+            self._last_t_supply_c = None
+            self._last_q_floor_w = dict(result)
+            return result
 
+        t_out = self._weather.get(float(self._time_minutes)).T_out
+        t_supply = self._compute_t_supply(t_out)
+        self._last_t_supply_c = t_supply
+
+        mode_str: Literal["heating", "cooling"] = (
+            "cooling" if self._hp_mode == HeatPumpMode.COOLING else "heating"
+        )
+
+        # Per-room demand (signed: positive heating, negative cooling).
         demands: dict[str, float] = {}
         for r in self._rooms:
-            valve = actions[r.name].valve_position
-            # Use the clamped value that apply_actions would compute
-            clamped = max(0.0, min(100.0, valve))
-            if is_cooling:
-                demands[r.name] = clamped / 100.0 * r.ufh_cooling_max_power_w
+            valve_frac = max(0.0, min(100.0, actions[r.name].valve_position)) / 100.0
+            geometry = r.loop_geometry
+            if geometry is not None:
+                q_max = loop_power(t_supply, r.T_slab, geometry, mode_str)
+            elif mode_str == "heating":
+                q_max = r.ufh_max_power_w
             else:
-                demands[r.name] = clamped / 100.0 * r.ufh_max_power_w
+                # Cooling shim: ``ufh_cooling_max_power_w`` is stored as
+                # a non-negative value — negate it to match the signed
+                # convention used by ``loop_power`` in cooling.
+                q_max = -r.ufh_cooling_max_power_w
+            demands[r.name] = valve_frac * q_max
 
-        total_demand = sum(demands.values())
+        total_abs = sum(abs(d) for d in demands.values())
 
-        if total_demand == 0.0:
+        if total_abs == 0.0:
             result = {name: 0.0 for name in demands}
-        elif total_demand <= self._hp_max_power_w:
-            result = demands
+        elif total_abs <= self._hp_max_power_w:
+            result = dict(demands)
         else:
-            scale = self._hp_max_power_w / total_demand
+            scale = self._hp_max_power_w / total_abs
             result = {name: d * scale for name, d in demands.items()}
 
-        # In cooling mode, power is negative (cold water)
-        if is_cooling:
-            return {name: -d for name, d in result.items()}
+        self._last_q_floor_w = dict(result)
         return result

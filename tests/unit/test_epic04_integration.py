@@ -36,6 +36,7 @@ from pumpahead.scenarios import (
 from pumpahead.sensor_noise import SensorNoise
 from pumpahead.simulated_room import SimulatedRoom
 from pumpahead.simulator import Actions, BuildingSimulator
+from pumpahead.ufh_loop import LoopGeometry
 from pumpahead.weather import WeatherPoint
 
 # ---------------------------------------------------------------------------
@@ -59,6 +60,10 @@ def _build_simulator_from_scenario(scenario: SimScenario) -> BuildingSimulator:
     rooms: list[SimulatedRoom] = []
     for room_cfg in scenario.building.rooms:
         model = RCModel(room_cfg.params, ModelOrder.THREE, dt=scenario.dt_seconds)
+        try:
+            geometry = LoopGeometry.from_room_config(room_cfg)
+        except ValueError:
+            geometry = None
         sim_room = SimulatedRoom(
             room_cfg.name,
             model,
@@ -66,6 +71,7 @@ def _build_simulator_from_scenario(scenario: SimScenario) -> BuildingSimulator:
             ufh_cooling_max_power_w=room_cfg.ufh_cooling_max_power_w,
             split_power_w=room_cfg.split_power_w,
             q_int_w=room_cfg.q_int_w,
+            loop_geometry=geometry,
         )
         rooms.append(sim_room)
 
@@ -79,6 +85,8 @@ def _build_simulator_from_scenario(scenario: SimScenario) -> BuildingSimulator:
         hp_max_power_w=scenario.building.hp_max_power_w,
         cwu_schedule=list(scenario.cwu_schedule),
         sensor_noise=noise,
+        weather_comp=scenario.weather_comp,
+        cooling_comp=scenario.cooling_comp,
     )
 
 
