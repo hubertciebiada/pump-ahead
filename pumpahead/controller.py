@@ -434,8 +434,10 @@ class PumpAheadController:
             if is_heater_room and is_cooling:
                 # Short-circuit: no split decision, no valve_floor_boost,
                 # no runtime sample.  Room is UFH-only in cooling mode
-                # (ufh_cooling_max_power_w=0.0 is enforced upstream by
-                # RoomConfig validation, so valve cooling is also zero).
+                # (the auxiliary_type="heater" marker is the enforcement
+                # mechanism — see issue #144; physical cooling via the
+                # floor loop is still theoretically possible if the
+                # valve opens, but the controller keeps the heater off).
                 actions[name] = Actions(
                     valve_position=valve,
                     split_mode=SplitMode.OFF,

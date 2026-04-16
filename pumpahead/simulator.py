@@ -135,7 +135,14 @@ class BuildingSimulator:
 
     Typical single-room usage::
 
-        room = SimulatedRoom("living", model, ufh_max_power_w=5000.0)
+        geom = LoopGeometry(
+            effective_pipe_length_m=130.0,
+            pipe_spacing_m=0.15,
+            pipe_diameter_outer_mm=16.0,
+            pipe_wall_thickness_mm=2.0,
+            area_m2=20.0,
+        )
+        room = SimulatedRoom("living", model, loop_geometry=geom)
         weather = SyntheticWeather.constant(T_out=-5.0, GHI=0.0)
         sim = BuildingSimulator(room, weather)
 
@@ -203,6 +210,17 @@ class BuildingSimulator:
             self._rooms: list[SimulatedRoom] = room
         else:
             self._rooms = [room]
+
+        # Issue #144: every room must carry pipe geometry so the
+        # physical UFH model (``pumpahead.ufh_loop.loop_power``) can be
+        # evaluated.  Fail fast instead of silently dropping power.
+        for r in self._rooms:
+            if r.loop_geometry is None:
+                msg = (
+                    f"SimulatedRoom '{r.name}' must have loop_geometry set "
+                    f"(issue #144 removed the proportional-power fallback)"
+                )
+                raise ValueError(msg)
 
         self._weather = weather
         self._hp_mode = hp_mode
@@ -368,55 +386,24 @@ class BuildingSimulator:
     def step(self, actions: Actions) -> Measurements:
         """Apply actions to the first room, propagate, and return measurements.
 
-        This is the original single-room API, fully backward compatible.
-
-        The method follows the ZOH convention:
-        1. Check CWU schedule -- override valve_position to 0 if active.
-        2. Convert ``actions`` to actuator commands.
-        3. Apply actuator commands to the room.
-        4. Query weather at the current time.
-        5. Propagate the RC model by one step.
-        6. Advance the simulation clock.
-        7. Return updated measurements (with optional sensor noise).
+        This is the original single-room API, fully backward compatible
+        from the caller's perspective.  Internally it delegates to
+        :meth:`step_all` so the single-room and multi-room paths share
+        the exact same physical distributor (``_distribute_hp_power`` →
+        ``loop_power``).  Issue #144 eliminated the old proportional
+        ``valve * rated-power`` shim that the legacy single-room
+        ``step()`` used to take.
 
         Args:
             actions: Controller commands for this time step.
 
         Returns:
-            A ``Measurements`` snapshot after the step.
+            A ``Measurements`` snapshot after the step for the first
+            (or only) room.
         """
         first = self._rooms[0]
-
-        # CWU interrupt: force valve closed when HP is in DHW mode
-        effective_valve = actions.valve_position
-        if self._check_cwu_active():
-            effective_valve = 0.0
-
-        # Convert split mode to power
-        if actions.split_mode == SplitMode.OFF:
-            split_power = 0.0
-        elif actions.split_mode == SplitMode.HEATING:
-            split_power = self._split_power_w
-        else:
-            # COOLING: negative power
-            split_power = -self._split_power_w
-
-        # Apply actions to room actuators
-        first.apply_actions(
-            valve_position=effective_valve,
-            split_power_w=split_power,
-        )
-
-        # Get weather at current time
-        wp = self._weather.get(float(self._time_minutes))
-
-        # Propagate physics
-        first.step(wp, q_sol_w=0.0)
-
-        # Advance clock
-        self._time_minutes += self._dt_minutes
-
-        return self.get_measurements()
+        all_meas = self.step_all({first.name: actions})
+        return all_meas[first.name]
 
     # -- Public interface — multi-room ---------------------------------------
 
@@ -557,18 +544,13 @@ class BuildingSimulator:
            ``CoolingCompCurve`` in cooling — falling back to
            ``_FALLBACK_T_SUPPLY_HEATING_C`` / ``_FALLBACK_T_SUPPLY_COOLING_C``
            when no curve is configured.
-        3. For each room:
-
-           * If the room has a ``loop_geometry`` the *physical* UFH
-             model is used: ``Q_max = loop_power(T_supply, T_slab,
-             geometry, mode)`` — this already carries the mode-correct
-             sign (positive in heating, negative in cooling) and
-             returns ``0.0`` when the gradient is wrong (Axiom #3).
-           * Otherwise a backward-compat shim is applied:
-             ``Q_max = ufh_max_power_w`` in heating or
-             ``-ufh_cooling_max_power_w`` in cooling.  Issue #144
-             removes the shim once every building profile has pipe
-             geometry.
+        3. For each room the *physical* UFH model is used:
+           ``Q_max = loop_power(T_supply, T_slab, geometry, mode)``.
+           This already carries the mode-correct sign (positive in
+           heating, negative in cooling) and returns ``0.0`` when the
+           gradient is wrong (Axiom #3).  Every room is required to
+           carry pipe geometry — ``BuildingSimulator.__init__`` raises
+           ``ValueError`` if any room has ``loop_geometry is None``.
 
            Per-room demand is ``valve_fraction * Q_max``.
         4. The absolute total demand is compared against
@@ -600,19 +582,14 @@ class BuildingSimulator:
         )
 
         # Per-room demand (signed: positive heating, negative cooling).
+        # ``BuildingSimulator.__init__`` already guarantees every room
+        # carries loop geometry, so ``r.loop_geometry`` is never ``None``.
         demands: dict[str, float] = {}
         for r in self._rooms:
             valve_frac = max(0.0, min(100.0, actions[r.name].valve_position)) / 100.0
             geometry = r.loop_geometry
-            if geometry is not None:
-                q_max = loop_power(t_supply, r.T_slab, geometry, mode_str)
-            elif mode_str == "heating":
-                q_max = r.ufh_max_power_w
-            else:
-                # Cooling shim: ``ufh_cooling_max_power_w`` is stored as
-                # a non-negative value — negate it to match the signed
-                # convention used by ``loop_power`` in cooling.
-                q_max = -r.ufh_cooling_max_power_w
+            assert geometry is not None  # enforced in __init__
+            q_max = loop_power(t_supply, r.T_slab, geometry, mode_str)
             demands[r.name] = valve_frac * q_max
 
         total_abs = sum(abs(d) for d in demands.values())

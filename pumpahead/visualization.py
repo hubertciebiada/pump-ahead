@@ -386,7 +386,7 @@ def plot_weather(
 def plot_energy(
     log: SimulationLog,
     *,
-    ufh_max_power_w: float,
+    ufh_nominal_power_w: float,
     split_power_w: float = 0.0,
     dt_minutes: int = 1,
     save_path: Path | None = None,
@@ -396,7 +396,7 @@ def plot_energy(
 
     Args:
         log: Simulation log.
-        ufh_max_power_w: Maximum UFH power [W].
+        ufh_nominal_power_w: Maximum UFH power [W].
         split_power_w: Maximum split power [W].
         dt_minutes: Simulation timestep [minutes].
         save_path: If provided, save the figure as PNG at this path.
@@ -423,7 +423,7 @@ def plot_energy(
     split_acc = 0.0
 
     for rec in records:
-        ufh_power = (rec.valve_position / 100.0) * ufh_max_power_w
+        ufh_power = (rec.valve_position / 100.0) * ufh_nominal_power_w
         split_power = split_power_w if rec.split_mode != SplitMode.OFF else 0.0
         # Convert W * hours to kWh
         ufh_acc += ufh_power * dt_hours / 1000.0
@@ -470,7 +470,7 @@ def plot_dashboard(
     *,
     setpoint: float,
     comfort_band: float = 0.5,
-    ufh_max_power_w: float | None = None,
+    ufh_nominal_power_w: float | None = None,
     split_power_w: float | None = None,
     dt_minutes: int = 1,
     save_path: Path | None = None,
@@ -485,7 +485,7 @@ def plot_dashboard(
         log: Simulation log (may contain multiple rooms).
         setpoint: Target room temperature [degC].
         comfort_band: Half-width of the comfort band [degC].
-        ufh_max_power_w: Maximum UFH power [W] (for metrics).
+        ufh_nominal_power_w: Maximum UFH power [W] (for metrics).
         split_power_w: Maximum split power [W] (for metrics).
         dt_minutes: Simulation timestep [minutes].
         save_path: If provided, save the figure as PNG at this path.
@@ -562,7 +562,7 @@ def plot_dashboard(
             room_log,
             setpoint=setpoint,
             comfort_band=comfort_band,
-            ufh_max_power_w=ufh_max_power_w,
+            ufh_nominal_power_w=ufh_nominal_power_w,
             split_power_w=split_power_w,
             dt_minutes=dt_minutes,
         )
@@ -605,7 +605,7 @@ def generate_plots(
     scenario_name: str = "sim",
     setpoint: float = 21.0,
     comfort_band: float = 0.5,
-    ufh_max_power_w: float | None = None,
+    ufh_nominal_power_w: float | None = None,
     split_power_w: float | None = None,
     dt_minutes: int = 1,
     max_points: int = 5000,
@@ -625,7 +625,7 @@ def generate_plots(
         scenario_name: Prefix for filenames.
         setpoint: Target room temperature [degC].
         comfort_band: Half-width of the comfort band [degC].
-        ufh_max_power_w: Maximum UFH power [W].  When ``None``, the energy
+        ufh_nominal_power_w: Maximum UFH power [W].  When ``None``, the energy
             plot is skipped.
         split_power_w: Maximum split power [W].  When ``None``, the energy
             plot is skipped.
@@ -682,11 +682,11 @@ def generate_plots(
     saved.append(path)
 
     # -- Energy (only when power parameters provided) -------------------------
-    if ufh_max_power_w is not None and split_power_w is not None:
+    if ufh_nominal_power_w is not None and split_power_w is not None:
         path = output_dir / f"{scenario_name}_energy.png"
         fig = plot_energy(
             log,
-            ufh_max_power_w=ufh_max_power_w,
+            ufh_nominal_power_w=ufh_nominal_power_w,
             split_power_w=split_power_w,
             dt_minutes=dt_minutes,
             save_path=path,
@@ -701,7 +701,7 @@ def generate_plots(
         log,
         setpoint=setpoint,
         comfort_band=comfort_band,
-        ufh_max_power_w=ufh_max_power_w,
+        ufh_nominal_power_w=ufh_nominal_power_w,
         split_power_w=split_power_w,
         dt_minutes=dt_minutes,
         save_path=path,
