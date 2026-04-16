@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Literal
 
 from pumpahead.model import RCParams
 from pumpahead.solar import WindowConfig
+from pumpahead.weather_comp import CoolingCompCurve, WeatherCompCurve
 
 if TYPE_CHECKING:
     from pumpahead.weather import WeatherSource
@@ -477,6 +478,12 @@ class SimScenario:
             Keys must match room names in ``building.rooms``.  Rooms not
             listed use the scenario-level ``controller`` configuration.
             Empty dict by default.
+        weather_comp: Optional heating weather-compensation curve mapping
+            outdoor temperature to supply temperature.  ``None`` (default)
+            means the simulation uses a constant supply temperature.
+        cooling_comp: Optional cooling weather-compensation curve mapping
+            outdoor temperature to supply temperature.  ``None`` (default)
+            means the simulation uses a constant supply temperature.
     """
 
     name: str
@@ -490,6 +497,8 @@ class SimScenario:
     sensor_noise_std: float = 0.0
     description: str = ""
     room_overrides: dict[str, ControllerConfig] = field(default_factory=dict)
+    weather_comp: WeatherCompCurve | None = None
+    cooling_comp: CoolingCompCurve | None = None
 
     def __post_init__(self) -> None:
         """Validate scenario parameters.
@@ -529,3 +538,19 @@ class SimScenario:
                         f"{type(override).__name__}"
                     )
                     raise ValueError(msg)
+        if self.weather_comp is not None and not isinstance(
+            self.weather_comp, WeatherCompCurve
+        ):
+            msg = (
+                f"weather_comp must be a WeatherCompCurve or None, "
+                f"got {type(self.weather_comp).__name__}"
+            )
+            raise ValueError(msg)
+        if self.cooling_comp is not None and not isinstance(
+            self.cooling_comp, CoolingCompCurve
+        ):
+            msg = (
+                f"cooling_comp must be a CoolingCompCurve or None, "
+                f"got {type(self.cooling_comp).__name__}"
+            )
+            raise ValueError(msg)
