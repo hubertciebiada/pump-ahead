@@ -167,6 +167,11 @@ from pumpahead.split_coordinator import (
     SplitCoordinator,
     SplitDecision,
 )
+from pumpahead.ufh_loop import (
+    LoopGeometry,
+    loop_power,
+    loop_power_with_valve,
+)
 from pumpahead.visualization import (
     generate_plots,
     plot_dashboard,
@@ -254,6 +259,7 @@ __all__ = [
     "InternalGainProfile",
     "IdentificationResult",
     "KalmanEstimator",
+    "LoopGeometry",
     "Measurements",
     "ModeController",
     "MPCAdapter",
@@ -333,6 +339,8 @@ __all__ = [
     "leaky_old_house",
     "load_json",
     "load_pickle",
+    "loop_power",
+    "loop_power_with_valve",
     "generate_safety_yaml",
     "generate_safety_yaml_for_room",
     "generate_plots",
