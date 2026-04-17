@@ -4,7 +4,7 @@
 
 PumpAhead is a predictive heating/cooling controller for Home Assistant (HACS custom integration). It uses Model Predictive Control (MPC) with RC thermal models to manage underfloor heating (UFH) and optional split/AC units.
 
-**Status:** Pre-implementation. Algorithm spec complete, GitHub issues created (20 epics, 49 tasks). No code written yet.
+**Status:** Active development. M0–M7 complete, M8–M10 in progress. Core library mature (~15k LOC, ~2100 tests, 34 modules). HA integration scaffolded (config flow, coordinator, climate/sensor entities). Remaining work tracked via GitHub issues toward HACS release.
 
 **Spec:** `PumpAhead_Algorithm_Spec.md` -- full mathematical and architectural specification.
 
@@ -40,20 +40,48 @@ This restriction remains in effect until an explicit deployment task is created 
 ## Architecture
 
 ```
-pumpahead/              # Core library, zero HA dependency
+pumpahead/              # Core library, zero HA dependency (~15k LOC)
+  # Modeling & simulation
   model.py              # 2R2C/3R3C RC state-space
-  simulator.py          # Building digital twin
+  simulator.py          # Building digital twin (BuildingSimulator)
+  simulated_room.py     # Per-room RK4 integration helper
+  disturbance_vector.py # Discrete disturbance vector for MPC
+  sensor_noise.py       # Gaussian noise for realism
+  # Control
+  controller.py         # PIDController + PumpAheadController
   optimizer.py          # MPC (cvxpy + OSQP)
   estimator.py          # Kalman filter
-  controller.py         # PIDController + PumpAheadController
   identifier.py         # RC parameter identification (scipy)
-  weather.py            # SyntheticWeather, CSVWeather, OpenMeteoHistorical
-  scenarios.py          # RoomConfig, SimScenario, building profiles, scenario library
-  metrics.py            # SimMetrics + assertion functions (assert_comfort, assert_floor_temp_safe, etc.)
-  solar.py              # Simple Q_sol orientation-based scaling (full geometry in solar_gti.py)
+  cross_validation.py   # RC parameter cross-validation
+  identification_report.py  # IdentificationResult + reporting
+  mode_controller.py    # Heating/cooling/auto state machine
+  hp_mode_mapping.py    # HPOperatingState, SplitMode enum mappers
+  # Hydraulics & physics
+  ufh_loop.py           # EN 1264 reduced formula (loop_power, LoopGeometry)
+  weather_comp.py       # Heating/cooling weather-compensation curves
   dew_point.py          # Magnus approximation, condensation protection
-  tariff.py             # Spot price client (G14 tariff integration)
+  solar.py              # Orientation-based Q_sol scaling
+  solar_gti.py          # Full GTI with Erbs/Liu-Jordan decomposition
+  # Weather, scenarios, metrics
+  weather.py            # SyntheticWeather, CSVWeather, OpenMeteoHistorical
+  scenarios.py          # RoomConfig, SimScenario, scenario library
+  building_profiles.py  # Building profile builders (modern_bungalow, etc.)
+  config.py             # Immutable configs (CWUCycle, BuildingParams, ControllerConfig)
+  metrics.py            # SimMetrics + assertion functions
+  cop_calculator.py     # COP baseline calculator
+  # Coordination & safety
+  split_coordinator.py  # Axiom 2/3: anti-takeover + mode-opposition guard
+  cwu_coordinator.py    # DHW pre-charge + anti-panic (M6)
+  safety_rules.py       # S1–S5 with hysteresis (Axiom 6)
+  safety_yaml_generator.py  # Generates HA safety YAML from config
+  watchdog.py           # S5 watchdog timeout
+  # Logging, replay, A/B
+  simulation_log.py     # Event data for replay
+  log_serializer.py     # JSON serializer for logs
   visualization.py      # matplotlib static plots, Plotly Dash replay
+  ab_testing.py         # ABTestRunner (PID vs MPC)
+  # TODO (M9 — not yet implemented)
+  # tariff.py           # G14 spot price client
 
 custom_components/pumpahead/   # HA integration, imports from pumpahead/
   manifest.json
@@ -61,11 +89,21 @@ custom_components/pumpahead/   # HA integration, imports from pumpahead/
   climate.py            # ClimateEntity per room
   coordinator.py        # DataUpdateCoordinator (5 min)
   sensor.py             # Shadow mode diagnostics
-  config_flow.py        # Entity mapping UI
+  config_flow.py        # Entity mapping UI (5-step wizard + options flow)
+  const.py              # Domain, config keys, defaults
+  entity_validator.py   # Unit validation (°C, %, W)
+  ha_weather.py         # HA weather integration + solar ephemeris
+  strings.json          # Default UI strings
+  translations/         # en.json, pl.json
+  brand/                # icon.svg (PNG conversion pending — see issue #169)
+
+# Repo root
+hacs.json               # HACS integration manifest
+.github/workflows/validate.yml  # HACS + hassfest CI validation
 
 tests/
-  unit/                 # Fast: model, optimizer, identifier
-  simulation/           # Slow: scenario-based (cold_snap, full_year, etc.)
+  unit/                 # Fast: model, optimizer, identifier (~2000 tests)
+  simulation/           # Slow: scenario-based (cold_snap, full_year, cooling, etc.)
 ```
 
 **Key rule:** `pumpahead/` must NEVER import `homeassistant`. Core is testable standalone.
@@ -113,8 +151,9 @@ Linear dependency chain. Each milestone builds on the previous one.
 
 ## GitHub Issues
 
-- 20 epics (label: `epic`) -- #1 through #20
-- 49 tasks (label: `task`) -- #21 through #69
+- Epics labeled `epic`: #1–#20 plus ongoing quality/UFH epics (#137, #139)
+- Tasks labeled `task`: implementation sub-issues under each epic
+- Several new HACS-release tasks (#161–#171) under Epic #20
 - Two relationship systems:
   - `parent/subIssues` -- epic is parent of its tasks
   - `blockedBy/blocking` -- dependency tracking between issues

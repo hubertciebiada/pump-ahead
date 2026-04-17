@@ -1,0 +1,93 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Lokalizacja",
+        "description": "Podaj lokalizację budynku dla obliczeń pogodowych i nasłonecznienia.",
+        "data": {
+          "latitude": "Szerokość geograficzna",
+          "longitude": "Długość geograficzna"
+        }
+      },
+      "rooms": {
+        "title": "Zdefiniuj pomieszczenia",
+        "description": "Dodaj pomieszczenia kontrolowane przez PumpAhead. Wymagane co najmniej jedno.",
+        "data": {
+          "room_name": "Nazwa pomieszczenia",
+          "room_area": "Powierzchnia podłogi (m\u00b2)",
+          "has_split": "Pomieszczenie ma klimatyzator split",
+          "add_another": "Dodaj kolejne pomieszczenie"
+        }
+      },
+      "entities": {
+        "title": "Mapowanie encji: {room_name}",
+        "description": "Wybierz encje Home Assistant dla tego pomieszczenia. PumpAhead waliduje jednostki (\u00b0C, %, W).",
+        "data": {
+          "entity_temp_room": "Czujnik temperatury pomieszczenia",
+          "entity_temp_floor": "Czujnik temperatury podłogi (opcjonalny)",
+          "entity_valve": "Siłownik zaworu ogrzewania podłogowego",
+          "entity_humidity": "Czujnik wilgotności (opcjonalny)",
+          "entity_split": "Encja climate klimatyzatora split",
+          "entity_temp_outdoor": "Czujnik temperatury zewnętrznej",
+          "entity_weather": "Encja pogodowa (dla prognozy)",
+          "entity_hp_state": "Czujnik trybu pompy ciepła (opcjonalny)"
+        }
+      },
+      "hp_mapping": {
+        "title": "Mapowanie trybów pompy ciepła",
+        "description": "Zmapuj tryby pracy Twojej pompy ciepła na tryby PumpAhead. Wpisz dokładny ciąg stanu pokazywany przez integrację pompy ciepła (np. 'Heat', 'DHW', 'Defrost') i wybierz odpowiadający tryb PumpAhead.",
+        "data": {
+          "hp_state_raw": "Ciąg stanu pompy ciepła",
+          "hp_state_target": "Tryb PumpAhead",
+          "add_another_mapping": "Dodaj kolejne mapowanie"
+        }
+      },
+      "algorithm": {
+        "title": "Parametry algorytmu",
+        "description": "Skonfiguruj tryb algorytmu sterującego i wagi dostrajania.",
+        "data": {
+          "algorithm_mode": "Tryb pracy",
+          "w_comfort": "Waga komfortu",
+          "w_energy": "Waga energii",
+          "w_smooth": "Waga gładkości"
+        }
+      },
+      "confirm": {
+        "title": "Potwierdź konfigurację",
+        "description": "PumpAhead zostanie skonfigurowany dla {num_rooms} pomieszczeń w trybie {algorithm_mode} w lokalizacji ({latitude}, {longitude}). Potwierdź, aby zakończyć konfigurację."
+      }
+    },
+    "error": {
+      "invalid_latitude": "Szerokość geograficzna musi być w zakresie od -90 do 90",
+      "invalid_longitude": "Długość geograficzna musi być w zakresie od -180 do 180",
+      "empty_room_name": "Nazwa pomieszczenia nie może być pusta",
+      "duplicate_room_name": "Pomieszczenie o tej nazwie już istnieje",
+      "invalid_area": "Powierzchnia podłogi musi być większa od 0",
+      "no_rooms": "Wymagane jest co najmniej jedno pomieszczenie",
+      "entity_not_found": "Nie znaleziono encji w Home Assistant",
+      "invalid_unit": "Encja ma nieprawidłową jednostkę miary",
+      "invalid_device_class": "Encja ma nieprawidłową klasę urządzenia",
+      "entity_unavailable": "Encja jest aktualnie niedostępna \u2014 może pojawić się później",
+      "invalid_weight": "Waga musi być >= 0",
+      "empty_hp_state": "Ciąg stanu pompy ciepła nie może być pusty",
+      "duplicate_hp_state": "Ten stan pompy ciepła jest już zmapowany"
+    },
+    "abort": {
+      "already_configured": "PumpAhead jest już skonfigurowany dla tej lokalizacji"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Sterowanie na żywo PumpAhead",
+        "description": "Włącz sterowanie na żywo per pomieszczenie. Po włączeniu PumpAhead będzie aktywnie sterował zaworami i klimatyzatorami dla wybranych pomieszczeń. Wyłączone pomieszczenia pozostają w trybie cienia (tylko odczyt).",
+        "data": {}
+      },
+      "hp_mapping": {
+        "title": "Edytuj mapowanie trybów pompy ciepła",
+        "description": "Edytuj mapowanie między trybami pracy Twojej pompy ciepła a trybami PumpAhead. Zmodyfikuj istniejące wpisy lub dodaj nowe. Pozostaw nowy wpis pusty, aby nie dodawać.",
+        "data": {}
+      }
+    }
+  }
+}
