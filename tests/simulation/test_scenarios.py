@@ -41,6 +41,7 @@ FAST_SCENARIOS: list[str] = [
     "extreme_cold",
     "rapid_warming",
     "cwu_heavy",
+    "cold_snap_weather_comp",
 ]
 """Short-duration scenarios (24h-48h) for regular CI runs."""
 
