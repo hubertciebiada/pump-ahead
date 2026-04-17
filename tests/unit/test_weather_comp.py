@@ -618,6 +618,9 @@ class TestSerialization:
 # ===========================================================================
 
 
+_SCENARIOS_WITH_CURVES = {"cold_snap_weather_comp"}
+
+
 @pytest.mark.unit
 class TestSimScenarioBackwardCompatibility:
     """Tests that SimScenario accepts weather_comp/cooling_comp optionally."""
@@ -684,14 +687,15 @@ class TestSimScenarioBackwardCompatibility:
     def test_all_library_scenarios_still_construct(self, name: str) -> None:
         """Every scenario in SCENARIO_LIBRARY constructs without error.
 
-        This verifies backward compatibility — existing scenarios that do
-        not provide weather_comp / cooling_comp default to None.
+        Existing scenarios default weather_comp / cooling_comp to None;
+        scenarios that intentionally use a curve are tracked explicitly.
         """
         factory = SCENARIO_LIBRARY[name]
         scenario = factory()
         assert isinstance(scenario, SimScenario)
-        assert scenario.weather_comp is None
-        assert scenario.cooling_comp is None
+        if name not in _SCENARIOS_WITH_CURVES:
+            assert scenario.weather_comp is None
+            assert scenario.cooling_comp is None
 
 
 # ===========================================================================

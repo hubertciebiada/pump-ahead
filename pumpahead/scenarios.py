@@ -47,6 +47,7 @@ from pumpahead.config import (
 )
 from pumpahead.cwu_coordinator import CWU_HEAVY
 from pumpahead.weather import ChannelProfile, ProfileKind, SyntheticWeather
+from pumpahead.weather_comp import WeatherCompCurve
 
 __all__ = [
     "PARAMETRIC_SWEEPS",
@@ -54,6 +55,7 @@ __all__ = [
     "bathroom_heater",
     "bathroom_heater_cooling",
     "cold_snap",
+    "cold_snap_weather_comp",
     "cwu_heavy",
     "cwu_with_splits",
     "dew_point_stress",
@@ -194,6 +196,59 @@ def cold_snap() -> SimScenario:
         description=(
             "Step drop from 0C to -15C after 24h. "
             "Tests split entry/exit and UFH takeover."
+        ),
+    )
+
+
+def cold_snap_weather_comp() -> SimScenario:
+    """Step drop from 0C to -15C after 24h with a realistic HP heating curve.
+
+    Mirrors the :func:`cold_snap` weather profile (baseline 0 C, amplitude
+    -15 C, step at t=1440 min, constant GHI=0, wind=2, humidity=60) but
+    exercises the weather-compensation curve introduced in #141 and wired
+    in #143.  The curve uses ``t_supply_base=35`` C, ``slope=0.4``,
+    ``t_neutral=0`` C, ``t_supply_max=55`` C, ``t_supply_min=25`` C, giving
+    ~41 C supply at the -15 C cold peak (35 + 0.4 * 15).
+
+    Uses the ``modern_bungalow`` building (7 kW HP, 8 rooms, salon has
+    splits).  Duration is 48 h so the second 24 h exercises the peak
+    supply temperature.
+
+    Returns:
+        ``SimScenario`` with ``modern_bungalow`` building, 48 h duration,
+        heating mode, and a configured ``WeatherCompCurve``.
+    """
+    weather = SyntheticWeather(
+        t_out=ChannelProfile(
+            kind=ProfileKind.STEP,
+            baseline=0.0,
+            amplitude=-15.0,
+            step_time_minutes=1440.0,
+        ),
+        ghi=ChannelProfile(kind=ProfileKind.CONSTANT, baseline=0.0),
+        wind_speed=ChannelProfile(kind=ProfileKind.CONSTANT, baseline=2.0),
+        humidity=ChannelProfile(kind=ProfileKind.CONSTANT, baseline=60.0),
+    )
+    curve = WeatherCompCurve(
+        t_supply_base=35.0,
+        slope=0.4,
+        t_neutral=0.0,
+        t_supply_max=55.0,
+        t_supply_min=25.0,
+    )
+    return SimScenario(
+        name="cold_snap_weather_comp",
+        building=modern_bungalow(),
+        weather=weather,
+        controller=ControllerConfig(setpoint=21.0),
+        duration_minutes=2880,
+        mode="heating",
+        dt_seconds=60.0,
+        weather_comp=curve,
+        description=(
+            "Step drop from 0C to -15C after 24h with realistic HP "
+            "heating curve (base=35C, slope=0.4, neutral=0C). "
+            "Tests weather-compensation under severe cold."
         ),
     )
 
@@ -973,6 +1028,7 @@ def screed_sweep() -> list[SimScenario]:
 SCENARIO_LIBRARY: dict[str, Callable[[], SimScenario]] = {
     "steady_state": steady_state,
     "cold_snap": cold_snap,
+    "cold_snap_weather_comp": cold_snap_weather_comp,
     "hot_july": hot_july,
     "solar_overshoot": solar_overshoot,
     "full_year_2025": full_year_2025,
