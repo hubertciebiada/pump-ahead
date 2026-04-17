@@ -35,18 +35,23 @@ class SimulatedRoom:
     Typical usage::
 
         model = RCModel(params, ModelOrder.THREE, dt=60.0)
-        room = SimulatedRoom("living_room", model, ufh_max_power_w=5000.0)
-        room.apply_actions(valve_position=50.0)
-        room.step(weather_point, q_sol_w=0.0)
-        print(room.T_air)
+        geom = LoopGeometry(
+            effective_pipe_length_m=130.0,
+            pipe_spacing_m=0.15,
+            pipe_diameter_outer_mm=16.0,
+            pipe_wall_thickness_mm=2.0,
+            area_m2=20.0,
+        )
+        room = SimulatedRoom("living_room", model, loop_geometry=geom)
+        sim = BuildingSimulator(room, weather_source)
+        sim.step(Actions(valve_position=50.0))
+        print(sim.room.T_air)
     """
 
     def __init__(
         self,
         name: str,
         model: RCModel,
-        ufh_max_power_w: float = 5000.0,
-        ufh_cooling_max_power_w: float = 0.0,
         split_power_w: float = 0.0,
         q_int_w: float = 0.0,
         loop_geometry: LoopGeometry | None = None,
@@ -56,24 +61,18 @@ class SimulatedRoom:
         Args:
             name: Human-readable room name (e.g. "living_room").
             model: The RC thermal model for this room.
-            ufh_max_power_w: Maximum UFH heat output at 100 % valve [W].
-            ufh_cooling_max_power_w: Maximum UFH cooling power [W].
-                Typically ~60 % of heating power due to asymmetric
-                floor heat transfer.  Zero if no floor cooling.
             split_power_w: Maximum split/AC power [W].  Zero if no split.
             q_int_w: Constant internal heat gains [W] (occupancy, appliances).
-            loop_geometry: Optional ``LoopGeometry`` describing the UFH
-                loop's pipe and floor area.  When provided, the
-                ``BuildingSimulator`` uses the physical EN 1264 model
-                (``pumpahead.ufh_loop.loop_power``) to compute per-room
-                floor power.  When ``None`` (default), the legacy
-                ``valve * ufh_max_power_w`` shim is used — this shim
-                will be removed by issue #144.
+            loop_geometry: ``LoopGeometry`` describing the UFH loop's pipe
+                and floor area.  Required when the room is driven through
+                a ``BuildingSimulator`` — the physical EN 1264 model
+                (``pumpahead.ufh_loop.loop_power``) computes per-room
+                floor power from it.  ``None`` is accepted here for
+                construction flexibility, but ``BuildingSimulator``
+                refuses to run with rooms that lack geometry (issue #144).
         """
         self._name = name
         self._model = model
-        self._ufh_max_power_w = ufh_max_power_w
-        self._ufh_cooling_max_power_w = ufh_cooling_max_power_w
         self._split_power_w = split_power_w
         self._q_int_w = q_int_w
         self._loop_geometry = loop_geometry
@@ -118,16 +117,6 @@ class SimulatedRoom:
         return self._model.params.has_split
 
     @property
-    def ufh_max_power_w(self) -> float:
-        """Return the maximum UFH heat output at 100 % valve [W]."""
-        return self._ufh_max_power_w
-
-    @property
-    def ufh_cooling_max_power_w(self) -> float:
-        """Return the maximum UFH cooling power at 100 % valve [W]."""
-        return self._ufh_cooling_max_power_w
-
-    @property
     def loop_geometry(self) -> LoopGeometry | None:
         """Return the UFH loop geometry, or ``None`` if not configured."""
         return self._loop_geometry
@@ -164,19 +153,6 @@ class SimulatedRoom:
 
     # -- Physics step --------------------------------------------------------
 
-    def step(self, weather: WeatherPoint, q_sol_w: float = 0.0) -> None:
-        """Propagate the thermal state by one time step.
-
-        Converts actuator state to control inputs and delegates to
-        :meth:`step_with_power`.
-
-        Args:
-            weather: Weather conditions at the current time step.
-            q_sol_w: Solar heat gain reaching the room [W].
-        """
-        q_floor = self._valve_position / 100.0 * self._ufh_max_power_w
-        self.step_with_power(weather, q_floor_w=q_floor, q_sol_w=q_sol_w)
-
     def step_with_power(
         self,
         weather: WeatherPoint,
@@ -187,7 +163,7 @@ class SimulatedRoom:
 
         This method is used by multi-room simulation where the HP power
         distribution logic computes ``q_floor_w`` externally instead of
-        deriving it from ``valve_position * ufh_max_power_w``.
+        deriving it from a rated-power proxy.
 
         The split power (``q_conv``) is still read from the internal
         actuator state set by :meth:`apply_actions`.

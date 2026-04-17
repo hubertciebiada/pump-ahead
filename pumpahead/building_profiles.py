@@ -48,6 +48,15 @@ __all__ = [
 
 _REF_AREA = 20.0  # Reference room area [m^2] for scaling
 
+# Modern bungalow UFH pipe spacing [m].  The real salon loop is
+# documented at 96 m of pipe in 36.28 m² ⇒ ~0.15 m centre-to-centre
+# (standard residential practice).  Reused across all 13 rooms.
+_MODERN_BUNGALOW_PIPE_SPACING_M: float = 0.15
+
+# Fallback pipe spacing [m] for single-room parametric profiles
+# (well_insulated, leaky_old_house, thin_screed, heavy_construction).
+_SINGLE_ROOM_PIPE_SPACING_M: float = 0.20
+
 # Defaults calibrated to a modern, heavily insulated single-storey house
 # (30 cm mineral wool walls, 20 cm ceiling wool, 7 cm wet screed) so that a
 # ~155 m^2 building loses ~4.5 kW at design ΔT=40 K (T_in=20, T_out=-20).
@@ -145,11 +154,6 @@ _Q_INT_WC = 10.0
 _Q_INT_ENTRY = 10.0
 
 
-def _ufh_max(area_m2: float) -> float:
-    """UFH max thermal power [W] sized at ~100 W/m² (T_floor≈30 °C)."""
-    return 100.0 * area_m2
-
-
 MODERN_BUNGALOW_ROOMS: tuple[RoomConfig, ...] = (
     # garderoba — 7.40 m^2, 1 loop, no windows
     RoomConfig(
@@ -157,8 +161,7 @@ MODERN_BUNGALOW_ROOMS: tuple[RoomConfig, ...] = (
         area_m2=7.40,
         params=_make_3r3c_params(area_m2=7.40),
         windows=(),
-        ufh_max_power_w=_ufh_max(7.40),
-        ufh_cooling_max_power_w=0.6 * _ufh_max(7.40),
+        pipe_spacing_m=_MODERN_BUNGALOW_PIPE_SPACING_M,
         ufh_loops=1,
         q_int_w=_Q_INT_CLOSET,
     ),
@@ -170,8 +173,7 @@ MODERN_BUNGALOW_ROOMS: tuple[RoomConfig, ...] = (
         windows=(
             WindowConfig(orientation=Orientation.SOUTH, area_m2=2.5, g_value=0.6),
         ),
-        ufh_max_power_w=_ufh_max(12.68),
-        ufh_cooling_max_power_w=0.6 * _ufh_max(12.68),
+        pipe_spacing_m=_MODERN_BUNGALOW_PIPE_SPACING_M,
         ufh_loops=1,
         q_int_w=_Q_INT_BEDROOM,
     ),
@@ -181,8 +183,7 @@ MODERN_BUNGALOW_ROOMS: tuple[RoomConfig, ...] = (
         area_m2=12.12,
         params=_make_3r3c_params(area_m2=12.12),
         windows=(),
-        ufh_max_power_w=_ufh_max(12.12),
-        ufh_cooling_max_power_w=0.6 * _ufh_max(12.12),
+        pipe_spacing_m=_MODERN_BUNGALOW_PIPE_SPACING_M,
         ufh_loops=1,
         q_int_w=_Q_INT_HALL,
     ),
@@ -195,8 +196,7 @@ MODERN_BUNGALOW_ROOMS: tuple[RoomConfig, ...] = (
         windows=(
             WindowConfig(orientation=Orientation.NORTH, area_m2=0.5, g_value=0.6),
         ),
-        ufh_max_power_w=_ufh_max(8.90),
-        ufh_cooling_max_power_w=0.6 * _ufh_max(8.90),
+        pipe_spacing_m=_MODERN_BUNGALOW_PIPE_SPACING_M,
         ufh_loops=1,
         q_int_w=_Q_INT_BATH,
     ),
@@ -206,8 +206,7 @@ MODERN_BUNGALOW_ROOMS: tuple[RoomConfig, ...] = (
         area_m2=14.33,
         params=_make_3r3c_params(area_m2=14.33),
         windows=(WindowConfig(orientation=Orientation.EAST, area_m2=2.0, g_value=0.6),),
-        ufh_max_power_w=_ufh_max(14.33),
-        ufh_cooling_max_power_w=0.6 * _ufh_max(14.33),
+        pipe_spacing_m=_MODERN_BUNGALOW_PIPE_SPACING_M,
         ufh_loops=1,
         q_int_w=_Q_INT_CHILD,
     ),
@@ -217,8 +216,7 @@ MODERN_BUNGALOW_ROOMS: tuple[RoomConfig, ...] = (
         area_m2=11.65,
         params=_make_3r3c_params(area_m2=11.65),
         windows=(WindowConfig(orientation=Orientation.EAST, area_m2=2.0, g_value=0.6),),
-        ufh_max_power_w=_ufh_max(11.65),
-        ufh_cooling_max_power_w=0.6 * _ufh_max(11.65),
+        pipe_spacing_m=_MODERN_BUNGALOW_PIPE_SPACING_M,
         ufh_loops=1,
         q_int_w=_Q_INT_CHILD,
     ),
@@ -228,8 +226,7 @@ MODERN_BUNGALOW_ROOMS: tuple[RoomConfig, ...] = (
         area_m2=5.0,
         params=_make_3r3c_params(area_m2=5.0),
         windows=(),
-        ufh_max_power_w=_ufh_max(5.0),
-        ufh_cooling_max_power_w=0.6 * _ufh_max(5.0),
+        pipe_spacing_m=_MODERN_BUNGALOW_PIPE_SPACING_M,
         ufh_loops=1,
         q_int_w=_Q_INT_HALL,
     ),
@@ -241,8 +238,7 @@ MODERN_BUNGALOW_ROOMS: tuple[RoomConfig, ...] = (
         windows=(
             WindowConfig(orientation=Orientation.NORTH, area_m2=1.0, g_value=0.6),
         ),
-        ufh_max_power_w=_ufh_max(5.05),
-        ufh_cooling_max_power_w=0.6 * _ufh_max(5.05),
+        pipe_spacing_m=_MODERN_BUNGALOW_PIPE_SPACING_M,
         ufh_loops=1,
         q_int_w=_Q_INT_ENTRY,
     ),
@@ -255,8 +251,7 @@ MODERN_BUNGALOW_ROOMS: tuple[RoomConfig, ...] = (
             WindowConfig(orientation=Orientation.SOUTH, area_m2=5.0, g_value=0.6),
             WindowConfig(orientation=Orientation.WEST, area_m2=3.0, g_value=0.6),
         ),
-        ufh_max_power_w=_ufh_max(36.28),
-        ufh_cooling_max_power_w=0.6 * _ufh_max(36.28),
+        pipe_spacing_m=_MODERN_BUNGALOW_PIPE_SPACING_M,
         ufh_loops=1,
         q_int_w=_Q_INT_SALON,
     ),
@@ -266,8 +261,7 @@ MODERN_BUNGALOW_ROOMS: tuple[RoomConfig, ...] = (
         area_m2=13.59,
         params=_make_3r3c_params(area_m2=13.59),
         windows=(WindowConfig(orientation=Orientation.EAST, area_m2=2.0, g_value=0.6),),
-        ufh_max_power_w=_ufh_max(13.59),
-        ufh_cooling_max_power_w=0.6 * _ufh_max(13.59),
+        pipe_spacing_m=_MODERN_BUNGALOW_PIPE_SPACING_M,
         ufh_loops=1,
         q_int_w=_Q_INT_KITCHEN,
     ),
@@ -279,8 +273,7 @@ MODERN_BUNGALOW_ROOMS: tuple[RoomConfig, ...] = (
         windows=(
             WindowConfig(orientation=Orientation.NORTH, area_m2=1.5, g_value=0.6),
         ),
-        ufh_max_power_w=_ufh_max(13.0),
-        ufh_cooling_max_power_w=0.6 * _ufh_max(13.0),
+        pipe_spacing_m=_MODERN_BUNGALOW_PIPE_SPACING_M,
         ufh_loops=1,
         q_int_w=_Q_INT_OFFICE,
     ),
@@ -292,8 +285,7 @@ MODERN_BUNGALOW_ROOMS: tuple[RoomConfig, ...] = (
         windows=(
             WindowConfig(orientation=Orientation.NORTH, area_m2=1.5, g_value=0.6),
         ),
-        ufh_max_power_w=_ufh_max(12.62),
-        ufh_cooling_max_power_w=0.6 * _ufh_max(12.62),
+        pipe_spacing_m=_MODERN_BUNGALOW_PIPE_SPACING_M,
         ufh_loops=1,
         q_int_w=_Q_INT_OFFICE,
     ),
@@ -303,8 +295,7 @@ MODERN_BUNGALOW_ROOMS: tuple[RoomConfig, ...] = (
         area_m2=5.49,
         params=_make_3r3c_params(area_m2=5.49),
         windows=(),
-        ufh_max_power_w=_ufh_max(5.49),
-        ufh_cooling_max_power_w=0.6 * _ufh_max(5.49),
+        pipe_spacing_m=_MODERN_BUNGALOW_PIPE_SPACING_M,
         ufh_loops=1,
         q_int_w=_Q_INT_WC,
     ),
@@ -392,9 +383,11 @@ def _add_split(room: RoomConfig) -> RoomConfig:
         windows=room.windows,
         has_split=True,
         split_power_w=_SPLIT_POWER_BY_ROOM[room.name],
-        ufh_max_power_w=room.ufh_max_power_w,
-        ufh_cooling_max_power_w=room.ufh_cooling_max_power_w,
         ufh_loops=room.ufh_loops,
+        pipe_length_m=room.pipe_length_m,
+        pipe_spacing_m=room.pipe_spacing_m,
+        pipe_diameter_outer_mm=room.pipe_diameter_outer_mm,
+        pipe_wall_thickness_mm=room.pipe_wall_thickness_mm,
         q_int_w=room.q_int_w,
     )
 
@@ -428,8 +421,8 @@ def modern_bungalow_with_splits() -> BuildingParams:
 # to track the 24 °C setpoint against the 20 °C house-wide target.  This
 # profile mirrors the real wiring: only ``lazienka`` is modified, gaining a
 # ``has_split=True`` auxiliary that is actually a heating-only source
-# (``auxiliary_type="heater"``, ``ufh_cooling_max_power_w=0.0``).  All other
-# rooms are identical to ``modern_bungalow``.
+# (``auxiliary_type="heater"``).  All other rooms are identical to
+# ``modern_bungalow``.
 
 
 _BATHROOM_HEATER_POWER_W = 300.0
@@ -440,8 +433,8 @@ def _lazienka_with_heater(room: RoomConfig) -> RoomConfig:
 
     Only the ``lazienka`` room is modified.  The new RoomConfig has
     ``has_split=True`` (to reuse the SplitCoordinator pipeline),
-    ``split_power_w=300.0`` W, ``auxiliary_type="heater"`` and
-    ``ufh_cooling_max_power_w=0.0`` (heater rooms must not cool).
+    ``split_power_w=300.0`` W, and ``auxiliary_type="heater"`` so the
+    controller forces ``SplitMode.OFF`` in cooling mode (Axiom #3).
     The underlying ``RCParams`` is rebuilt with ``has_split=True``.
 
     Args:
@@ -475,9 +468,11 @@ def _lazienka_with_heater(room: RoomConfig) -> RoomConfig:
         windows=room.windows,
         has_split=True,
         split_power_w=_BATHROOM_HEATER_POWER_W,
-        ufh_max_power_w=room.ufh_max_power_w,
-        ufh_cooling_max_power_w=0.0,
         ufh_loops=room.ufh_loops,
+        pipe_length_m=room.pipe_length_m,
+        pipe_spacing_m=room.pipe_spacing_m,
+        pipe_diameter_outer_mm=room.pipe_diameter_outer_mm,
+        pipe_wall_thickness_mm=room.pipe_wall_thickness_mm,
         q_int_w=room.q_int_w,
         auxiliary_type="heater",
     )
@@ -491,9 +486,7 @@ def modern_bungalow_with_bathroom_heater() -> BuildingParams:
     (``auxiliary_type="heater"``, 300 W).  The heater reuses the
     ``SplitCoordinator`` pipeline but the controller forces
     ``SplitMode.OFF`` for heater rooms in cooling mode so the heater
-    never opposes the HP mode (Axiom #3).  Bathroom floor cooling is
-    disabled (``ufh_cooling_max_power_w=0.0``) consistent with the
-    real wiring.
+    never opposes the HP mode (Axiom #3).
 
     All other 12 rooms are identical to ``modern_bungalow``.
 
@@ -546,8 +539,7 @@ def well_insulated() -> BuildingParams:
         ),
         has_split=False,
         split_power_w=0.0,
-        ufh_max_power_w=4000.0,
-        ufh_cooling_max_power_w=2400.0,
+        pipe_spacing_m=_SINGLE_ROOM_PIPE_SPACING_M,
         ufh_loops=2,
         q_int_w=100.0,
     )
@@ -596,8 +588,7 @@ def leaky_old_house() -> BuildingParams:
         ),
         has_split=False,
         split_power_w=0.0,
-        ufh_max_power_w=6000.0,
-        ufh_cooling_max_power_w=3600.0,
+        pipe_spacing_m=_SINGLE_ROOM_PIPE_SPACING_M,
         ufh_loops=2,
         q_int_w=100.0,
     )
@@ -646,8 +637,7 @@ def thin_screed() -> BuildingParams:
         ),
         has_split=False,
         split_power_w=0.0,
-        ufh_max_power_w=4000.0,
-        ufh_cooling_max_power_w=2400.0,
+        pipe_spacing_m=_SINGLE_ROOM_PIPE_SPACING_M,
         ufh_loops=2,
         q_int_w=100.0,
     )
@@ -696,8 +686,7 @@ def heavy_construction() -> BuildingParams:
         ),
         has_split=False,
         split_power_w=0.0,
-        ufh_max_power_w=5000.0,
-        ufh_cooling_max_power_w=3000.0,
+        pipe_spacing_m=_SINGLE_ROOM_PIPE_SPACING_M,
         ufh_loops=2,
         q_int_w=100.0,
     )

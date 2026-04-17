@@ -206,7 +206,7 @@ class TestSerializeThenVisualize:
             loaded,
             setpoint=21.0,
             comfort_band=0.5,
-            ufh_max_power_w=5000.0,
+            ufh_nominal_power_w=5000.0,
             split_power_w=2500.0,
         )
         assert fig is not None

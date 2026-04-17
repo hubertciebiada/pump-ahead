@@ -113,9 +113,11 @@ def _modern_bungalow_single_room() -> BuildingParams:
         windows=salon.windows,
         has_split=False,
         split_power_w=0.0,
-        ufh_max_power_w=salon.ufh_max_power_w,
-        ufh_cooling_max_power_w=salon.ufh_cooling_max_power_w,
         ufh_loops=salon.ufh_loops,
+        pipe_length_m=salon.pipe_length_m,
+        pipe_spacing_m=salon.pipe_spacing_m,
+        pipe_diameter_outer_mm=salon.pipe_diameter_outer_mm,
+        pipe_wall_thickness_mm=salon.pipe_wall_thickness_mm,
         q_int_w=salon.q_int_w,
     )
     return BuildingParams(
@@ -809,8 +811,8 @@ def bathroom_heater_cooling() -> SimScenario:
     override setpoint (below the 25 °C house-wide target) so an
     unconstrained coordinator would try to cool it — but the heater
     has no cooling capability, so the controller must force
-    ``SplitMode.OFF`` and UFH cooling is disabled
-    (``ufh_cooling_max_power_w=0.0``).  Tests:
+    ``SplitMode.OFF`` (enforced via ``auxiliary_type="heater"``).
+    Tests:
 
     * ``split_mode`` is ``OFF`` at every step for ``lazienka``.
     * ``assert_no_opposing_action`` passes (heater never cools).

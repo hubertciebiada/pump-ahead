@@ -529,7 +529,7 @@ class TestAssertEnergyVsBaseline:
             baseline_log,
             max_increase=max_increase,
             setpoint=self._SETPOINT,
-            ufh_max_power_w=self._UFH_MAX_POWER_W,
+            ufh_nominal_power_w=self._UFH_MAX_POWER_W,
             split_power_w=self._SPLIT_POWER_W,
             dt_minutes=self._DT_MINUTES,
         )

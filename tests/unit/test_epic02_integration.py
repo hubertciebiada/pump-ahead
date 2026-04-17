@@ -31,6 +31,7 @@ from pumpahead.simulator import (
     Measurements,
     SplitMode,
 )
+from pumpahead.ufh_loop import LoopGeometry
 from pumpahead.weather import SyntheticWeather
 
 # ---------------------------------------------------------------------------
@@ -38,28 +39,45 @@ from pumpahead.weather import SyntheticWeather
 # ---------------------------------------------------------------------------
 
 
+def _standard_geometry(area_m2: float = 20.0) -> LoopGeometry:
+    """Return a standard UFH loop geometry used throughout the tests."""
+    return LoopGeometry(
+        effective_pipe_length_m=130.0,
+        pipe_spacing_m=0.15,
+        pipe_diameter_outer_mm=16.0,
+        pipe_wall_thickness_mm=2.0,
+        area_m2=area_m2,
+    )
+
+
 def _make_room(
     name: str,
     params: RCParams,
-    ufh_max_power_w: float = 5000.0,
+    *,
     split_power_w: float = 0.0,
+    loop_geometry: LoopGeometry | None = None,
 ) -> SimulatedRoom:
     """Create a SimulatedRoom with a 3R3C model at dt=60s."""
     model = RCModel(params, ModelOrder.THREE, dt=60.0)
+    if loop_geometry is None:
+        loop_geometry = _standard_geometry()
     return SimulatedRoom(
-        name, model, ufh_max_power_w=ufh_max_power_w, split_power_w=split_power_w
+        name,
+        model,
+        split_power_w=split_power_w,
+        loop_geometry=loop_geometry,
     )
 
 
 def _make_rooms(
     n: int,
     params: RCParams,
-    ufh_max_power_w: float = 5000.0,
+    *,
+    loop_geometry: LoopGeometry | None = None,
 ) -> list[SimulatedRoom]:
     """Create *n* rooms with distinct names and identical RC parameters."""
     return [
-        _make_room(f"room_{i}", params, ufh_max_power_w=ufh_max_power_w)
-        for i in range(n)
+        _make_room(f"room_{i}", params, loop_geometry=loop_geometry) for i in range(n)
     ]
 
 
@@ -133,7 +151,7 @@ class TestFullPipelineIntegration:
         log record count, per-room filtering, finite temps, and that
         heated rooms are warmer than unheated ones.
         """
-        rooms = _make_rooms(8, params, ufh_max_power_w=3000.0)
+        rooms = _make_rooms(8, params)
         noise = SensorNoise(std=0.1, seed=42)
         cwu_cycle = CWUCycle(start_minute=0, duration_minutes=30, interval_minutes=480)
         sim = BuildingSimulator(
@@ -197,7 +215,7 @@ class TestFullPipelineIntegration:
         Verifies performance, log integrity, and finite temperatures
         across a full-week simulation with all features enabled.
         """
-        rooms = _make_rooms(4, params, ufh_max_power_w=4000.0)
+        rooms = _make_rooms(4, params)
         noise = SensorNoise(std=0.05, seed=99)
         cwu_cycle = CWUCycle(start_minute=0, duration_minutes=20, interval_minutes=360)
         sim = BuildingSimulator(
@@ -266,7 +284,7 @@ class TestCWUInterruptMultiRoom:
         simulation run with valve=0 and no CWU schedule.
         """
         # CWU simulator: valve=100 but CWU active for 30 steps
-        rooms_cwu = _make_rooms(2, params, ufh_max_power_w=5000.0)
+        rooms_cwu = _make_rooms(2, params)
         cwu_cycle = CWUCycle(start_minute=0, duration_minutes=30, interval_minutes=0)
         sim_cwu = BuildingSimulator(
             rooms_cwu,
@@ -276,7 +294,7 @@ class TestCWUInterruptMultiRoom:
         )
 
         # Reference simulator: valve=0, no CWU
-        rooms_ref = _make_rooms(2, params, ufh_max_power_w=5000.0)
+        rooms_ref = _make_rooms(2, params)
         sim_ref = BuildingSimulator(
             rooms_ref,
             constant_weather,
@@ -317,7 +335,7 @@ class TestCWUInterruptMultiRoom:
         Verifies that both CWU interrupts and sensor noise work together
         in multi-room mode without interfering.
         """
-        rooms = _make_rooms(2, params, ufh_max_power_w=5000.0)
+        rooms = _make_rooms(2, params)
         noise = SensorNoise(std=0.5, seed=42)
         # CWU active for first 10 steps, then off
         cwu_cycle = CWUCycle(start_minute=0, duration_minutes=10, interval_minutes=0)
@@ -330,7 +348,7 @@ class TestCWUInterruptMultiRoom:
         )
 
         # Reference for CWU period: valve=0, same noise seed
-        rooms_ref = _make_rooms(2, params, ufh_max_power_w=5000.0)
+        rooms_ref = _make_rooms(2, params)
         sim_ref = BuildingSimulator(
             rooms_ref,
             constant_weather,
@@ -387,7 +405,7 @@ class TestCWUInterruptMultiRoom:
         _distribute_hp_power receives all-zero demands and returns
         all-zero allocations.
         """
-        rooms = _make_rooms(3, params, ufh_max_power_w=5000.0)
+        rooms = _make_rooms(3, params)
         cwu_cycle = CWUCycle(start_minute=0, duration_minutes=100, interval_minutes=0)
         sim = BuildingSimulator(
             rooms,
@@ -399,7 +417,7 @@ class TestCWUInterruptMultiRoom:
         # CWU is active: all valves should be zeroed internally
         # We can verify by checking that all rooms cool identically
         # to a zero-valve reference
-        rooms_ref = _make_rooms(3, params, ufh_max_power_w=5000.0)
+        rooms_ref = _make_rooms(3, params)
         sim_ref = BuildingSimulator(
             rooms_ref,
             constant_weather,
@@ -447,13 +465,11 @@ class TestCWUInterruptMultiRoom:
             _make_room(
                 "room_0",
                 params_mimo,
-                ufh_max_power_w=5000.0,
                 split_power_w=2500.0,
             ),
             _make_room(
                 "room_1",
                 params_mimo,
-                ufh_max_power_w=5000.0,
                 split_power_w=2500.0,
             ),
         ]
@@ -470,13 +486,11 @@ class TestCWUInterruptMultiRoom:
             _make_room(
                 "room_0",
                 params_mimo,
-                ufh_max_power_w=5000.0,
                 split_power_w=2500.0,
             ),
             _make_room(
                 "room_1",
                 params_mimo,
-                ufh_max_power_w=5000.0,
                 split_power_w=2500.0,
             ),
         ]
@@ -546,7 +560,7 @@ class TestSensorNoiseMultiRoom:
         applies sensor noise to T_room and T_slab.  The underlying
         physics state must remain unaffected by noise.
         """
-        rooms = _make_rooms(2, params, ufh_max_power_w=5000.0)
+        rooms = _make_rooms(2, params)
         noise = SensorNoise(std=0.5, seed=42)
         sim = BuildingSimulator(
             rooms,
@@ -599,7 +613,7 @@ class TestSensorNoiseMultiRoom:
         """
 
         def run_sim(seed: int) -> list[float]:
-            rooms = _make_rooms(2, params, ufh_max_power_w=5000.0)
+            rooms = _make_rooms(2, params)
             noise = SensorNoise(std=0.5, seed=seed)
             sim = BuildingSimulator(
                 rooms,
@@ -649,7 +663,7 @@ class TestSimulationLogRecords:
         to the log, the record's convenience properties must match the
         original measurement values.
         """
-        rooms = _make_rooms(2, params, ufh_max_power_w=5000.0)
+        rooms = _make_rooms(2, params)
         noise = SensorNoise(std=0.1, seed=42)
         sim = BuildingSimulator(
             rooms,

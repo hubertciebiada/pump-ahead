@@ -13,6 +13,7 @@ from pumpahead.simulator import (
     HeatPumpMode,
     Measurements,
 )
+from pumpahead.ufh_loop import LoopGeometry, loop_power
 from pumpahead.weather import SyntheticWeather
 
 # ---------------------------------------------------------------------------
@@ -20,25 +21,44 @@ from pumpahead.weather import SyntheticWeather
 # ---------------------------------------------------------------------------
 
 
+def _standard_geometry(area_m2: float = 20.0) -> LoopGeometry:
+    """Return a standard UFH loop geometry used throughout the tests."""
+    return LoopGeometry(
+        effective_pipe_length_m=130.0,
+        pipe_spacing_m=0.15,
+        pipe_diameter_outer_mm=16.0,
+        pipe_wall_thickness_mm=2.0,
+        area_m2=area_m2,
+    )
+
+
+def _nominal_heating_w(geometry: LoopGeometry, t_slab: float = 20.0) -> float:
+    """Expected ``loop_power`` at the fallback heating supply (35 C)."""
+    return loop_power(35.0, t_slab, geometry, "heating")
+
+
 def _make_room(
     name: str,
     params: RCParams,
-    ufh_max_power_w: float = 5000.0,
+    *,
+    loop_geometry: LoopGeometry | None = None,
 ) -> SimulatedRoom:
     """Create a SimulatedRoom with a 3R3C model at dt=60s."""
     model = RCModel(params, ModelOrder.THREE, dt=60.0)
-    return SimulatedRoom(name, model, ufh_max_power_w=ufh_max_power_w)
+    if loop_geometry is None:
+        loop_geometry = _standard_geometry()
+    return SimulatedRoom(name, model, loop_geometry=loop_geometry)
 
 
 def _make_rooms(
     n: int,
     params: RCParams,
-    ufh_max_power_w: float = 5000.0,
+    *,
+    loop_geometry: LoopGeometry | None = None,
 ) -> list[SimulatedRoom]:
     """Create *n* rooms with distinct names and identical RC parameters."""
     return [
-        _make_room(f"room_{i}", params, ufh_max_power_w=ufh_max_power_w)
-        for i in range(n)
+        _make_room(f"room_{i}", params, loop_geometry=loop_geometry) for i in range(n)
     ]
 
 
@@ -78,7 +98,12 @@ def constant_weather() -> SyntheticWeather:
 
 
 class TestHPPowerDistribution:
-    """Tests for the HP power distribution algorithm."""
+    """Tests for the HP power distribution algorithm.
+
+    Post-#144 the distributor uses ``loop_power(T_supply, T_slab,
+    geometry, mode)`` instead of the legacy proportional law — the test
+    expectations reference the physical model directly.
+    """
 
     @pytest.mark.unit
     def test_equal_valves_equal_power(
@@ -86,19 +111,24 @@ class TestHPPowerDistribution:
         params: RCParams,
         constant_weather: SyntheticWeather,
     ) -> None:
-        """Two rooms with equal valve and equal ufh_max get equal power."""
-        rooms = _make_rooms(2, params, ufh_max_power_w=5000.0)
-        sim = BuildingSimulator(rooms, constant_weather, hp_max_power_w=6000.0)
+        """Two rooms with equal geometry and equal valve get equal power."""
+        geom = _standard_geometry()
+        rooms = _make_rooms(2, params, loop_geometry=geom)
+        q_nom = _nominal_heating_w(geom)
+        # Undersized HP so scaling path is exercised; expected = HP/2.
+        hp_max = 0.5 * q_nom
+        sim = BuildingSimulator(rooms, constant_weather, hp_max_power_w=hp_max)
 
         actions = {
             "room_0": Actions(valve_position=50.0),
             "room_1": Actions(valve_position=50.0),
         }
-        # Each room demands 50% * 5000 = 2500 W.  Total = 5000 <= 6000.
         allocated = sim._distribute_hp_power(actions)
 
-        assert allocated["room_0"] == pytest.approx(2500.0)
-        assert allocated["room_1"] == pytest.approx(2500.0)
+        # Each room demands 50% * q_nom; total = q_nom > hp_max.
+        # Scale = hp_max / total = hp_max / q_nom; per-room = hp_max/2.
+        assert allocated["room_0"] == pytest.approx(hp_max / 2.0)
+        assert allocated["room_1"] == pytest.approx(hp_max / 2.0)
 
     @pytest.mark.unit
     def test_unequal_valves_proportional_power(
@@ -107,18 +137,22 @@ class TestHPPowerDistribution:
         constant_weather: SyntheticWeather,
     ) -> None:
         """With constrained HP, rooms get power proportional to demand."""
-        rooms = _make_rooms(2, params, ufh_max_power_w=5000.0)
-        sim = BuildingSimulator(rooms, constant_weather, hp_max_power_w=3000.0)
+        geom = _standard_geometry()
+        rooms = _make_rooms(2, params, loop_geometry=geom)
+        q_nom = _nominal_heating_w(geom)
+        # 100% + 50% valves -> demand 1.5 * q_nom; HP = 0.4 * that.
+        total_demand = 1.5 * q_nom
+        hp_max = 0.4 * total_demand
+        sim = BuildingSimulator(rooms, constant_weather, hp_max_power_w=hp_max)
 
         actions = {
-            "room_0": Actions(valve_position=100.0),  # demands 5000 W
-            "room_1": Actions(valve_position=50.0),  # demands 2500 W
+            "room_0": Actions(valve_position=100.0),
+            "room_1": Actions(valve_position=50.0),
         }
-        # Total demand = 7500, HP = 3000, scale = 3000/7500 = 0.4
         allocated = sim._distribute_hp_power(actions)
 
-        assert allocated["room_0"] == pytest.approx(5000.0 * 0.4)
-        assert allocated["room_1"] == pytest.approx(2500.0 * 0.4)
+        assert allocated["room_0"] == pytest.approx(1.0 * q_nom * 0.4)
+        assert allocated["room_1"] == pytest.approx(0.5 * q_nom * 0.4)
 
     @pytest.mark.unit
     def test_all_valves_zero_gives_zero_power(
@@ -142,17 +176,20 @@ class TestHPPowerDistribution:
         params: RCParams,
         constant_weather: SyntheticWeather,
     ) -> None:
-        """One open valve with undersized HP gets the HP limit, not ufh_max."""
-        rooms = _make_rooms(2, params, ufh_max_power_w=5000.0)
-        sim = BuildingSimulator(rooms, constant_weather, hp_max_power_w=3000.0)
+        """One open valve with undersized HP gets the HP limit, not Q_nom."""
+        geom = _standard_geometry()
+        rooms = _make_rooms(2, params, loop_geometry=geom)
+        q_nom = _nominal_heating_w(geom)
+        hp_max = 0.5 * q_nom  # deliberately below Q_nom
+        sim = BuildingSimulator(rooms, constant_weather, hp_max_power_w=hp_max)
 
         actions = {
-            "room_0": Actions(valve_position=100.0),  # demands 5000 W
-            "room_1": Actions(valve_position=0.0),  # demands 0 W
+            "room_0": Actions(valve_position=100.0),  # demands q_nom
+            "room_1": Actions(valve_position=0.0),  # demands 0
         }
         allocated = sim._distribute_hp_power(actions)
 
-        assert allocated["room_0"] == pytest.approx(3000.0)
+        assert allocated["room_0"] == pytest.approx(hp_max)
         assert allocated["room_1"] == 0.0
 
     @pytest.mark.unit
@@ -162,17 +199,20 @@ class TestHPPowerDistribution:
         constant_weather: SyntheticWeather,
     ) -> None:
         """When total demand is below HP capacity, each room gets full demand."""
-        rooms = _make_rooms(2, params, ufh_max_power_w=2000.0)
-        sim = BuildingSimulator(rooms, constant_weather, hp_max_power_w=6000.0)
+        geom = _standard_geometry()
+        rooms = _make_rooms(2, params, loop_geometry=geom)
+        q_nom = _nominal_heating_w(geom)
+        hp_max = 10.0 * q_nom  # generously oversized
+        sim = BuildingSimulator(rooms, constant_weather, hp_max_power_w=hp_max)
 
         actions = {
-            "room_0": Actions(valve_position=100.0),  # demands 2000 W
-            "room_1": Actions(valve_position=50.0),  # demands 1000 W
+            "room_0": Actions(valve_position=100.0),
+            "room_1": Actions(valve_position=50.0),
         }
         allocated = sim._distribute_hp_power(actions)
 
-        assert allocated["room_0"] == pytest.approx(2000.0)
-        assert allocated["room_1"] == pytest.approx(1000.0)
+        assert allocated["room_0"] == pytest.approx(1.0 * q_nom)
+        assert allocated["room_1"] == pytest.approx(0.5 * q_nom)
 
     @pytest.mark.unit
     def test_energy_conservation(
@@ -181,15 +221,17 @@ class TestHPPowerDistribution:
         constant_weather: SyntheticWeather,
     ) -> None:
         """Sum of allocated power equals HP capacity when demand exceeds it."""
-        rooms = _make_rooms(4, params, ufh_max_power_w=5000.0)
-        sim = BuildingSimulator(rooms, constant_weather, hp_max_power_w=6000.0)
+        geom = _standard_geometry()
+        rooms = _make_rooms(4, params, loop_geometry=geom)
+        q_nom = _nominal_heating_w(geom)
+        hp_max = 0.3 * 4.0 * q_nom  # HP covers 30% of total demand
+        sim = BuildingSimulator(rooms, constant_weather, hp_max_power_w=hp_max)
 
         actions = {r.name: Actions(valve_position=100.0) for r in rooms}
-        # Total demand = 4 * 5000 = 20000, HP = 6000
         allocated = sim._distribute_hp_power(actions)
 
         total_allocated = sum(allocated.values())
-        assert total_allocated == pytest.approx(6000.0)
+        assert total_allocated == pytest.approx(hp_max)
 
     @pytest.mark.unit
     def test_energy_conservation_under_capacity(
@@ -198,17 +240,20 @@ class TestHPPowerDistribution:
         constant_weather: SyntheticWeather,
     ) -> None:
         """Sum of allocated power equals total demand when within capacity."""
-        rooms = _make_rooms(2, params, ufh_max_power_w=1000.0)
-        sim = BuildingSimulator(rooms, constant_weather, hp_max_power_w=6000.0)
+        geom = _standard_geometry()
+        rooms = _make_rooms(2, params, loop_geometry=geom)
+        q_nom = _nominal_heating_w(geom)
+        hp_max = 10.0 * q_nom  # generously oversized
+        sim = BuildingSimulator(rooms, constant_weather, hp_max_power_w=hp_max)
 
         actions = {
-            "room_0": Actions(valve_position=80.0),  # demands 800 W
-            "room_1": Actions(valve_position=60.0),  # demands 600 W
+            "room_0": Actions(valve_position=80.0),
+            "room_1": Actions(valve_position=60.0),
         }
         allocated = sim._distribute_hp_power(actions)
 
         total_allocated = sum(allocated.values())
-        assert total_allocated == pytest.approx(1400.0)
+        assert total_allocated == pytest.approx((0.8 + 0.6) * q_nom)
 
     @pytest.mark.unit
     def test_unlimited_hp_no_scaling(
@@ -217,39 +262,47 @@ class TestHPPowerDistribution:
         constant_weather: SyntheticWeather,
     ) -> None:
         """With hp_max_power_w=None (unlimited), each room gets full demand."""
-        rooms = _make_rooms(4, params, ufh_max_power_w=5000.0)
+        geom = _standard_geometry()
+        rooms = _make_rooms(4, params, loop_geometry=geom)
+        q_nom = _nominal_heating_w(geom)
         sim = BuildingSimulator(rooms, constant_weather)  # no hp_max_power_w
 
         actions = {r.name: Actions(valve_position=100.0) for r in rooms}
         allocated = sim._distribute_hp_power(actions)
 
         for name in allocated:
-            assert allocated[name] == pytest.approx(5000.0)
+            assert allocated[name] == pytest.approx(q_nom)
 
     @pytest.mark.unit
-    def test_rooms_with_different_ufh_max(
+    def test_rooms_with_different_geometry(
         self,
         params: RCParams,
         constant_weather: SyntheticWeather,
     ) -> None:
-        """Rooms with different ufh_max_power_w get proportional shares."""
-        room_a = _make_room("room_a", params, ufh_max_power_w=5000.0)
-        room_b = _make_room("room_b", params, ufh_max_power_w=2000.0)
+        """Rooms with different geometries get proportional shares."""
+        # Two geometries with different area -> different nominal powers.
+        geom_a = _standard_geometry(area_m2=30.0)
+        geom_b = _standard_geometry(area_m2=12.0)
+        room_a = _make_room("room_a", params, loop_geometry=geom_a)
+        room_b = _make_room("room_b", params, loop_geometry=geom_b)
+        q_a = _nominal_heating_w(geom_a)
+        q_b = _nominal_heating_w(geom_b)
+        total = q_a + q_b
+        hp_max = 0.4 * total  # force scaling
         sim = BuildingSimulator(
-            [room_a, room_b], constant_weather, hp_max_power_w=3000.0
+            [room_a, room_b], constant_weather, hp_max_power_w=hp_max
         )
 
         actions = {
-            "room_a": Actions(valve_position=100.0),  # demands 5000 W
-            "room_b": Actions(valve_position=100.0),  # demands 2000 W
+            "room_a": Actions(valve_position=100.0),
+            "room_b": Actions(valve_position=100.0),
         }
-        # Total demand = 7000, scale = 3000/7000
         allocated = sim._distribute_hp_power(actions)
 
-        scale = 3000.0 / 7000.0
-        assert allocated["room_a"] == pytest.approx(5000.0 * scale)
-        assert allocated["room_b"] == pytest.approx(2000.0 * scale)
-        assert sum(allocated.values()) == pytest.approx(3000.0)
+        scale = hp_max / total
+        assert allocated["room_a"] == pytest.approx(q_a * scale)
+        assert allocated["room_b"] == pytest.approx(q_b * scale)
+        assert sum(allocated.values()) == pytest.approx(hp_max)
 
 
 # ---------------------------------------------------------------------------
@@ -386,14 +439,16 @@ class TestBuildingSimulatorMultiRoom:
         constant_weather: SyntheticWeather,
     ) -> None:
         """After step_all, total distributed power = HP capacity (when exceeded)."""
-        rooms = _make_rooms(4, params, ufh_max_power_w=5000.0)
-        sim = BuildingSimulator(rooms, constant_weather, hp_max_power_w=6000.0)
+        geom = _standard_geometry()
+        rooms = _make_rooms(4, params, loop_geometry=geom)
+        q_nom = _nominal_heating_w(geom)
+        hp_max = 0.3 * 4.0 * q_nom  # HP covers 30% of total demand
+        sim = BuildingSimulator(rooms, constant_weather, hp_max_power_w=hp_max)
 
         actions = {r.name: Actions(valve_position=100.0) for r in rooms}
-        # Total demand = 20000 > 6000, so total allocated = 6000
         allocated = sim._distribute_hp_power(actions)
 
-        assert sum(allocated.values()) == pytest.approx(6000.0)
+        assert sum(allocated.values()) == pytest.approx(hp_max)
 
     @pytest.mark.unit
     def test_backward_compat_single_room(

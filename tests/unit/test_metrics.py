@@ -329,7 +329,7 @@ class TestSimMetricsEnergy:
         m = SimMetrics.from_log(
             log,
             setpoint=21.0,
-            ufh_max_power_w=5000.0,
+            ufh_nominal_power_w=5000.0,
             split_power_w=2500.0,
             dt_minutes=1,
         )
@@ -351,7 +351,7 @@ class TestSimMetricsEnergy:
         m = SimMetrics.from_log(
             log,
             setpoint=21.0,
-            ufh_max_power_w=5000.0,
+            ufh_nominal_power_w=5000.0,
             split_power_w=2500.0,
         )
         # Step 0: 5000 + 2500 = 7500W (peak)
@@ -366,7 +366,7 @@ class TestSimMetricsEnergy:
         m = SimMetrics.from_log(
             log,
             setpoint=21.0,
-            ufh_max_power_w=5000.0,
+            ufh_nominal_power_w=5000.0,
             split_power_w=2500.0,
         )
         assert m.floor_energy_pct == pytest.approx(100.0)
@@ -385,7 +385,7 @@ class TestSimMetricsEnergy:
         m = SimMetrics.from_log(
             log,
             setpoint=21.0,
-            ufh_max_power_w=5000.0,
+            ufh_nominal_power_w=5000.0,
             split_power_w=2500.0,
         )
         # floor: 2500W, split: 2500W -> floor_pct = 50%
@@ -399,7 +399,7 @@ class TestSimMetricsEnergy:
         m = SimMetrics.from_log(
             log,
             setpoint=21.0,
-            ufh_max_power_w=5000.0,
+            ufh_nominal_power_w=5000.0,
             split_power_w=2500.0,
         )
         assert m.energy_kwh == pytest.approx(0.0)
@@ -440,7 +440,7 @@ class TestSimMetricsEmptyLog:
         m = SimMetrics.from_log(
             log,
             setpoint=21.0,
-            ufh_max_power_w=5000.0,
+            ufh_nominal_power_w=5000.0,
             split_power_w=2500.0,
         )
         assert m.energy_kwh == pytest.approx(0.0)
@@ -515,7 +515,7 @@ class TestSimMetricsCompare:
         m_with_energy = SimMetrics.from_log(
             log,
             setpoint=21.0,
-            ufh_max_power_w=5000.0,
+            ufh_nominal_power_w=5000.0,
             split_power_w=2500.0,
         )
         diff = m_no_energy.compare(m_with_energy)
@@ -590,13 +590,13 @@ class TestSimMetricsDeterminism:
         m1 = SimMetrics.from_log(
             log,
             setpoint=21.0,
-            ufh_max_power_w=5000.0,
+            ufh_nominal_power_w=5000.0,
             split_power_w=2500.0,
         )
         m2 = SimMetrics.from_log(
             log,
             setpoint=21.0,
-            ufh_max_power_w=5000.0,
+            ufh_nominal_power_w=5000.0,
             split_power_w=2500.0,
         )
         assert m1 == m2

@@ -122,7 +122,7 @@ class SimMetrics:
         setpoint: float,
         *,
         comfort_band: float = 0.5,
-        ufh_max_power_w: float | None = None,
+        ufh_nominal_power_w: float | None = None,
         split_power_w: float | None = None,
         dt_minutes: int = 1,
     ) -> SimMetrics:
@@ -138,10 +138,10 @@ class SimMetrics:
             comfort_band: Half-width of the comfort band [degC].
                 A timestep is "comfortable" when
                 ``|T_room - setpoint| <= comfort_band``.
-            ufh_max_power_w: Maximum UFH power [W].  Required (together
+            ufh_nominal_power_w: Maximum UFH power [W].  Required (together
                 with ``split_power_w``) to compute energy metrics.
             split_power_w: Maximum split power [W].  Required (together
-                with ``ufh_max_power_w``) to compute energy metrics.
+                with ``ufh_nominal_power_w``) to compute energy metrics.
             dt_minutes: Simulation timestep length [minutes].
 
         Returns:
@@ -151,7 +151,7 @@ class SimMetrics:
 
         # -- Empty log --------------------------------------------------------
         if n == 0:
-            has_energy = ufh_max_power_w is not None and split_power_w is not None
+            has_energy = ufh_nominal_power_w is not None and split_power_w is not None
             return cls(
                 comfort_pct=0.0,
                 max_overshoot=0.0,
@@ -184,7 +184,7 @@ class SimMetrics:
         prev_hp_mode = None
 
         # Energy accumulators (only when power params provided)
-        compute_energy = ufh_max_power_w is not None and split_power_w is not None
+        compute_energy = ufh_nominal_power_w is not None and split_power_w is not None
         total_floor_energy_j = 0.0
         total_split_energy_j = 0.0
         peak_power = 0.0
@@ -228,9 +228,9 @@ class SimMetrics:
 
             # Energy
             if compute_energy:
-                assert ufh_max_power_w is not None
+                assert ufh_nominal_power_w is not None
                 assert split_power_w is not None
-                floor_power = (rec.valve_position / 100.0) * ufh_max_power_w
+                floor_power = (rec.valve_position / 100.0) * ufh_nominal_power_w
                 split_power = split_power_w if rec.split_mode != SplitMode.OFF else 0.0
                 total_power = floor_power + split_power
 
@@ -488,7 +488,7 @@ def assert_energy_vs_baseline(
     *,
     max_increase: float = 0.1,
     setpoint: float,
-    ufh_max_power_w: float,
+    ufh_nominal_power_w: float,
     split_power_w: float,
     dt_minutes: int = 1,
 ) -> None:
@@ -503,7 +503,7 @@ def assert_energy_vs_baseline(
         baseline_log: Baseline simulation log for comparison.
         max_increase: Maximum allowed fractional increase (e.g. 0.1 = 10%).
         setpoint: Target room temperature [degC] (passed to ``from_log``).
-        ufh_max_power_w: Maximum UFH power [W].
+        ufh_nominal_power_w: Maximum UFH power [W].
         split_power_w: Maximum split power [W].
         dt_minutes: Simulation timestep length [minutes].
 
@@ -515,14 +515,14 @@ def assert_energy_vs_baseline(
     test_metrics = SimMetrics.from_log(
         log,
         setpoint=setpoint,
-        ufh_max_power_w=ufh_max_power_w,
+        ufh_nominal_power_w=ufh_nominal_power_w,
         split_power_w=split_power_w,
         dt_minutes=dt_minutes,
     )
     baseline_metrics = SimMetrics.from_log(
         baseline_log,
         setpoint=setpoint,
-        ufh_max_power_w=ufh_max_power_w,
+        ufh_nominal_power_w=ufh_nominal_power_w,
         split_power_w=split_power_w,
         dt_minutes=dt_minutes,
     )

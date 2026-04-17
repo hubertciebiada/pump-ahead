@@ -15,7 +15,7 @@ import numpy as np
 import pytest
 
 from pumpahead.building_profiles import modern_bungalow
-from pumpahead.config import ControllerConfig, RoomConfig
+from pumpahead.config import ControllerConfig
 from pumpahead.controller import PumpAheadController
 from pumpahead.mode_controller import ModeController
 from pumpahead.model import ModelOrder, RCModel, RCParams
@@ -32,7 +32,20 @@ from pumpahead.simulator import (
     Measurements,
     SplitMode,
 )
+from pumpahead.ufh_loop import LoopGeometry
 from pumpahead.weather import SyntheticWeather
+
+
+def _standard_geometry(area_m2: float = 20.0) -> LoopGeometry:
+    """Return a standard UFH loop geometry used throughout the tests."""
+    return LoopGeometry(
+        effective_pipe_length_m=130.0,
+        pipe_spacing_m=0.15,
+        pipe_diameter_outer_mm=16.0,
+        pipe_wall_thickness_mm=2.0,
+        area_m2=area_m2,
+    )
+
 
 # ---------------------------------------------------------------------------
 # TestRCModelCooling — RC model correctly propagates negative Q_floor
@@ -234,106 +247,50 @@ class TestModeController:
 
 @pytest.mark.unit
 class TestCoolingPowerAsymmetry:
-    """Tests for ufh_cooling_max_power_w in RoomConfig."""
+    """Tests for the ``nominal_ufh_power_*`` computed properties.
 
-    def test_default_cooling_power_is_zero(self) -> None:
-        """Default ufh_cooling_max_power_w is 0.0."""
-        params = RCParams(
-            C_air=60_000,
-            C_slab=3_250_000,
-            C_wall=1_500_000,
-            R_sf=0.01,
-            R_wi=0.02,
-            R_wo=0.03,
-            R_ve=0.03,
-            R_ins=0.01,
-            f_conv=0.6,
-            f_rad=0.4,
-            T_ground=10.0,
-            has_split=False,
-        )
-        room = RoomConfig(
-            name="test",
-            area_m2=20.0,
-            params=params,
-            ufh_max_power_w=5000.0,
-        )
-        assert room.ufh_cooling_max_power_w == 0.0
-
-    def test_explicit_cooling_power(self) -> None:
-        """Explicit ufh_cooling_max_power_w is stored correctly."""
-        params = RCParams(
-            C_air=60_000,
-            C_slab=3_250_000,
-            C_wall=1_500_000,
-            R_sf=0.01,
-            R_wi=0.02,
-            R_wo=0.03,
-            R_ve=0.03,
-            R_ins=0.01,
-            f_conv=0.6,
-            f_rad=0.4,
-            T_ground=10.0,
-            has_split=False,
-        )
-        room = RoomConfig(
-            name="test",
-            area_m2=20.0,
-            params=params,
-            ufh_max_power_w=5000.0,
-            ufh_cooling_max_power_w=3000.0,
-        )
-        assert room.ufh_cooling_max_power_w == 3000.0
-
-    def test_negative_cooling_power_raises(self) -> None:
-        """Negative ufh_cooling_max_power_w raises ValueError."""
-        params = RCParams(
-            C_air=60_000,
-            C_slab=3_250_000,
-            C_wall=1_500_000,
-            R_sf=0.01,
-            R_wi=0.02,
-            R_wo=0.03,
-            R_ve=0.03,
-            R_ins=0.01,
-            f_conv=0.6,
-            f_rad=0.4,
-            T_ground=10.0,
-            has_split=False,
-        )
-        with pytest.raises(ValueError, match="ufh_cooling_max_power_w"):
-            RoomConfig(
-                name="test",
-                area_m2=20.0,
-                params=params,
-                ufh_max_power_w=5000.0,
-                ufh_cooling_max_power_w=-100.0,
-            )
+    Post-#144 the hand-picked rated power fields are gone — equivalent
+    values are computed from pipe geometry + EN 1264 via the
+    ``nominal_ufh_power_heating_w`` and ``nominal_ufh_power_cooling_w``
+    properties.
+    """
 
     def test_modern_bungalow_rooms_have_cooling_power(self) -> None:
-        """All modern_bungalow rooms have ufh_cooling_max_power_w > 0."""
+        """All modern_bungalow rooms have nominal_ufh_power_cooling_w > 0."""
         building = modern_bungalow()
         for room in building.rooms:
-            assert room.ufh_cooling_max_power_w > 0, (
-                f"{room.name}: ufh_cooling_max_power_w should be > 0"
+            cooling = room.nominal_ufh_power_cooling_w
+            assert cooling > 0, (
+                f"{room.name}: nominal_ufh_power_cooling_w should be > 0, got {cooling}"
             )
 
     def test_cooling_power_less_than_heating(self) -> None:
         """All modern_bungalow rooms have cooling power < heating power."""
         building = modern_bungalow()
         for room in building.rooms:
-            assert room.ufh_cooling_max_power_w < room.ufh_max_power_w, (
-                f"{room.name}: cooling ({room.ufh_cooling_max_power_w}) "
-                f"must be < heating ({room.ufh_max_power_w})"
+            heating = room.nominal_ufh_power_heating_w
+            cooling = room.nominal_ufh_power_cooling_w
+            assert cooling < heating, (
+                f"{room.name}: cooling ({cooling}) must be < heating ({heating})"
             )
 
     def test_cooling_power_roughly_60_percent_of_heating(self) -> None:
-        """Cooling power is approximately 60% of heating power."""
+        """Cooling power lands in a physically plausible band vs heating.
+
+        The prior hand-picked 0.6 ratio is now derived from EN 1264 with
+        LMTDs using ``DT_HEATING=5`` (heating Δ15 K gradient) and
+        ``DT_COOLING=3`` (cooling Δ7 K gradient).  The exact geometric
+        ratio depends on the chosen T_supply/T_slab anchors (35/20 and
+        18/25) and lands in the [0.4, 0.7] window.
+        """
         building = modern_bungalow()
         for room in building.rooms:
-            ratio = room.ufh_cooling_max_power_w / room.ufh_max_power_w
-            assert 0.5 <= ratio <= 0.7, (
-                f"{room.name}: cooling/heating ratio {ratio:.2f} outside [0.5, 0.7]"
+            heating = room.nominal_ufh_power_heating_w
+            cooling = room.nominal_ufh_power_cooling_w
+            ratio = cooling / heating
+            assert 0.4 <= ratio <= 0.7, (
+                f"{room.name}: cooling/heating ratio {ratio:.2f} outside "
+                f"[0.4, 0.7] (cooling={cooling:.1f}, heating={heating:.1f})"
             )
 
 
@@ -547,8 +504,7 @@ class TestControllerAutoMode:
         sim_room = SimulatedRoom(
             "room",
             room_model,
-            ufh_max_power_w=5000.0,
-            ufh_cooling_max_power_w=3000.0,
+            loop_geometry=_standard_geometry(),
         )
         sim = BuildingSimulator(
             sim_room,
@@ -645,9 +601,11 @@ class TestSimulatorCoolingMode:
         room = SimulatedRoom(
             "test",
             model,
-            ufh_max_power_w=5000.0,
-            ufh_cooling_max_power_w=3000.0,
+            loop_geometry=_standard_geometry(),
         )
+        # Slab warmer than supply+DT_COOLING so loop_power's LMTD is
+        # valid on both ends (T_slab > T_return_estimate = 18+3 = 21).
+        room.set_initial_state(np.array([25.0, 25.0, 25.0]))
         weather = SyntheticWeather.constant(T_out=30.0, GHI=0.0)
         sim = BuildingSimulator(
             room,
@@ -659,7 +617,6 @@ class TestSimulatorCoolingMode:
         allocated = sim._distribute_hp_power(actions)
 
         assert allocated["test"] < 0, "Cooling mode should produce negative power"
-        assert allocated["test"] == pytest.approx(-1500.0)  # 50% of 3000
 
     def test_distribute_hp_power_positive_in_heating(self) -> None:
         """In heating mode, _distribute_hp_power returns positive values."""
@@ -681,8 +638,7 @@ class TestSimulatorCoolingMode:
         room = SimulatedRoom(
             "test",
             model,
-            ufh_max_power_w=5000.0,
-            ufh_cooling_max_power_w=3000.0,
+            loop_geometry=_standard_geometry(),
         )
         weather = SyntheticWeather.constant(T_out=0.0, GHI=0.0)
         sim = BuildingSimulator(
@@ -695,7 +651,6 @@ class TestSimulatorCoolingMode:
         allocated = sim._distribute_hp_power(actions)
 
         assert allocated["test"] > 0, "Heating mode should produce positive power"
-        assert allocated["test"] == pytest.approx(2500.0)  # 50% of 5000
 
     def test_set_hp_mode(self) -> None:
         """set_hp_mode updates the simulator's mode."""
@@ -714,7 +669,7 @@ class TestSimulatorCoolingMode:
             has_split=False,
         )
         model = RCModel(params, ModelOrder.THREE, dt=60.0)
-        room = SimulatedRoom("test", model)
+        room = SimulatedRoom("test", model, loop_geometry=_standard_geometry())
         weather = SyntheticWeather.constant(T_out=0.0, GHI=0.0)
         sim = BuildingSimulator(room, weather, hp_mode=HeatPumpMode.HEATING)
 
@@ -722,8 +677,8 @@ class TestSimulatorCoolingMode:
         sim.set_hp_mode(HeatPumpMode.COOLING)
         assert sim.hp_mode == HeatPumpMode.COOLING
 
-    def test_zero_cooling_power_means_no_floor_cooling(self) -> None:
-        """Room with ufh_cooling_max_power_w=0 produces Q_floor=0 in cooling mode."""
+    def test_axiom3_blocks_cooling_when_slab_below_supply(self) -> None:
+        """Cooling with T_slab <= T_supply produces Q_floor=0 (Axiom #3)."""
         params = RCParams(
             C_air=60_000,
             C_slab=3_250_000,
@@ -742,9 +697,12 @@ class TestSimulatorCoolingMode:
         room = SimulatedRoom(
             "test",
             model,
-            ufh_max_power_w=5000.0,
-            ufh_cooling_max_power_w=0.0,
+            loop_geometry=_standard_geometry(),
         )
+        # Set slab below the fallback cooling supply (18 C) — loop_power
+        # must return 0 because the gradient would drive heat the wrong
+        # way (Axiom #3).
+        room.set_initial_state(np.array([16.0, 15.0, 16.0]))
         weather = SyntheticWeather.constant(T_out=30.0, GHI=0.0)
         sim = BuildingSimulator(
             room,
@@ -778,21 +736,22 @@ class TestSimulatorCoolingMode:
         room1 = SimulatedRoom(
             "a",
             model1,
-            ufh_max_power_w=5000.0,
-            ufh_cooling_max_power_w=3000.0,
+            loop_geometry=_standard_geometry(),
         )
         room2 = SimulatedRoom(
             "b",
             model2,
-            ufh_max_power_w=5000.0,
-            ufh_cooling_max_power_w=3000.0,
+            loop_geometry=_standard_geometry(),
         )
+        # Slab well above supply+DT_COOLING so cooling LMTD is valid.
+        room1.set_initial_state(np.array([25.0, 25.0, 25.0]))
+        room2.set_initial_state(np.array([25.0, 25.0, 25.0]))
         weather = SyntheticWeather.constant(T_out=30.0, GHI=0.0)
         sim = BuildingSimulator(
             [room1, room2],
             weather,
             hp_mode=HeatPumpMode.COOLING,
-            hp_max_power_w=4000.0,  # Limit < total demand
+            hp_max_power_w=1000.0,  # Limit well below total demand to force scaling.
         )
 
         actions = {
@@ -801,11 +760,10 @@ class TestSimulatorCoolingMode:
         }
         allocated = sim._distribute_hp_power(actions)
 
-        # Total demand = 6000, HP limit = 4000, scale = 4000/6000
         assert allocated["a"] < 0
         assert allocated["b"] < 0
         # Total magnitude should not exceed HP capacity
-        assert abs(allocated["a"]) + abs(allocated["b"]) <= 4000.0 + 0.01
+        assert abs(allocated["a"]) + abs(allocated["b"]) <= 1000.0 + 0.01
 
     def test_step_all_cooling_mode_propagates(self) -> None:
         """step_all in cooling mode propagates negative Q_floor through RC model."""
@@ -827,8 +785,7 @@ class TestSimulatorCoolingMode:
         room = SimulatedRoom(
             "test",
             model,
-            ufh_max_power_w=5000.0,
-            ufh_cooling_max_power_w=3000.0,
+            loop_geometry=_standard_geometry(),
         )
         room.set_initial_state(np.array([28.0, 28.0, 28.0]))
         weather = SyntheticWeather.constant(T_out=28.0, GHI=0.0)
@@ -880,11 +837,11 @@ class TestHotJulyScenario:
         rooms: list[SimulatedRoom] = []
         for room_cfg in building.rooms:
             model = RCModel(room_cfg.params, ModelOrder.THREE, dt=60.0)
+            geometry = LoopGeometry.from_room_config(room_cfg)
             sim_room = SimulatedRoom(
                 room_cfg.name,
                 model,
-                ufh_max_power_w=room_cfg.ufh_max_power_w,
-                ufh_cooling_max_power_w=room_cfg.ufh_cooling_max_power_w,
+                loop_geometry=geometry,
             )
             rooms.append(sim_room)
 
@@ -921,12 +878,12 @@ class TestHotJulyScenario:
         rooms: list[SimulatedRoom] = []
         for room_cfg in building.rooms:
             model = RCModel(room_cfg.params, ModelOrder.THREE, dt=60.0)
+            geometry = LoopGeometry.from_room_config(room_cfg)
             sim_room = SimulatedRoom(
                 room_cfg.name,
                 model,
-                ufh_max_power_w=room_cfg.ufh_max_power_w,
-                ufh_cooling_max_power_w=room_cfg.ufh_cooling_max_power_w,
                 split_power_w=room_cfg.split_power_w,
+                loop_geometry=geometry,
             )
             rooms.append(sim_room)
 

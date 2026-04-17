@@ -88,11 +88,6 @@ class RoomConfig:
         has_split: Whether this room has a split/AC unit.
         split_power_w: Maximum split power [W] (> 0 when has_split=True,
             must be 0.0 when has_split=False).
-        ufh_max_power_w: Maximum UFH power [W] (must be > 0).
-        ufh_cooling_max_power_w: Maximum UFH cooling power [W]
-            (must be >= 0).  Typically ~60 % of heating power due to
-            asymmetric floor heat transfer.  Defaults to 0.0 (no floor
-            cooling capability).
         ufh_loops: Number of UFH loops (must be >= 1).
         pipe_length_m: Total measured pipe length [m] (must be > 0 when
             set).  Mutually exclusive with ``pipe_spacing_m``: provide
@@ -111,9 +106,7 @@ class RoomConfig:
             is only active in heating mode — the controller forces
             ``SplitMode.OFF`` in cooling mode regardless of error.
             ``"heater"`` requires ``has_split=True`` (to reuse the
-            ``SplitCoordinator`` pipeline) and
-            ``ufh_cooling_max_power_w == 0.0`` (heater rooms must not
-            cool via the floor either).
+            ``SplitCoordinator`` pipeline).
     """
 
     name: str
@@ -122,8 +115,6 @@ class RoomConfig:
     windows: tuple[WindowConfig, ...] = ()
     has_split: bool = False
     split_power_w: float = 0.0
-    ufh_max_power_w: float = 5000.0
-    ufh_cooling_max_power_w: float = 0.0
     ufh_loops: int = 1
     pipe_length_m: float | None = None
     pipe_spacing_m: float | None = None
@@ -153,15 +144,6 @@ class RoomConfig:
             msg = (
                 f"split_power_w must be 0.0 when has_split=False, "
                 f"got {self.split_power_w}"
-            )
-            raise ValueError(msg)
-        if self.ufh_max_power_w <= 0:
-            msg = f"ufh_max_power_w must be > 0, got {self.ufh_max_power_w}"
-            raise ValueError(msg)
-        if self.ufh_cooling_max_power_w < 0:
-            msg = (
-                f"ufh_cooling_max_power_w must be >= 0, "
-                f"got {self.ufh_cooling_max_power_w}"
             )
             raise ValueError(msg)
         if self.ufh_loops < 1:
@@ -212,20 +194,12 @@ class RoomConfig:
                 f"got '{self.auxiliary_type}'"
             )
             raise ValueError(msg)
-        if self.auxiliary_type == "heater":
-            if not self.has_split:
-                msg = (
-                    "auxiliary_type='heater' requires has_split=True "
-                    "(heater rooms reuse the split coordinator pipeline)"
-                )
-                raise ValueError(msg)
-            if self.ufh_cooling_max_power_w != 0.0:
-                msg = (
-                    f"auxiliary_type='heater' requires "
-                    f"ufh_cooling_max_power_w=0.0, "
-                    f"got {self.ufh_cooling_max_power_w}"
-                )
-                raise ValueError(msg)
+        if self.auxiliary_type == "heater" and not self.has_split:
+            msg = (
+                "auxiliary_type='heater' requires has_split=True "
+                "(heater rooms reuse the split coordinator pipeline)"
+            )
+            raise ValueError(msg)
 
     @property
     def effective_pipe_length_m(self) -> float:
@@ -246,6 +220,57 @@ class RoomConfig:
         raise ValueError(
             f"RoomConfig '{self.name}': pipe geometry not configured — "
             f"set pipe_length_m or pipe_spacing_m"
+        )
+
+    @property
+    def nominal_ufh_power_heating_w(self) -> float:
+        """Nominal UFH heating power at T_supply=35 C, T_slab=20 C [W].
+
+        Derived from ``LoopGeometry.from_room_config(self)`` and the EN
+        1264 reduced formula (``pumpahead.ufh_loop.loop_power``).  The
+        chosen nominal conditions sit safely on the heating side of
+        Axiom #3 (T_supply > T_slab), so the result is always positive.
+
+        Returns:
+            Positive float representing the nominal heating capacity [W].
+
+        Raises:
+            ValueError: If pipe geometry is not configured (see
+                ``effective_pipe_length_m``).
+        """
+        # Local import to avoid a circular dependency with
+        # ``pumpahead.ufh_loop`` (which imports ``RoomConfig`` under
+        # ``TYPE_CHECKING``).
+        from pumpahead.ufh_loop import LoopGeometry, loop_power
+
+        geom = LoopGeometry.from_room_config(self)
+        return loop_power(t_supply=35.0, t_slab=20.0, geometry=geom, mode="heating")
+
+    @property
+    def nominal_ufh_power_cooling_w(self) -> float:
+        """Nominal UFH cooling power magnitude at T_supply=18 C, T_slab=25 C [W].
+
+        Derived from ``LoopGeometry.from_room_config(self)`` and the EN
+        1264 reduced formula (``pumpahead.ufh_loop.loop_power``).  The
+        chosen nominal conditions sit safely on the cooling side of
+        Axiom #3 (T_supply < T_slab).  ``loop_power`` returns a negative
+        value in cooling mode; this property returns ``abs(...)`` so the
+        result is always a positive magnitude in Watts.
+
+        Returns:
+            Positive float representing the nominal cooling magnitude [W].
+
+        Raises:
+            ValueError: If pipe geometry is not configured (see
+                ``effective_pipe_length_m``).
+        """
+        # Local import to avoid a circular dependency with
+        # ``pumpahead.ufh_loop``.
+        from pumpahead.ufh_loop import LoopGeometry, loop_power
+
+        geom = LoopGeometry.from_room_config(self)
+        return abs(
+            loop_power(t_supply=18.0, t_slab=25.0, geometry=geom, mode="cooling")
         )
 
 

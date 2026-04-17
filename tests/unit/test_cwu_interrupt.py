@@ -20,6 +20,7 @@ from pumpahead.simulator import (
     BuildingSimulator,
     SplitMode,
 )
+from pumpahead.ufh_loop import LoopGeometry
 from pumpahead.weather import SyntheticWeather
 
 # ---------------------------------------------------------------------------
@@ -27,20 +28,31 @@ from pumpahead.weather import SyntheticWeather
 # ---------------------------------------------------------------------------
 
 
+def _standard_geometry(area_m2: float = 20.0) -> LoopGeometry:
+    """Return a standard UFH loop geometry used throughout the tests."""
+    return LoopGeometry(
+        effective_pipe_length_m=130.0,
+        pipe_spacing_m=0.15,
+        pipe_diameter_outer_mm=16.0,
+        pipe_wall_thickness_mm=2.0,
+        area_m2=area_m2,
+    )
+
+
 @pytest.fixture()
 def siso_room(model_3r3c: RCModel) -> SimulatedRoom:
-    """SISO simulated room with 5000 W UFH capacity."""
-    return SimulatedRoom("cwu_test", model_3r3c, ufh_max_power_w=5000.0)
+    """SISO simulated room with standard UFH loop geometry."""
+    return SimulatedRoom("cwu_test", model_3r3c, loop_geometry=_standard_geometry())
 
 
 @pytest.fixture()
 def mimo_room(model_3r3c_mimo: RCModel) -> SimulatedRoom:
-    """MIMO simulated room with 5000 W UFH and 2500 W split."""
+    """MIMO simulated room with 2500 W split and standard UFH loop."""
     return SimulatedRoom(
         "cwu_test_mimo",
         model_3r3c_mimo,
-        ufh_max_power_w=5000.0,
         split_power_w=2500.0,
+        loop_geometry=_standard_geometry(),
     )
 
 
@@ -144,7 +156,7 @@ class TestCWUInterruptSimulation:
         # Reference simulator without CWU (valve=0)
         params = siso_room._model.params
         model_ref = RCModel(params, ModelOrder.THREE, dt=60.0)
-        room_ref = SimulatedRoom("ref", model_ref, ufh_max_power_w=5000.0)
+        room_ref = SimulatedRoom("ref", model_ref, loop_geometry=_standard_geometry())
         sim_ref = BuildingSimulator(room_ref, constant_weather)
 
         # Both run with valve=100 command, but CWU sim should behave like valve=0
@@ -224,7 +236,10 @@ class TestCWUInterruptSimulation:
         params_mimo = mimo_room._model.params
         model_ref = RCModel(params_mimo, ModelOrder.THREE, dt=60.0)
         room_ref = SimulatedRoom(
-            "ref_mimo", model_ref, ufh_max_power_w=5000.0, split_power_w=2500.0
+            "ref_mimo",
+            model_ref,
+            split_power_w=2500.0,
+            loop_geometry=_standard_geometry(),
         )
         sim_ref = BuildingSimulator(room_ref, constant_weather)
 

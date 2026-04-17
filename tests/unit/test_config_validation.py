@@ -68,6 +68,9 @@ def _make_room(
     """Create a valid RoomConfig with sensible defaults."""
     if params is None:
         params = _siso_params()
+    # Every RoomConfig needs pipe geometry post-#144 so the nominal-power
+    # properties (and ``LoopGeometry.from_room_config``) resolve.
+    kwargs.setdefault("pipe_spacing_m", 0.20)
     return RoomConfig(name=name, area_m2=area_m2, params=params, **kwargs)  # type: ignore[arg-type]
 
 
@@ -103,7 +106,9 @@ class TestRoomConfig:
         assert room.area_m2 == 25.0
         assert room.has_split is False
         assert room.split_power_w == 0.0
-        assert room.ufh_max_power_w == 5000.0
+        # Nominal power derived from the default pipe geometry (must be
+        # positive — the exact value depends on EN 1264 physics).
+        assert room.nominal_ufh_power_heating_w > 0
         assert room.ufh_loops == 1
         assert room.q_int_w == 0.0
         assert room.windows == ()
@@ -170,16 +175,6 @@ class TestRoomConfig:
                 has_split=False,
                 split_power_w=1000.0,
             )
-
-    def test_ufh_max_power_zero_raises(self) -> None:
-        """Zero UFH power raises ValueError."""
-        with pytest.raises(ValueError, match="ufh_max_power_w must be > 0"):
-            _make_room(ufh_max_power_w=0.0)
-
-    def test_ufh_max_power_negative_raises(self) -> None:
-        """Negative UFH power raises ValueError."""
-        with pytest.raises(ValueError, match="ufh_max_power_w must be > 0"):
-            _make_room(ufh_max_power_w=-500.0)
 
     def test_ufh_loops_zero_raises(self) -> None:
         """Zero UFH loops raises ValueError."""
@@ -251,19 +246,18 @@ class TestRoomConfig:
         assert room.auxiliary_type == "split"
 
     def test_auxiliary_type_heater_valid(self) -> None:
-        """``"heater"`` is accepted when has_split=True and cooling=0.0."""
+        """``"heater"`` is accepted when has_split=True."""
         room = RoomConfig(
             name="lazienka",
             area_m2=9.0,
             params=_mimo_params(),
             has_split=True,
             split_power_w=300.0,
-            ufh_cooling_max_power_w=0.0,
+            pipe_spacing_m=0.20,
             auxiliary_type="heater",
         )
         assert room.auxiliary_type == "heater"
         assert room.has_split is True
-        assert room.ufh_cooling_max_power_w == 0.0
 
     def test_auxiliary_type_invalid_value_raises(self) -> None:
         """Unknown auxiliary_type string raises ValueError."""
@@ -283,19 +277,6 @@ class TestRoomConfig:
                 area_m2=20.0,
                 params=_siso_params(),
                 has_split=False,
-                auxiliary_type="heater",
-            )
-
-    def test_auxiliary_type_heater_with_cooling_raises(self) -> None:
-        """``"heater"`` with nonzero cooling power raises ValueError."""
-        with pytest.raises(ValueError, match="requires ufh_cooling_max_power_w=0.0"):
-            RoomConfig(
-                name="bad_room",
-                area_m2=20.0,
-                params=_mimo_params(),
-                has_split=True,
-                split_power_w=300.0,
-                ufh_cooling_max_power_w=1000.0,
                 auxiliary_type="heater",
             )
 
