@@ -35,6 +35,7 @@ from pumpahead.simulation_log import SimulationLog
 from pumpahead.simulator import BuildingSimulator, HeatPumpMode
 from pumpahead.ufh_loop import LoopGeometry
 from pumpahead.weather import ChannelProfile, ProfileKind, SyntheticWeather
+from pumpahead.weather_comp import WeatherCompCurve
 
 
 def _standard_geometry(area_m2: float = 20.0) -> LoopGeometry:
@@ -45,6 +46,32 @@ def _standard_geometry(area_m2: float = 20.0) -> LoopGeometry:
         pipe_diameter_outer_mm=16.0,
         pipe_wall_thickness_mm=2.0,
         area_m2=area_m2,
+    )
+
+
+def _standard_weather_comp() -> WeatherCompCurve:
+    """Return a realistic heating weather-compensation curve.
+
+    Post-#144 the simulator uses the physical ``ufh_loop.loop_power`` model
+    (EN 1264 reduced formula) instead of the legacy ``valve * ufh_max_power_w``
+    shim.  That model requires realistic supply temperatures — real heat pumps
+    raise ``T_supply`` at low outdoor temperatures via a weather-compensation
+    curve.  The old tests passed a nominal 5 kW rating that was independent
+    of ``T_supply``; now we provide a WCC so the physical loop can deliver
+    the expected power during the scenarios.
+
+    Curve: ``T_supply(T_out)``:
+        * T_out >=  10 C  => 45 C (base)
+        * T_out =    0 C  => 53 C
+        * T_out =   -5 C  => 55 C (clamped)
+        * T_out = -15 C  => 55 C (clamped)
+    """
+    return WeatherCompCurve(
+        t_supply_base=45.0,
+        slope=0.8,
+        t_neutral=10.0,
+        t_supply_max=55.0,
+        t_supply_min=25.0,
     )
 
 
@@ -117,7 +144,11 @@ class TestPIDSteadyState:
     ) -> None:
         """Steady-state comfort percentage exceeds 95 %."""
         base = SCENARIO_LIBRARY["steady_state"]()
-        scenario = replace(base, controller=_TUNED_CONFIG)
+        scenario = replace(
+            base,
+            controller=_TUNED_CONFIG,
+            weather_comp=_standard_weather_comp(),
+        )
         _log, metrics = run_scenario(scenario, None)
         assert metrics.comfort_pct > 95.0, (
             f"steady_state comfort {metrics.comfort_pct:.1f}% <= 95%"
@@ -131,7 +162,11 @@ class TestPIDSteadyState:
     ) -> None:
         """Steady-state overshoot is less than 1.0 degC."""
         base = SCENARIO_LIBRARY["steady_state"]()
-        scenario = replace(base, controller=_TUNED_CONFIG)
+        scenario = replace(
+            base,
+            controller=_TUNED_CONFIG,
+            weather_comp=_standard_weather_comp(),
+        )
         _log, metrics = run_scenario(scenario, None)
         assert metrics.max_overshoot < 1.0, (
             f"steady_state overshoot {metrics.max_overshoot:.2f} >= 1.0 degC"
@@ -145,7 +180,11 @@ class TestPIDSteadyState:
     ) -> None:
         """Floor temperature stays within safe limits during steady state."""
         base = SCENARIO_LIBRARY["steady_state"]()
-        scenario = replace(base, controller=_TUNED_CONFIG)
+        scenario = replace(
+            base,
+            controller=_TUNED_CONFIG,
+            weather_comp=_standard_weather_comp(),
+        )
         log, _metrics = run_scenario(scenario, None)
         first_room = scenario.building.rooms[0].name
         assert_floor_temp_safe(log.get_room(first_room))
@@ -195,6 +234,7 @@ class TestPIDColdSnap:
             duration_minutes=4320,
             mode="heating",
             dt_seconds=60.0,
+            weather_comp=_standard_weather_comp(),
             description=(
                 "Single-room cold snap (well insulated): step from 0C "
                 "to -15C at t=1440. Tests PID response to sudden "
@@ -393,6 +433,7 @@ class TestPIDMultiRoom:
             weather,
             hp_mode=HeatPumpMode.HEATING,
             hp_max_power_w=40000.0,
+            weather_comp=_standard_weather_comp(),
         )
 
         config = ControllerConfig(
