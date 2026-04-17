@@ -53,8 +53,8 @@ def _standard_weather_comp() -> WeatherCompCurve:
     """Return a realistic heating weather-compensation curve.
 
     Post-#144 the simulator uses the physical ``ufh_loop.loop_power`` model
-    (EN 1264 reduced formula) instead of the legacy ``valve * ufh_max_power_w``
-    shim.  That model requires realistic supply temperatures — real heat pumps
+    (EN 1264 reduced formula) instead of the legacy rated-power shim.
+    That model requires realistic supply temperatures — real heat pumps
     raise ``T_supply`` at low outdoor temperatures via a weather-compensation
     curve.  The old tests passed a nominal 5 kW rating that was independent
     of ``T_supply``; now we provide a WCC so the physical loop can deliver
