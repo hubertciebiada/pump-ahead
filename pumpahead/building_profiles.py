@@ -32,6 +32,7 @@ from pumpahead.solar import Orientation, WindowConfig
 
 __all__ = [
     "BUILDING_PROFILES",
+    "MODERN_BUNGALOW_LOOPS",
     "MODERN_BUNGALOW_ROOMS",
     "heavy_construction",
     "modern_bungalow",
@@ -47,11 +48,6 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 _REF_AREA = 20.0  # Reference room area [m^2] for scaling
-
-# Modern bungalow UFH pipe spacing [m].  The real salon loop is
-# documented at 96 m of pipe in 36.28 m² ⇒ ~0.15 m centre-to-centre
-# (standard residential practice).  Reused across all 13 rooms.
-_MODERN_BUNGALOW_PIPE_SPACING_M: float = 0.15
 
 # Fallback pipe spacing [m] for single-room parametric profiles
 # (well_insulated, leaky_old_house, thin_screed, heavy_construction).
@@ -123,11 +119,13 @@ def _make_3r3c_params(
 # modern_bungalow — single-storey reference house (13 rooms, 13 UFH loops)
 # ---------------------------------------------------------------------------
 #
-# Calibrated against a real WT-2021-class single-storey house in southern
-# Poland: ~165 m² total (~158 m² heated), 30 cm mineral-wool walls, 20 cm
-# ceiling wool, 7 cm wet screed.  Heated by a 7 kW air-source heat pump
-# with a 9 kW resistive backup handled by the safety layer.  No splits.
-# 13 UFH loops via two distributors.  All rooms target 20 °C except the
+# Calibrated against an anonymized real-world WT-2021-class single-storey
+# house in southern Poland: ~165 m² total (~158 m² heated), 30 cm mineral-wool
+# walls, 20 cm ceiling wool, 7 cm wet screed.  Heated by a 4.9 kW air-source
+# heat pump.  13 UFH loops via two distributors (1×7-obwodowy + 1×6-obwodowy).
+# Pipe: PE-X/Al/PE-X 16×2 mm throughout.  Loop lengths and pipe spacing come
+# from MODERN_BUNGALOW_LOOPS (anonymized PDF data — Q_total=4610 W,
+# L_total=411.4 m, ~86 m² UFH).  No splits.  All rooms target 20 °C except the
 # bathroom at 24 °C (controller-level override).
 #
 # Reference design heat loss: Q = 4.55 kW at design T_out = -20 °C.
@@ -136,9 +134,10 @@ def _make_3r3c_params(
 _BUNGALOW_LAT = 50.69
 _BUNGALOW_LON = 17.38
 
-# Real HP rated thermal output (the 9 kW resistive backup is modelled
-# separately in the safety layer, not aggregated here).
-_BUNGALOW_HP_MAX_W = 7000.0
+# Real HP rated thermal output is 4.9 kW per the anonymized installation
+# spec; the 300 W bathroom towel rail is modelled separately via
+# ``modern_bungalow_with_bathroom_heater``.
+_BUNGALOW_HP_MAX_W = 4900.0
 
 # Internal gains: 2 adults + 2 children = 4 occupants, ~80 W each, plus
 # appliances allocated to the room where they live.
@@ -154,18 +153,46 @@ _Q_INT_WC = 10.0
 _Q_INT_ENTRY = 10.0
 
 
+MODERN_BUNGALOW_LOOPS: tuple[tuple[float, float, float, str], ...] = (
+    # (Qh_W, length_m, spacing_m, role) — anonymized PDF installation data.
+    # 13 UFH loops, Q_total=4610 W, L_total=411.4 m, ~86 m² UFH.  Order is
+    # canonical: descending Qh.  Indexed by blocking issue #146.
+    (1105.0, 96.0, 0.20, "living_open"),  # G1'1  salon/jadalnia (open-plan)
+    (495.0, 42.9, 0.20, "bedroom_large"),  # G1'3  sypialnia główna
+    (420.0, 36.5, 0.20, "bedroom_large"),  # G1'5  sypialnia duża
+    (360.0, 31.1, 0.20, "bedroom"),  # G1'13 sypialnia
+    (340.0, 29.3, 0.20, "bedroom"),  # G1'2  sypialnia
+    (340.0, 29.6, 0.20, "bedroom"),  # G1'7  sypialnia/gabinet
+    (315.0, 27.4, 0.20, "bedroom"),  # G1'16 sypialnia/pokój gościnny
+    (295.0, 25.4, 0.20, "bedroom_small"),  # G1'15 pokój gościnny/gabinet
+    (270.0, 23.3, 0.20, "bedroom_small"),  # G1'17 garderoba / mały pokój
+    (260.0, 34.6, 0.15, "bathroom"),  # G1'14 łazienka (+300 W towel rail)
+    (180.0, 15.5, 0.20, "hallway"),  # G1'10+4 LOW CONFIDENCE — combined loop
+    (175.0, 15.2, 0.20, "utility"),  # G1'6  pomieszczenie techniczne/spiżarnia
+    (55.0, 4.6, 0.20, "wc_alcove"),  # G1'11 LOW CONFIDENCE — alcove/WC
+)
+"""Raw UFH loop geometries from an anonymized real-world installation.
+
+13 loops, Q_total=4610 W, L_total=411.4 m.  Order is canonical:
+descending Qh (with source distributor tie-break as in the source PDF).
+Indexed positionally by blocking issue #146.
+"""
+
+
 MODERN_BUNGALOW_ROOMS: tuple[RoomConfig, ...] = (
-    # garderoba — 7.40 m^2, 1 loop, no windows
+    # garderoba — 7.40 m^2, no windows.
+    # Loop: G1'17, 23.3 m, 0.20 m spacing, 270 W nominal.
     RoomConfig(
         name="garderoba",
         area_m2=7.40,
         params=_make_3r3c_params(area_m2=7.40),
         windows=(),
-        pipe_spacing_m=_MODERN_BUNGALOW_PIPE_SPACING_M,
+        pipe_length_m=23.3,
         ufh_loops=1,
         q_int_w=_Q_INT_CLOSET,
     ),
-    # sypialnia — 12.68 m^2, 1 loop, south window
+    # sypialnia — 12.68 m^2, south window.
+    # Loop: G1'3, 42.9 m, 0.20 m spacing, 495 W nominal.
     RoomConfig(
         name="sypialnia",
         area_m2=12.68,
@@ -173,22 +200,24 @@ MODERN_BUNGALOW_ROOMS: tuple[RoomConfig, ...] = (
         windows=(
             WindowConfig(orientation=Orientation.SOUTH, area_m2=2.5, g_value=0.6),
         ),
-        pipe_spacing_m=_MODERN_BUNGALOW_PIPE_SPACING_M,
+        pipe_length_m=42.9,
         ufh_loops=1,
         q_int_w=_Q_INT_BEDROOM,
     ),
-    # dlugi_korytarz — 12.12 m^2, 1 loop, no windows
+    # dlugi_korytarz — 12.12 m^2, no windows.
+    # Loop: G1'15, 25.4 m, 0.20 m spacing, 295 W nominal.
     RoomConfig(
         name="dlugi_korytarz",
         area_m2=12.12,
         params=_make_3r3c_params(area_m2=12.12),
         windows=(),
-        pipe_spacing_m=_MODERN_BUNGALOW_PIPE_SPACING_M,
+        pipe_length_m=25.4,
         ufh_loops=1,
         q_int_w=_Q_INT_HALL,
     ),
-    # lazienka — 8.90 m^2, 1 loop, small north window, target 24 °C
-    # (controller setpoint override; structural model is the same)
+    # lazienka — 8.90 m^2, small north window, target 24 °C (controller
+    # setpoint override; structural model is the same).
+    # Loop: G1'14, 34.6 m, only 0.15 m spacing loop, 260 W nominal.
     RoomConfig(
         name="lazienka",
         area_m2=8.90,
@@ -196,41 +225,45 @@ MODERN_BUNGALOW_ROOMS: tuple[RoomConfig, ...] = (
         windows=(
             WindowConfig(orientation=Orientation.NORTH, area_m2=0.5, g_value=0.6),
         ),
-        pipe_spacing_m=_MODERN_BUNGALOW_PIPE_SPACING_M,
+        pipe_length_m=34.6,  # only 0.15 m spacing loop
         ufh_loops=1,
         q_int_w=_Q_INT_BATH,
     ),
-    # pokoj_dziecka_1 — 14.33 m^2, 1 loop, east window
+    # pokoj_dziecka_1 — 14.33 m^2, east window.
+    # Loop: G1'5, 36.5 m, 0.20 m spacing, 420 W nominal.
     RoomConfig(
         name="pokoj_dziecka_1",
         area_m2=14.33,
         params=_make_3r3c_params(area_m2=14.33),
         windows=(WindowConfig(orientation=Orientation.EAST, area_m2=2.0, g_value=0.6),),
-        pipe_spacing_m=_MODERN_BUNGALOW_PIPE_SPACING_M,
+        pipe_length_m=36.5,
         ufh_loops=1,
         q_int_w=_Q_INT_CHILD,
     ),
-    # pokoj_dziecka_2 — 11.65 m^2, 1 loop, east window
+    # pokoj_dziecka_2 — 11.65 m^2, east window.
+    # Loop: G1'13, 31.1 m, 0.20 m spacing, 360 W nominal.
     RoomConfig(
         name="pokoj_dziecka_2",
         area_m2=11.65,
         params=_make_3r3c_params(area_m2=11.65),
         windows=(WindowConfig(orientation=Orientation.EAST, area_m2=2.0, g_value=0.6),),
-        pipe_spacing_m=_MODERN_BUNGALOW_PIPE_SPACING_M,
+        pipe_length_m=31.1,
         ufh_loops=1,
         q_int_w=_Q_INT_CHILD,
     ),
-    # korytarz_witryna — ~5 m^2, 1 loop, no windows
+    # korytarz_witryna — ~5 m^2, no windows.
+    # Loop: G1'10+4, 15.5 m, 0.20 m spacing, 180 W nominal.
     RoomConfig(
         name="korytarz_witryna",
         area_m2=5.0,
         params=_make_3r3c_params(area_m2=5.0),
         windows=(),
-        pipe_spacing_m=_MODERN_BUNGALOW_PIPE_SPACING_M,
+        pipe_length_m=15.5,  # LOW CONFIDENCE — combined loop
         ufh_loops=1,
         q_int_w=_Q_INT_HALL,
     ),
-    # wiatrolap — 5.05 m^2, 1 loop, north window (entry)
+    # wiatrolap — 5.05 m^2, north window (entry).
+    # Loop: G1'6, 15.2 m, 0.20 m spacing, 175 W nominal.
     RoomConfig(
         name="wiatrolap",
         area_m2=5.05,
@@ -238,11 +271,15 @@ MODERN_BUNGALOW_ROOMS: tuple[RoomConfig, ...] = (
         windows=(
             WindowConfig(orientation=Orientation.NORTH, area_m2=1.0, g_value=0.6),
         ),
-        pipe_spacing_m=_MODERN_BUNGALOW_PIPE_SPACING_M,
+        pipe_length_m=15.2,
         ufh_loops=1,
         q_int_w=_Q_INT_ENTRY,
     ),
-    # salon — 36.28 m^2, 1 loop (Obieg 1, 96 m of pipe), big S+W windows
+    # salon — 36.28 m^2, big S+W windows.
+    # Loop: G1'1, 96.0 m, 0.20 m spacing, 1105 W nominal.
+    # spacing=0.20 m per PDF; LoopGeometry.from_room_config will derive
+    # 0.378 m from area_m2 / length — this discrepancy will be addressed by
+    # issue #146.
     RoomConfig(
         name="salon",
         area_m2=36.28,
@@ -251,21 +288,23 @@ MODERN_BUNGALOW_ROOMS: tuple[RoomConfig, ...] = (
             WindowConfig(orientation=Orientation.SOUTH, area_m2=5.0, g_value=0.6),
             WindowConfig(orientation=Orientation.WEST, area_m2=3.0, g_value=0.6),
         ),
-        pipe_spacing_m=_MODERN_BUNGALOW_PIPE_SPACING_M,
+        pipe_length_m=96.0,
         ufh_loops=1,
         q_int_w=_Q_INT_SALON,
     ),
-    # kuchnia_jadalnia — 13.59 m^2, 1 loop (Obieg 17), east window
+    # kuchnia_jadalnia — 13.59 m^2, east window.
+    # Loop: G1'2, 29.3 m, 0.20 m spacing, 340 W nominal.
     RoomConfig(
         name="kuchnia_jadalnia",
         area_m2=13.59,
         params=_make_3r3c_params(area_m2=13.59),
         windows=(WindowConfig(orientation=Orientation.EAST, area_m2=2.0, g_value=0.6),),
-        pipe_spacing_m=_MODERN_BUNGALOW_PIPE_SPACING_M,
+        pipe_length_m=29.3,
         ufh_loops=1,
         q_int_w=_Q_INT_KITCHEN,
     ),
-    # gabinet_1 — 13.0 m^2, 1 loop, north window
+    # gabinet_1 — 13.0 m^2, north window.
+    # Loop: G1'7, 29.6 m, 0.20 m spacing, 340 W nominal.
     RoomConfig(
         name="gabinet_1",
         area_m2=13.0,
@@ -273,11 +312,12 @@ MODERN_BUNGALOW_ROOMS: tuple[RoomConfig, ...] = (
         windows=(
             WindowConfig(orientation=Orientation.NORTH, area_m2=1.5, g_value=0.6),
         ),
-        pipe_spacing_m=_MODERN_BUNGALOW_PIPE_SPACING_M,
+        pipe_length_m=29.6,
         ufh_loops=1,
         q_int_w=_Q_INT_OFFICE,
     ),
-    # gabinet_2 — 12.62 m^2, 1 loop, north window
+    # gabinet_2 — 12.62 m^2, north window.
+    # Loop: G1'16, 27.4 m, 0.20 m spacing, 315 W nominal.
     RoomConfig(
         name="gabinet_2",
         area_m2=12.62,
@@ -285,36 +325,41 @@ MODERN_BUNGALOW_ROOMS: tuple[RoomConfig, ...] = (
         windows=(
             WindowConfig(orientation=Orientation.NORTH, area_m2=1.5, g_value=0.6),
         ),
-        pipe_spacing_m=_MODERN_BUNGALOW_PIPE_SPACING_M,
+        pipe_length_m=27.4,
         ufh_loops=1,
         q_int_w=_Q_INT_OFFICE,
     ),
-    # toaleta — 5.49 m^2, 1 loop (Obieg 11, tiny 4.6 m loop), no windows
+    # toaleta — 5.49 m^2, no windows.
+    # Loop: G1'11, 4.6 m, 0.20 m spacing, 55 W nominal.
     RoomConfig(
         name="toaleta",
         area_m2=5.49,
         params=_make_3r3c_params(area_m2=5.49),
         windows=(),
-        pipe_spacing_m=_MODERN_BUNGALOW_PIPE_SPACING_M,
+        pipe_length_m=4.6,  # LOW CONFIDENCE — alcove/WC
         ufh_loops=1,
         q_int_w=_Q_INT_WC,
     ),
 )
 """All 13 heated rooms of the reference modern bungalow.
 
-Total UFH loops: 13 (one per room).  No splits.
-Total heated area: ~158 m² (vs ~165 m² total — 3 unheated utility rooms
-not modelled).
+Total UFH loops: 13 (one per room).  No splits.  Total heated area: ~158 m²
+(vs ~165 m² total — 3 unheated utility rooms not modelled).  Loop lengths
+and pipe spacing are bound to ``MODERN_BUNGALOW_LOOPS`` rows by the
+room↔loop mapping table in this module's header; see issue #145 for the
+canonical table.
 """
 
 
 def modern_bungalow() -> BuildingParams:
     """Reference modern bungalow — 13 rooms, 13 UFH loops, no splits.
 
-    Single-storey house calibrated to a real WT-2021-class building in
-    southern Poland (lat=50.69, lon=17.38).  Heated by a 7 kW ASHP with
-    9 kW resistive backup handled by the safety layer.  RC parameters
-    reflect 30 cm mineral-wool walls, 20 cm ceiling wool, 7 cm wet screed.
+    Single-storey house calibrated to an anonymized real-world WT-2021-class
+    building in southern Poland (lat=50.69, lon=17.38).  Heated by a 4.9 kW
+    air-source heat pump (nominal heating).  RC parameters reflect 30 cm
+    mineral-wool walls, 20 cm ceiling wool, 7 cm wet screed.  Loop
+    geometries from anonymized real-world installation (13 loops,
+    Q_total=4610 W, L_total=411.4 m; see ``MODERN_BUNGALOW_LOOPS``).
 
     Returns:
         Validated ``BuildingParams`` with 13 rooms.
