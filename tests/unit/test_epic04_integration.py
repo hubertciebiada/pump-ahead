@@ -317,9 +317,9 @@ class TestBuildingParamsSimulatorCompatibility:
 
     @pytest.mark.unit
     def test_building_hp_power_constrains_simulator(self) -> None:
-        """cold_snap simulator with hp_max_power_w=7000 runs without error."""
+        """cold_snap simulator with hp_max_power_w=4900 runs without error."""
         scenario = cold_snap()
-        assert scenario.building.hp_max_power_w == 7000.0
+        assert scenario.building.hp_max_power_w == 4900.0
         sim = _build_simulator_from_scenario(scenario)
 
         # Run 10 steps with all 13 rooms at valve=100%
