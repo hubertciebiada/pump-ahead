@@ -22,3 +22,5 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
+          # brands pending — tracked in #169 (SVG→PNG + home-assistant/brands PR)
+          ignore: brands

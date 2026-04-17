@@ -1,18 +1,18 @@
 {
     "domain": "pumpahead",
     "name": "PumpAhead",
-    "version": "0.1.0",
-    "documentation": "https://github.com/hubertciebiada/pump-ahead",
-    "issue_tracker": "https://github.com/hubertciebiada/pump-ahead/issues",
     "codeowners": ["@hubertciebiada"],
-    "iot_class": "local_polling",
     "config_flow": true,
+    "documentation": "https://github.com/hubertciebiada/pump-ahead",
     "integration_type": "hub",
+    "iot_class": "local_polling",
+    "issue_tracker": "https://github.com/hubertciebiada/pump-ahead/issues",
     "loggers": ["pumpahead"],
     "requirements": [
         "numpy>=1.26",
         "scipy>=1.12",
         "cvxpy>=1.5",
         "osqp>=0.6"
-    ]
+    ],
+    "version": "0.1.0"
 }
