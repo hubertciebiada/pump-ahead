@@ -63,6 +63,54 @@ def _parse_yaml(yaml_str: str) -> list[dict[str, object]]:
 
 
 # ---------------------------------------------------------------------------
+# Reusable fixtures (Epic 21.9 issue #164 -- multi-room reuse).
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def living_room_fixture() -> SafetyYAMLConfig:
+    """Single-room config with a Living Room that has a split."""
+    return _make_config()
+
+
+@pytest.fixture
+def multi_room_fixture() -> SafetyYAMLConfig:
+    """Three-room config: Living Room + Bedroom (split), Lazienka Dolna (no split).
+
+    Exercises the "bathroom heating-only" edge case (room without a split)
+    alongside two split-equipped rooms, mimicking a realistic multi-room
+    deployment.
+    """
+    rooms = (
+        RoomEntityConfig(
+            room_name="Living Room",
+            entity_temp_floor="sensor.living_room_floor_temp",
+            entity_temp_room="sensor.living_room_temp",
+            entity_humidity="sensor.living_room_humidity",
+            entity_valve="number.living_room_valve",
+            entity_split="climate.living_room_split",
+        ),
+        RoomEntityConfig(
+            room_name="Bedroom",
+            entity_temp_floor="sensor.bedroom_floor",
+            entity_temp_room="sensor.bedroom_temp",
+            entity_humidity="sensor.bedroom_humidity",
+            entity_valve="number.bedroom_valve",
+            entity_split="climate.bedroom_split",
+        ),
+        RoomEntityConfig(
+            room_name="Lazienka Dolna",
+            entity_temp_floor="sensor.lazienka_dolna_floor",
+            entity_temp_room="sensor.lazienka_dolna_temp",
+            entity_humidity="sensor.lazienka_dolna_humidity",
+            entity_valve="number.lazienka_dolna_valve",
+            entity_split=None,
+        ),
+    )
+    return SafetyYAMLConfig(rooms=rooms)
+
+
+# ---------------------------------------------------------------------------
 # RoomEntityConfig validation
 # ---------------------------------------------------------------------------
 
@@ -1158,3 +1206,371 @@ class TestS2EmergencySplitCool:
         ]
         assert len(notif_actions) == 1
         assert "split" not in notif_actions[0]["data"]["message"].lower()
+
+
+# ---------------------------------------------------------------------------
+# SafetyYAMLConfig extra validation (closes line 161-163 coverage gap)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestSafetyYAMLConfigExtra:
+    """Covers ``entity_pumpahead_last_update`` emptiness validation."""
+
+    def test_empty_entity_pumpahead_last_update_raises(self) -> None:
+        """Empty ``entity_pumpahead_last_update`` raises ValueError."""
+        room = _make_room()
+        with pytest.raises(
+            ValueError, match="entity_pumpahead_last_update must be non-empty"
+        ):
+            SafetyYAMLConfig(rooms=(room,), entity_pumpahead_last_update="")
+
+    def test_whitespace_entity_pumpahead_last_update_raises(self) -> None:
+        """Whitespace-only ``entity_pumpahead_last_update`` raises ValueError."""
+        room = _make_room()
+        with pytest.raises(
+            ValueError, match="entity_pumpahead_last_update must be non-empty"
+        ):
+            SafetyYAMLConfig(rooms=(room,), entity_pumpahead_last_update="   ")
+
+
+# ---------------------------------------------------------------------------
+# Idempotency (explicit string-equality checks)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestIdempotency:
+    """``generate_safety_yaml`` and ``generate_safety_yaml_for_room`` are idempotent.
+
+    String equality (not just dict equality) catches regressions in key-
+    ordering since the generator uses ``sort_keys=False``.
+    """
+
+    def test_generate_safety_yaml_is_idempotent(
+        self, living_room_fixture: SafetyYAMLConfig
+    ) -> None:
+        """Single-room YAML output is byte-for-byte stable across calls."""
+        first = generate_safety_yaml(living_room_fixture)
+        second = generate_safety_yaml(living_room_fixture)
+        assert first == second
+
+    def test_generate_safety_yaml_multi_room_is_idempotent(
+        self, multi_room_fixture: SafetyYAMLConfig
+    ) -> None:
+        """Multi-room YAML output is byte-for-byte stable across calls."""
+        first = generate_safety_yaml(multi_room_fixture)
+        second = generate_safety_yaml(multi_room_fixture)
+        assert first == second
+
+    def test_generate_safety_yaml_for_room_is_idempotent(self) -> None:
+        """Per-room YAML output is byte-for-byte stable across calls."""
+        room = _make_room(room_name="Idempotent Room")
+        config = _make_config(rooms=(room,))
+        first = generate_safety_yaml_for_room(room, config)
+        second = generate_safety_yaml_for_room(room, config)
+        assert first == second
+
+
+# ---------------------------------------------------------------------------
+# Parametrized thresholds (>=20 parametrized test invocations)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestParametrizedThresholds:
+    """Parametrized coverage of threshold propagation and split-presence rules.
+
+    Totals 23 parametrized test invocations (9 + 4 + 4 + 6) to satisfy the
+    ">=20 parametrized tests" acceptance criterion.
+    """
+
+    @pytest.mark.parametrize(
+        ("rule", "trigger_idx", "clear_idx", "on_kw", "off_kw", "on_val", "off_val"),
+        [
+            ("s1", 0, 1, "above", "below", 34.0, 33.0),
+            ("s1", 0, 1, "above", "below", 32.0, 31.0),
+            ("s1", 0, 1, "above", "below", 30.0, 29.0),
+            ("s3", 4, 5, "below", "above", 5.0, 6.0),
+            ("s3", 4, 5, "below", "above", 3.0, 4.0),
+            ("s3", 4, 5, "below", "above", 7.0, 8.0),
+            ("s4", 6, 7, "above", "below", 35.0, 34.0),
+            ("s4", 6, 7, "above", "below", 40.0, 38.0),
+            ("s4", 6, 7, "above", "below", 30.0, 29.0),
+        ],
+    )
+    def test_numeric_threshold_propagation(
+        self,
+        rule: str,
+        trigger_idx: int,
+        clear_idx: int,
+        on_kw: str,
+        off_kw: str,
+        on_val: float,
+        off_val: float,
+    ) -> None:
+        """S1/S3/S4 numeric_state triggers propagate threshold_on/off values."""
+        kwargs: dict[str, object] = {
+            f"{rule}_threshold_on": on_val,
+            f"{rule}_threshold_off": off_val,
+        }
+        config = _make_config(**kwargs)
+        parsed = _parse_yaml(generate_safety_yaml(config))
+        trigger = parsed[trigger_idx]["trigger"]
+        clear = parsed[clear_idx]["trigger"]
+        assert isinstance(trigger, list)
+        assert isinstance(clear, list)
+        assert trigger[0][on_kw] == on_val
+        assert clear[0][off_kw] == off_val
+
+    @pytest.mark.parametrize(
+        ("on_val", "off_val"),
+        [(15.0, 5.0), (20.0, 3.0), (10.0, 2.0), (60.0, 30.0)],
+    )
+    def test_s5_thresholds_appear_in_templates(
+        self, on_val: float, off_val: float
+    ) -> None:
+        """S5 threshold values appear in the trigger/clear template strings."""
+        config = _make_config(s5_threshold_on=on_val, s5_threshold_off=off_val)
+        parsed = _parse_yaml(generate_safety_yaml(config))
+        trigger = parsed[-2]["trigger"]
+        clear = parsed[-1]["trigger"]
+        assert isinstance(trigger, list)
+        assert isinstance(clear, list)
+        trigger_template = trigger[0]["value_template"]
+        clear_template = clear[0]["value_template"]
+        assert str(on_val) in trigger_template
+        assert str(off_val) in clear_template
+
+    @pytest.mark.parametrize(
+        ("margin", "clear_margin"),
+        [(2.0, 1.0), (3.0, 2.0), (1.5, 0.5), (4.0, 2.0)],
+    )
+    def test_s2_margins_appear_in_templates(
+        self, margin: float, clear_margin: float
+    ) -> None:
+        """S2 condensation + clear margins appear in template strings."""
+        config = _make_config(
+            s2_condensation_margin=margin,
+            s2_threshold_off_margin=clear_margin,
+        )
+        parsed = _parse_yaml(generate_safety_yaml(config))
+        s2_trigger = parsed[2]
+        s2_clear = parsed[3]
+        trigger = s2_trigger["trigger"]
+        clear = s2_clear["trigger"]
+        assert isinstance(trigger, list)
+        assert isinstance(clear, list)
+        trigger_template = trigger[0]["value_template"]
+        clear_template = clear[0]["value_template"]
+        assert f"t_dew + {margin}" in trigger_template
+        assert f"t_dew + {margin} + {clear_margin}" in clear_template
+
+    @pytest.mark.parametrize(
+        ("trigger_idx", "split_entity", "expect_hvac_action"),
+        [
+            (2, "climate.my_split", True),  # S2 with split
+            (2, None, False),  # S2 without split
+            (4, "climate.my_split", True),  # S3 with split
+            (4, None, False),  # S3 without split
+            (6, "climate.my_split", True),  # S4 with split
+            (6, None, False),  # S4 without split
+        ],
+    )
+    def test_split_presence_drives_hvac_action(
+        self,
+        trigger_idx: int,
+        split_entity: str | None,
+        expect_hvac_action: bool,
+    ) -> None:
+        """S2/S3/S4 trigger includes climate.set_hvac_mode iff split present."""
+        room = _make_room(entity_split=split_entity)
+        config = _make_config(rooms=(room,))
+        parsed = _parse_yaml(generate_safety_yaml(config))
+        action = parsed[trigger_idx]["action"]
+        assert isinstance(action, list)
+        hvac_actions = [
+            a
+            for a in action
+            if isinstance(a.get("service"), str)
+            and a["service"] == "climate.set_hvac_mode"
+        ]
+        if expect_hvac_action:
+            assert len(hvac_actions) == 1
+            assert hvac_actions[0]["target"]["entity_id"] == split_entity
+        else:
+            assert len(hvac_actions) == 0
+
+
+# ---------------------------------------------------------------------------
+# Bathroom heating-only (room override: no split)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestBathroomHeatingOnly:
+    """Edge case: bathroom room with no split (heating-only).
+
+    Verifies S2/S3/S4 trigger/clear actions contain no ``climate.*`` calls
+    and that the Polish-origin name slugifies to ASCII for automation IDs
+    while the alias/description retain the original name.
+    """
+
+    def _bathroom_config(self) -> SafetyYAMLConfig:
+        room = RoomEntityConfig(
+            room_name="Lazienka Dolna",
+            entity_temp_floor="sensor.lazienka_dolna_floor",
+            entity_temp_room="sensor.lazienka_dolna_temp",
+            entity_humidity="sensor.lazienka_dolna_humidity",
+            entity_valve="number.lazienka_dolna_valve",
+            entity_split=None,
+        )
+        return _make_config(rooms=(room,))
+
+    def test_bathroom_without_split_s2_has_no_cool_action(self) -> None:
+        """Bathroom S2 trigger contains zero climate.set_hvac_mode actions."""
+        config = self._bathroom_config()
+        parsed = _parse_yaml(generate_safety_yaml(config))
+        s2_trigger = parsed[2]
+        action = s2_trigger["action"]
+        assert isinstance(action, list)
+        hvac_actions = [
+            a
+            for a in action
+            if isinstance(a.get("service"), str)
+            and a["service"] == "climate.set_hvac_mode"
+        ]
+        assert len(hvac_actions) == 0
+
+    def test_bathroom_without_split_s3_has_no_hvac_action(self) -> None:
+        """Bathroom S3 trigger only sets valve and notifies; no climate calls."""
+        config = self._bathroom_config()
+        parsed = _parse_yaml(generate_safety_yaml(config))
+        s3_trigger = parsed[4]
+        action = s3_trigger["action"]
+        assert isinstance(action, list)
+        services = [a.get("service") for a in action]
+        assert "climate.set_hvac_mode" not in services
+        # Valve set to 100 and notification present
+        assert "number.set_value" in services
+        assert "persistent_notification.create" in services
+
+    def test_bathroom_without_split_s4_closes_valve(self) -> None:
+        """Bathroom S4 trigger closes valve (value=0) and notifies, no climate."""
+        config = self._bathroom_config()
+        parsed = _parse_yaml(generate_safety_yaml(config))
+        s4_trigger = parsed[6]
+        action = s4_trigger["action"]
+        assert isinstance(action, list)
+        services = [a.get("service") for a in action]
+        assert "climate.set_hvac_mode" not in services
+        valve_actions = [
+            a
+            for a in action
+            if isinstance(a.get("service"), str) and a["service"] == "number.set_value"
+        ]
+        assert len(valve_actions) == 1
+        assert valve_actions[0]["data"]["value"] == 0
+
+    def test_bathroom_polish_name_slug_is_ascii(self) -> None:
+        """Slug is ASCII (lazienka_dolna); alias/description keep original name."""
+        config = self._bathroom_config()
+        parsed = _parse_yaml(generate_safety_yaml(config))
+        s1_trigger = parsed[0]
+        assert "lazienka_dolna" in s1_trigger["id"]
+        assert "Lazienka Dolna" in s1_trigger["alias"]
+        assert "Lazienka Dolna" in s1_trigger["description"]
+
+
+# ---------------------------------------------------------------------------
+# Humidity sensor absence (documents: humidity is mandatory)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestHumiditySensorAbsence:
+    """Edge case: config without a humidity sensor.
+
+    The current API requires a non-empty ``entity_humidity`` -- there is
+    no None/skip option. This class documents that contract with
+    parametrized negative tests plus a positive test that the humidity
+    entity flows into the S2 template.
+    """
+
+    @pytest.mark.parametrize(
+        "bad_value",
+        ["", "   ", "\t"],
+    )
+    def test_empty_humidity_entity_raises(self, bad_value: str) -> None:
+        """Empty/whitespace humidity entity raises ValueError."""
+        with pytest.raises(ValueError, match="entity_humidity must be non-empty"):
+            RoomEntityConfig(
+                room_name="Room",
+                entity_temp_floor="sensor.floor",
+                entity_temp_room="sensor.room",
+                entity_humidity=bad_value,
+                entity_valve="number.valve",
+            )
+
+    def test_humidity_entity_appears_in_s2_template(self) -> None:
+        """Custom humidity entity name flows into the S2 trigger template."""
+        room = RoomEntityConfig(
+            room_name="Bathroom",
+            entity_temp_floor="sensor.bathroom_floor",
+            entity_temp_room="sensor.bathroom_temp",
+            entity_humidity="sensor.bathroom_rh_custom",
+            entity_valve="number.bathroom_valve",
+        )
+        config = _make_config(rooms=(room,))
+        parsed = _parse_yaml(generate_safety_yaml(config))
+        s2_trigger = parsed[2]
+        trigger = s2_trigger["trigger"]
+        assert isinstance(trigger, list)
+        template = trigger[0]["value_template"]
+        assert "sensor.bathroom_rh_custom" in template
+
+
+# ---------------------------------------------------------------------------
+# Multi-room fixture coverage
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestMultiRoomFixture:
+    """Exercises the ``multi_room_fixture`` end-to-end."""
+
+    def test_multi_room_fixture_generates_expected_count(
+        self, multi_room_fixture: SafetyYAMLConfig
+    ) -> None:
+        """3 rooms * 8 per-room automations + 2 S5 global = 26 total."""
+        parsed = _parse_yaml(generate_safety_yaml(multi_room_fixture))
+        assert len(parsed) == 3 * 8 + 2
+
+    def test_multi_room_fixture_ids_are_unique(
+        self, multi_room_fixture: SafetyYAMLConfig
+    ) -> None:
+        """All automation IDs across the multi-room YAML are unique."""
+        parsed = _parse_yaml(generate_safety_yaml(multi_room_fixture))
+        ids = [a["id"] for a in parsed]
+        assert len(ids) == len(set(ids))
+
+    def test_multi_room_fixture_bathroom_has_no_split_actions(
+        self, multi_room_fixture: SafetyYAMLConfig
+    ) -> None:
+        """The no-split 'Lazienka Dolna' S2 trigger has zero climate actions."""
+        parsed = _parse_yaml(generate_safety_yaml(multi_room_fixture))
+        bathroom_s2_trigger = next(
+            a
+            for a in parsed
+            if isinstance(a.get("id"), str)
+            and "s2_condensation_trigger_lazienka_dolna" in a["id"]
+        )
+        action = bathroom_s2_trigger["action"]
+        assert isinstance(action, list)
+        hvac_actions = [
+            a
+            for a in action
+            if isinstance(a.get("service"), str)
+            and a["service"] == "climate.set_hvac_mode"
+        ]
+        assert len(hvac_actions) == 0
