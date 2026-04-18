@@ -231,6 +231,12 @@ pip install -e ".[dev]"
 
 ### Running Tests
 
+The test suite uses three pytest markers:
+
+- `@pytest.mark.unit` -- fast, isolated tests (run by default in the `Unit tests` CI job).
+- `@pytest.mark.simulation` -- scenario-based tests that exercise the building simulator end-to-end. These run in the `Simulation tests` CI job and **block merge on failure**.
+- `@pytest.mark.slow` -- longer-running scenarios (capped at a 3-day horizon). These still run in CI as part of the simulation job; locally you can skip them with `-m "not slow"` for a faster feedback loop.
+
 ```bash
 # All tests
 pytest
@@ -241,9 +247,14 @@ pytest tests/unit/
 # Simulation scenarios (slower, includes full-year runs)
 pytest tests/simulation/
 
+# Simulation scenarios (fast subset, skip 3-day slow tier)
+pytest tests/simulation/ -m "simulation and not slow"
+
 # With coverage
 pytest --cov=pumpahead --cov-report=html
 ```
+
+The CI `Simulation tests` job is a hard gate -- any simulation regression blocks merge to `master`.
 
 ### Code Quality
 
